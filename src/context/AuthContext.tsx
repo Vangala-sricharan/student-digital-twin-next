@@ -29,7 +29,58 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
 
-  // Initialize and check existing session
+  const fetchOrCreateProfile = async (authUser: User) => {
+    // Synchronously ensure userProfile has immediate data from auth user
+    const fallbackProfile: UserProfile = {
+      id: authUser.id,
+      email: authUser.email || '',
+      fullName:
+        authUser.user_metadata?.full_name ||
+        authUser.user_metadata?.name ||
+        authUser.email?.split('@')[0] ||
+        'Student Scholar',
+      avatarUrl: authUser.user_metadata?.avatar_url || authUser.user_metadata?.picture,
+      role: 'student',
+      createdAt: new Date().toISOString(),
+    };
+
+    setUserProfile((prev) => prev || fallbackProfile);
+
+    if (!isSupabaseConfigured) return;
+
+    try {
+      const { data, error } = await supabase
+        .from('user_profiles')
+        .select('*')
+        .eq('id', authUser.id)
+        .maybeSingle();
+
+      if (data && !error) {
+        setUserProfile({
+          id: data.id,
+          email: data.email,
+          fullName: data.full_name || fallbackProfile.fullName,
+          avatarUrl: data.avatar_url || fallbackProfile.avatarUrl,
+          role: data.role || 'student',
+          createdAt: data.created_at,
+        });
+        return;
+      }
+
+      // Upsert profile in background if missing
+      await supabase.from('user_profiles').upsert({
+        id: fallbackProfile.id,
+        email: fallbackProfile.email,
+        full_name: fallbackProfile.fullName,
+        avatar_url: fallbackProfile.avatarUrl,
+        role: fallbackProfile.role,
+      });
+    } catch (err) {
+      console.warn('Profile background sync notice:', err);
+    }
+  };
+
+  // Single startup auth session initializer & listener
   useEffect(() => {
     let mounted = true;
 
@@ -40,12 +91,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           if (error) {
             console.warn('Supabase getSession error:', error.message);
           }
-          if (mounted) {
-            if (existingSession) {
-              setSession(existingSession);
-              setUser(existingSession.user);
-              await fetchOrCreateProfile(existingSession.user);
-            }
+          if (mounted && existingSession) {
+            setSession(existingSession);
+            setUser(existingSession.user);
+            fetchOrCreateProfile(existingSession.user).catch((e) => console.warn(e));
           }
         } else {
           // Check local simulated session for dev sandbox
@@ -74,16 +123,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     // Listen to real Supabase auth state changes
     if (isSupabaseConfigured) {
-      const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, currentSession) => {
+      const { data: { subscription } } = supabase.auth.onAuthStateChange((event, currentSession) => {
         if (!mounted) return;
         setSession(currentSession);
         setUser(currentSession?.user ?? null);
+        setIsLoading(false);
+
         if (currentSession?.user) {
-          await fetchOrCreateProfile(currentSession.user);
+          fetchOrCreateProfile(currentSession.user).catch((e) => console.warn(e));
         } else {
           setUserProfile(null);
         }
-        setIsLoading(false);
       });
 
       return () => {
@@ -97,71 +147,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
   }, []);
 
-  const fetchOrCreateProfile = async (authUser: User) => {
-    try {
-      if (isSupabaseConfigured) {
-        const { data, error } = await supabase
-          .from('user_profiles')
-          .select('*')
-          .eq('id', authUser.id)
-          .single();
-
-        if (data && !error) {
-          setUserProfile({
-            id: data.id,
-            email: data.email,
-            fullName: data.full_name,
-            avatarUrl: data.avatar_url,
-            role: data.role,
-            createdAt: data.created_at,
-          });
-          return;
-        }
-
-        // Create profile if missing
-        const newProfile: UserProfile = {
-          id: authUser.id,
-          email: authUser.email || '',
-          fullName: authUser.user_metadata?.full_name || authUser.email?.split('@')[0] || 'Student Explorer',
-          avatarUrl: authUser.user_metadata?.avatar_url,
-          role: 'student',
-          createdAt: new Date().toISOString(),
-        };
-
-        await supabase.from('user_profiles').upsert({
-          id: newProfile.id,
-          email: newProfile.email,
-          full_name: newProfile.fullName,
-          avatar_url: newProfile.avatarUrl,
-          role: newProfile.role,
-        });
-
-        setUserProfile(newProfile);
-      } else {
-        const fallbackProfile: UserProfile = {
-          id: authUser.id,
-          email: authUser.email || '',
-          fullName: authUser.user_metadata?.full_name || 'Student Explorer',
-          avatarUrl: authUser.user_metadata?.avatar_url,
-          role: 'student',
-          createdAt: new Date().toISOString(),
-        };
-        setUserProfile(fallbackProfile);
-      }
-    } catch (err) {
-      console.warn('Profile fetch/sync notice:', err);
-    }
-  };
-
   const signUpWithEmail = async (email: string, password: string, fullName: string) => {
-    setIsLoading(true);
     try {
       if (isSupabaseConfigured) {
         const { data, error } = await supabase.auth.signUp({
-          email,
+          email: email.trim(),
           password,
           options: {
-            data: { full_name: fullName },
+            data: { full_name: fullName.trim() },
           },
         });
 
@@ -172,7 +165,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         if (data.user) {
           setUser(data.user);
           setSession(data.session);
-          await fetchOrCreateProfile(data.user);
+          fetchOrCreateProfile(data.user).catch((e) => console.warn(e));
           return { error: null, success: true };
         }
         return { error: null, success: true };
@@ -182,17 +175,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const mockUser: User = {
           id: mockUserId,
           app_metadata: { provider: 'email' },
-          user_metadata: { full_name: fullName },
+          user_metadata: { full_name: fullName.trim() },
           aud: 'authenticated',
           created_at: new Date().toISOString(),
-          email,
+          email: email.trim(),
           role: 'authenticated',
         } as unknown as User;
 
         const newProfile: UserProfile = {
           id: mockUserId,
-          email,
-          fullName,
+          email: email.trim(),
+          fullName: fullName.trim(),
           role: 'student',
           createdAt: new Date().toISOString(),
         };
@@ -206,17 +199,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
     } catch (err: any) {
       return { error: err as Error, success: false };
-    } finally {
-      setIsLoading(false);
     }
   };
 
   const signInWithEmail = async (email: string, password: string) => {
-    setIsLoading(true);
     try {
       if (isSupabaseConfigured) {
         const { data, error } = await supabase.auth.signInWithPassword({
-          email,
+          email: email.trim(),
           password,
         });
 
@@ -227,14 +217,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         if (data.user) {
           setUser(data.user);
           setSession(data.session);
-          await fetchOrCreateProfile(data.user);
+          fetchOrCreateProfile(data.user).catch((e) => console.warn(e));
           return { error: null, success: true };
         }
-        return { error: null, success: false };
+        return { error: new Error('User account not found or credentials invalid.'), success: false };
       } else {
         // Sandbox sign in simulation
-        const mockUserId = `user-${email.replace(/[^a-zA-Z0-9]/g, '_')}`;
-        const fullName = email.split('@')[0].replace('.', ' ');
+        const trimmedEmail = email.trim();
+        const mockUserId = `user-${trimmedEmail.replace(/[^a-zA-Z0-9]/g, '_')}`;
+        const fullName = trimmedEmail.split('@')[0].replace('.', ' ');
         const formattedName = fullName.charAt(0).toUpperCase() + fullName.slice(1);
 
         const mockUser: User = {
@@ -243,13 +234,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           user_metadata: { full_name: formattedName },
           aud: 'authenticated',
           created_at: new Date().toISOString(),
-          email,
+          email: trimmedEmail,
           role: 'authenticated',
         } as unknown as User;
 
         const profile: UserProfile = {
           id: mockUserId,
-          email,
+          email: trimmedEmail,
           fullName: formattedName,
           role: 'student',
           createdAt: new Date().toISOString(),
@@ -264,8 +255,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
     } catch (err: any) {
       return { error: err as Error, success: false };
-    } finally {
-      setIsLoading(false);
     }
   };
 

@@ -85,6 +85,44 @@ function DashboardTabContent({ activeTab, setActiveTab }: { activeTab: string; s
   }
 }
 
+const KNOWN_DASHBOARD_TABS = [
+  'dashboard',
+  'my-profile',
+  'profiles',
+  'skills',
+  'projects',
+  'readiness',
+  'achievements',
+  'engines',
+  'upgrade',
+  'settings',
+  'engine-career-assistant',
+  'engine-ai-portfolio',
+  'engine-project-auditor',
+  'engine-github-audit',
+  'engine-linkedin-audit',
+  'engine-resume-builder',
+  'engine-resume-ats',
+  'engine-syllabus-prep',
+  'engine-roadmap-30-60-90',
+  'engine-internship-ready',
+  'engine-career-simulator',
+];
+
+function getTabFromPath(pathname: string): string | null {
+  const cleanPath = pathname.replace(/\/$/, '') || '/';
+  if (cleanPath === '/app' || cleanPath === '/dashboard') return 'dashboard';
+  if (cleanPath.startsWith('/app/')) {
+    const sub = cleanPath.replace('/app/', '');
+    if (sub === 'profile') return 'my-profile';
+    return sub || 'dashboard';
+  }
+  const rootSub = cleanPath.replace(/^\//, '');
+  if (rootSub === 'profile') return 'my-profile';
+  if (KNOWN_DASHBOARD_TABS.includes(rootSub)) return rootSub;
+  return null;
+}
+
 function MainRouter() {
   const { user, loading: authLoading } = useAuth();
   const { isDemoMode, enterDemoMode, exitDemoMode } = useStudentTwin();
@@ -94,8 +132,17 @@ function MainRouter() {
     return window.location.pathname || '/';
   });
 
-  // Active dashboard tab
-  const [activeTab, setActiveTab] = useState<string>('dashboard');
+  // Active dashboard tab initialized from pathname if available
+  const [activeTab, setActiveTab] = useState<string>(() => {
+    return getTabFromPath(window.location.pathname) || 'dashboard';
+  });
+
+  // Clean hash token after successful Supabase OAuth redirect to keep URL clean
+  useEffect(() => {
+    if (user && window.location.hash && window.location.hash.includes('access_token')) {
+      window.history.replaceState(null, '', window.location.pathname + window.location.search);
+    }
+  }, [user]);
 
   // Synchronize browser history
   const navigateTo = (path: string) => {
@@ -121,6 +168,11 @@ function MainRouter() {
       return;
     }
 
+    const matchedTab = getTabFromPath(path);
+    if (matchedTab) {
+      setActiveTab(matchedTab);
+    }
+
     setCurrentRoute(path);
     window.history.pushState({}, '', path);
   };
@@ -129,6 +181,10 @@ function MainRouter() {
     const handlePopState = () => {
       const path = window.location.pathname || '/';
       setCurrentRoute(path);
+      const matchedTab = getTabFromPath(path);
+      if (matchedTab) {
+        setActiveTab(matchedTab);
+      }
       if (path === '/demo') {
         enterDemoMode();
       }
@@ -170,8 +226,13 @@ function MainRouter() {
     );
   }
 
-  // 2. Authenticated User Route
-  if (user && (currentRoute.startsWith('/app') || currentRoute === '/dashboard')) {
+  // 2. Authenticated User Route (matches /app, /app/*, /dashboard, or direct tab routes)
+  const isAuthDashboardRoute =
+    currentRoute.startsWith('/app') ||
+    currentRoute === '/dashboard' ||
+    getTabFromPath(currentRoute) !== null;
+
+  if (user && isAuthDashboardRoute) {
     return (
       <AppShell
         currentTab={activeTab}
@@ -185,11 +246,22 @@ function MainRouter() {
 
   // 3. Login Route
   if (currentRoute === '/login') {
+    if (user) {
+      return (
+        <AppShell
+          currentTab={activeTab}
+          onTabChange={setActiveTab}
+          onNavigate={navigateTo}
+        >
+          <DashboardTabContent activeTab={activeTab} setActiveTab={setActiveTab} />
+        </AppShell>
+      );
+    }
     return (
       <LoginPage
         onNavigate={navigateTo}
         onLoginSuccess={() => {
-          navigateTo('/app/dashboard');
+          navigateTo('/app');
         }}
       />
     );
@@ -197,17 +269,28 @@ function MainRouter() {
 
   // 4. Sign Up Route
   if (currentRoute === '/signup') {
+    if (user) {
+      return (
+        <AppShell
+          currentTab={activeTab}
+          onTabChange={setActiveTab}
+          onNavigate={navigateTo}
+        >
+          <DashboardTabContent activeTab={activeTab} setActiveTab={setActiveTab} />
+        </AppShell>
+      );
+    }
     return (
       <SignUpPage
         onNavigate={navigateTo}
         onSignUpSuccess={() => {
-          navigateTo('/app/dashboard');
+          navigateTo('/app');
         }}
       />
     );
   }
 
-  // 5. Default: Public Landing Page
+  // 5. Default: Public Landing Page (or redirect logged-in user if on root)
   return <LandingPage onNavigate={navigateTo} />;
 }
 

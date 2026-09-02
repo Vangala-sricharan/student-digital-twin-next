@@ -328,7 +328,7 @@ export const StudentTwinProvider: React.FC<{
     }
 
     loadUserData();
-  }, [user, userProfile]);
+  }, [user?.id]);
 
   // Active Profile Calculation
   const activeProfile: StudentProfile = isDemoMode
