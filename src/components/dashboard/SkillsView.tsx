@@ -63,48 +63,62 @@ export const SkillsView: React.FC = () => {
       </div>
 
       {/* Skills Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-        {filteredSkills.map((s) => (
-          <div
-            key={s.id}
-            className="p-5 rounded-[2rem] bg-white dark:bg-[#0d1117] border border-slate-200 dark:border-white/10 shadow-sm dark:shadow-lg space-y-3 hover:border-blue-500/40 dark:hover:border-cyan-500/40 transition-colors"
-          >
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <div className="p-2 rounded-lg bg-blue-50 dark:bg-white/5 text-blue-600 dark:text-cyan-400 border border-blue-100 dark:border-white/5">
-                  <Cpu className="w-4 h-4" />
+      {filteredSkills.length > 0 ? (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          {filteredSkills.map((s) => (
+            <div
+              key={s.id}
+              className="p-5 rounded-[2rem] bg-white dark:bg-[#0d1117] border border-slate-200 dark:border-white/10 shadow-sm dark:shadow-lg space-y-3 hover:border-blue-500/40 dark:hover:border-cyan-500/40 transition-colors"
+            >
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <div className="p-2 rounded-lg bg-blue-50 dark:bg-white/5 text-blue-600 dark:text-cyan-400 border border-blue-100 dark:border-white/5">
+                    <Cpu className="w-4 h-4" />
+                  </div>
+                  <h3 className="text-sm font-bold text-slate-900 dark:text-white">
+                    {s.name}
+                  </h3>
                 </div>
-                <h3 className="text-sm font-bold text-slate-900 dark:text-white">
-                  {s.name}
-                </h3>
+
+                <span className="text-xs font-mono font-bold text-blue-600 dark:text-cyan-400">
+                  {s.proficiency}%
+                </span>
               </div>
 
-              <span className="text-xs font-mono font-bold text-blue-600 dark:text-cyan-400">
-                {s.proficiency}%
-              </span>
-            </div>
+              <div className="w-full h-2 rounded-full bg-slate-100 dark:bg-white/5 overflow-hidden border border-slate-100 dark:border-white/5">
+                <div
+                  className="h-full bg-gradient-to-r from-blue-600 to-cyan-400 rounded-full"
+                  style={{ width: `${s.proficiency}%` }}
+                />
+              </div>
 
-            <div className="w-full h-2 rounded-full bg-slate-100 dark:bg-white/5 overflow-hidden border border-slate-100 dark:border-white/5">
-              <div
-                className="h-full bg-gradient-to-r from-blue-600 to-cyan-400 rounded-full"
-                style={{ width: `${s.proficiency}%` }}
-              />
+              <div className="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400 pt-1 border-t border-slate-100 dark:border-white/5">
+                <span className="font-mono text-[10px] uppercase text-slate-500 dark:text-slate-400">{s.category}</span>
+                {s.verified ? (
+                  <span className="inline-flex items-center gap-1 text-emerald-600 dark:text-emerald-400 font-semibold text-[11px]">
+                    <CheckCircle2 className="w-3.5 h-3.5" />
+                    <span>Verified</span>
+                  </span>
+                ) : (
+                  <span className="text-[11px] text-slate-400 dark:text-slate-500">Unverified</span>
+                )}
+              </div>
             </div>
-
-            <div className="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400 pt-1 border-t border-slate-100 dark:border-white/5">
-              <span className="font-mono text-[10px] uppercase text-slate-500 dark:text-slate-400">{s.category}</span>
-              {s.verified ? (
-                <span className="inline-flex items-center gap-1 text-emerald-600 dark:text-emerald-400 font-semibold text-[11px]">
-                  <CheckCircle2 className="w-3.5 h-3.5" />
-                  <span>Verified</span>
-                </span>
-              ) : (
-                <span className="text-[11px] text-slate-400 dark:text-slate-500">Unverified</span>
-              )}
-            </div>
+          ))}
+        </div>
+      ) : (
+        <div className="p-12 text-center rounded-[2.5rem] bg-white dark:bg-[#0d1117] border border-slate-200 dark:border-white/10 space-y-4">
+          <div className="w-12 h-12 rounded-2xl bg-blue-50 dark:bg-white/5 border border-blue-200 dark:border-white/10 text-blue-600 dark:text-cyan-400 flex items-center justify-center mx-auto">
+            <Cpu className="w-6 h-6" />
           </div>
-        ))}
-      </div>
+          <div className="space-y-1">
+            <h3 className="text-base font-bold text-slate-900 dark:text-white">No Skills Indexed Yet</h3>
+            <p className="text-xs text-slate-500 dark:text-slate-400 max-w-md mx-auto">
+              Your Student Digital Twin starts with zero predefined skills. Add your core competencies in My Profile or execute AI Career Engines to populate your graph.
+            </p>
+          </div>
+        </div>
+      )}
 
     </div>
   );

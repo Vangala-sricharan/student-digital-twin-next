@@ -22,10 +22,10 @@ export const ManageProfiles: React.FC = () => {
     branch: '',
     year: '2nd',
     semester: '4th',
-    cgpa: 9.15,
+    cgpa: 0,
     targetRole: '',
     bio: '',
-    readinessScore: 94,
+    readinessScore: 0,
   });
 
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
@@ -34,16 +34,16 @@ export const ManageProfiles: React.FC = () => {
   useEffect(() => {
     if (profile) {
       setFormData({
-        fullName: profile.fullName || '',
+        fullName: profile.fullName || profile.name || '',
         university: profile.university || '',
         degree: profile.degree || '',
         branch: profile.branch || '',
-        year: profile.year || '2nd',
-        semester: profile.semester || '4th',
-        cgpa: profile.cgpa || 9.0,
+        year: profile.year || profile.yearOfStudy || '',
+        semester: profile.semester || '',
+        cgpa: profile.cgpa ?? 0,
         targetRole: profile.targetRole || '',
         bio: profile.bio || '',
-        readinessScore: profile.readinessScore || 90,
+        readinessScore: profile.readinessScore ?? 0,
       });
     }
   }, [profile]);

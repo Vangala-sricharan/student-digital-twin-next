@@ -95,6 +95,10 @@ const StudentTwinContext = createContext<StudentTwinContextType | undefined>(und
 
 const USER_STUDENT_PROFILES_KEY = 'sdt_user_profiles_v4';
 const USER_SUBSCRIPTION_KEY = 'sdt_user_subscription_v4';
+const USER_SKILLS_KEY = 'sdt_user_skills_v4';
+const USER_PROJECTS_KEY = 'sdt_user_projects_v4';
+const USER_ACHIEVEMENTS_KEY = 'sdt_user_achievements_v4';
+const USER_GOALS_KEY = 'sdt_user_goals_v4';
 
 export const StudentTwinProvider: React.FC<{
   isDemoInitial?: boolean;
@@ -110,33 +114,14 @@ export const StudentTwinProvider: React.FC<{
   const [userProfiles, setUserProfiles] = useState<StudentProfile[]>([]);
   const [activeProfileId, setActiveProfileId] = useState<string>('');
 
-  // Subscription state
+  // Subscription state (defaults strictly to free)
   const [subscription, setSubscription] = useState<SubscriptionPlan>(SUBSCRIPTION_PLANS.free);
 
-  // Authenticated user's individual records
+  // Authenticated user's individual records (strictly empty for new users)
   const [userSkills, setUserSkills] = useState<SkillItem[]>([]);
   const [userProjects, setUserProjects] = useState<ProjectItem[]>([]);
   const [userAchievements, setUserAchievements] = useState<AchievementItem[]>([]);
-  const [userCareerGoals, setUserCareerGoals] = useState<CareerGoal[]>([
-    {
-      id: 'user-goal-1',
-      title: 'Full-Stack Software Engineer Placement',
-      targetRole: 'Software Engineer / AI Systems',
-      targetDomain: 'Cloud & Intelligent Computing',
-      targetTimeline: '2026-2027 Placement Cycle',
-      targetDate: 'Dec 2026',
-      progress: 70,
-      status: 'On Track',
-      confidenceScore: 78,
-      requiredSkills: ['Data Structures & Algorithms', 'TypeScript / Python', 'System Design', 'Database Management'],
-      acquiredSkills: ['TypeScript / Python', 'Database Management'],
-      keyMilestones: [
-        { title: 'Initialize Personal Student Digital Twin', completed: true, dueDate: 'Immediate' },
-        { title: 'Verify Core CS & Algorithmic Projects', completed: false, dueDate: 'Month 2' },
-        { title: 'Complete AI Career Readiness Audit', completed: false, dueDate: 'Month 4' },
-      ],
-    },
-  ]);
+  const [userCareerGoals, setUserCareerGoals] = useState<CareerGoal[]>([]);
 
   const [isLoading, setIsLoading] = useState<boolean>(false);
 
@@ -145,6 +130,10 @@ export const StudentTwinProvider: React.FC<{
     if (!user) {
       setUserProfiles([]);
       setActiveProfileId('');
+      setUserSkills([]);
+      setUserProjects([]);
+      setUserAchievements([]);
+      setUserCareerGoals([]);
       setSubscription(SUBSCRIPTION_PLANS.free);
       return;
     }
@@ -152,8 +141,10 @@ export const StudentTwinProvider: React.FC<{
     async function loadUserData() {
       setIsLoading(true);
       try {
-        // Load Subscription
-        const subStorageKey = `${USER_SUBSCRIPTION_KEY}_${user!.id}`;
+        const userId = user!.id;
+
+        // 1. Load Subscription scoped to user.id
+        const subStorageKey = `${USER_SUBSCRIPTION_KEY}_${userId}`;
         const savedSub = localStorage.getItem(subStorageKey);
         if (savedSub) {
           try {
@@ -164,50 +155,100 @@ export const StudentTwinProvider: React.FC<{
           } catch (e) {
             console.error('Failed to parse subscription', e);
           }
+        } else {
+          setSubscription(SUBSCRIPTION_PLANS.free);
         }
 
+        // 2. Load User Skills, Projects, Achievements, Goals from user-scoped storage
+        const skillsStorageKey = `${USER_SKILLS_KEY}_${userId}`;
+        const projectsStorageKey = `${USER_PROJECTS_KEY}_${userId}`;
+        const achStorageKey = `${USER_ACHIEVEMENTS_KEY}_${userId}`;
+        const goalsStorageKey = `${USER_GOALS_KEY}_${userId}`;
+
+        const savedSkills = localStorage.getItem(skillsStorageKey);
+        const savedProjects = localStorage.getItem(projectsStorageKey);
+        const savedAch = localStorage.getItem(achStorageKey);
+        const savedGoals = localStorage.getItem(goalsStorageKey);
+
+        if (savedSkills) {
+          try {
+            const parsed = JSON.parse(savedSkills);
+            if (Array.isArray(parsed)) setUserSkills(parsed);
+          } catch (e) {}
+        } else {
+          setUserSkills([]);
+        }
+
+        if (savedProjects) {
+          try {
+            const parsed = JSON.parse(savedProjects);
+            if (Array.isArray(parsed)) setUserProjects(parsed);
+          } catch (e) {}
+        } else {
+          setUserProjects([]);
+        }
+
+        if (savedAch) {
+          try {
+            const parsed = JSON.parse(savedAch);
+            if (Array.isArray(parsed)) setUserAchievements(parsed);
+          } catch (e) {}
+        } else {
+          setUserAchievements([]);
+        }
+
+        if (savedGoals) {
+          try {
+            const parsed = JSON.parse(savedGoals);
+            if (Array.isArray(parsed)) setUserCareerGoals(parsed);
+          } catch (e) {}
+        } else {
+          setUserCareerGoals([]);
+        }
+
+        // 3. Load Student Profiles
         if (isSupabaseConfigured) {
           const { data, error } = await supabase
             .from('student_profiles')
             .select('*')
-            .eq('user_id', user!.id);
+            .eq('user_id', userId);
 
           if (data && data.length > 0 && !error) {
             const mappedProfiles: StudentProfile[] = data.map((item) => ({
               id: item.id,
               userId: item.user_id,
               isDemo: false,
-              name: item.name,
-              fullName: item.display_name || item.name,
-              displayName: item.display_name,
-              role: item.role || 'Student Scholar',
-              headline: item.headline || 'Computer Science Scholar | Aspiring Software Engineer',
-              university: item.university || 'University Institute of Technology',
-              academicProgram: item.academic_program || 'B.Tech Computer Science & Engineering',
-              degree: item.degree || 'B.Tech',
-              branch: item.branch || 'Computer Science',
-              year: item.year || '3rd',
-              yearOfStudy: item.year_of_study || '3rd Year',
-              gradYear: item.grad_year || '2026',
-              careerFocus: item.career_focus || 'Software Engineering',
-              specialty: item.specialty || 'Full-Stack Systems & Distributed Computing',
-              bio: item.bio || 'Building and verifying technical competencies with the Student Digital Twin OS.',
-              avatarUrl: item.avatar_url,
+              name: item.name || '',
+              fullName: item.display_name || item.name || '',
+              displayName: item.display_name || item.name || '',
+              role: item.role || '',
+              headline: item.headline || '',
+              university: item.university || '',
+              academicProgram: item.academic_program || '',
+              degree: item.degree || '',
+              branch: item.branch || '',
+              year: item.year || '',
+              yearOfStudy: item.year_of_study || '',
+              gradYear: item.grad_year || '',
+              careerFocus: item.career_focus || '',
+              specialty: item.specialty || '',
+              bio: item.bio || '',
+              avatarUrl: item.avatar_url || '',
               email: item.email || user?.email || '',
               phone: item.phone || '',
               githubUrl: item.github_url || '',
               linkedinUrl: item.linkedin_url || '',
               portfolioUrl: item.portfolio_url || '',
-              location: item.location || 'Bengaluru, India',
-              readinessScore: item.readiness_score || 72,
-              skillsVerifiedCount: item.skills_verified_count || 4,
-              projectIndexCount: item.project_index_count || 2,
-              milestonesCount: item.milestones_count || 3,
-              targetRole: item.target_role || 'Software Development Engineer',
-              targetCompanyTier: item.target_company_tier || 'Global Tech',
-              currentGpa: item.current_gpa || '8.5 / 10.0',
-              cgpa: item.cgpa || 8.5,
-              semester: item.semester || 'Semester 5',
+              location: item.location || '',
+              readinessScore: item.readiness_score || 0,
+              skillsVerifiedCount: item.skills_verified_count || 0,
+              projectIndexCount: item.project_index_count || 0,
+              milestonesCount: item.milestones_count || 0,
+              targetRole: item.target_role || '',
+              targetCompanyTier: item.target_company_tier || '',
+              currentGpa: item.current_gpa || '',
+              cgpa: item.cgpa || 0,
+              semester: item.semester || '',
               status: (item.status as any) || 'Active Twin',
               subscriptionTier: item.subscription_tier || 'free',
               createdAt: item.created_at,
@@ -219,9 +260,9 @@ export const StudentTwinProvider: React.FC<{
           }
         }
 
-        // Local sandbox or initial fresh user state (NOT creator demo data)
-        const storageKey = `${USER_STUDENT_PROFILES_KEY}_${user!.id}`;
-        const localSaved = localStorage.getItem(storageKey);
+        // Local user-scoped storage fallback
+        const profileStorageKey = `${USER_STUDENT_PROFILES_KEY}_${userId}`;
+        const localSaved = localStorage.getItem(profileStorageKey);
 
         if (localSaved) {
           try {
@@ -236,90 +277,51 @@ export const StudentTwinProvider: React.FC<{
           }
         }
 
-        // Create default personalized initial profile for this new user
-        const userName = userProfile?.fullName || user!.user_metadata?.full_name || 'Student Candidate';
+        // Create empty personalized initial profile for this new user (ZERO dummy data)
+        const userName = userProfile?.fullName || user!.user_metadata?.full_name || '';
         const initialProfile: StudentProfile = {
-          id: `profile-${user!.id}`,
-          userId: user!.id,
+          id: `profile-${userId}`,
+          userId: userId,
           isDemo: false,
           name: userName,
           fullName: userName,
           displayName: userName,
-          role: 'Student Engineer',
-          headline: 'Computer Science Scholar | Aspiring Software Engineer',
-          university: 'University Institute of Technology',
-          academicProgram: 'B.Tech Computer Science & Engineering',
-          degree: 'B.Tech',
-          branch: 'Computer Science',
-          year: '3rd',
-          yearOfStudy: '3rd Year',
-          gradYear: '2026',
-          careerFocus: 'Software Engineering & Cloud Architecture',
-          specialty: 'Full-Stack Systems & Distributed Computing',
-          bio: 'Building and verifying technical competencies with the Student Digital Twin OS.',
-          avatarUrl: userProfile?.avatarUrl || '',
-          email: user?.email || 'scholar@university.edu',
-          phone: '+91 98765 43210',
+          role: '',
+          headline: '',
+          university: '',
+          academicProgram: '',
+          degree: '',
+          branch: '',
+          year: '',
+          yearOfStudy: '',
+          gradYear: '',
+          careerFocus: '',
+          specialty: '',
+          bio: '',
+          avatarUrl: userProfile?.avatarUrl || user!.user_metadata?.avatar_url || '',
+          email: user?.email || '',
+          phone: '',
           githubUrl: '',
           linkedinUrl: '',
           portfolioUrl: '',
-          location: 'Bengaluru, India',
-          readinessScore: 74,
-          skillsVerifiedCount: 8,
-          projectIndexCount: 2,
-          milestonesCount: 5,
-          targetRole: 'Full-Stack Software Engineer',
-          targetCompanyTier: 'Tier-1 Tech & High Growth Startups',
-          currentGpa: '8.7 / 10.0',
-          cgpa: 8.7,
-          semester: '5th',
-          status: 'Active Twin',
+          location: '',
+          readinessScore: 0,
+          skillsVerifiedCount: 0,
+          projectIndexCount: 0,
+          milestonesCount: 0,
+          targetRole: '',
+          targetCompanyTier: '',
+          currentGpa: '',
+          cgpa: 0,
+          semester: '',
+          status: 'Draft',
           subscriptionTier: 'free',
           createdAt: new Date().toISOString(),
         };
 
-        const initialSkills: SkillItem[] = [
-          { id: 'usr-sk-1', name: 'Data Structures & Algorithms', category: 'Data Structures & Algorithms', proficiency: 82, verified: true, proofCount: 6, marketAlignmentScore: 88, lastAssessed: '2026-02-15' },
-          { id: 'usr-sk-2', name: 'JavaScript & TypeScript', category: 'Languages', proficiency: 85, verified: true, proofCount: 5, marketAlignmentScore: 90, lastAssessed: '2026-02-18' },
-          { id: 'usr-sk-3', name: 'React & Modern Web Architecture', category: 'Languages', proficiency: 80, verified: true, proofCount: 4, marketAlignmentScore: 86, lastAssessed: '2026-02-20' },
-          { id: 'usr-sk-4', name: 'PostgreSQL & Database Design', category: 'Cloud & Infrastructure', proficiency: 76, verified: true, proofCount: 3, marketAlignmentScore: 84, lastAssessed: '2026-02-22' },
-        ];
-
-        const initialProjects: ProjectItem[] = [
-          {
-            id: 'usr-proj-1',
-            title: 'Real-Time Collaborative Task Matrix',
-            role: 'Full Stack Engineer',
-            description: 'Scalable task management platform with WebSocket synchronization and role-based permissions.',
-            techStack: ['TypeScript', 'React', 'Node.js', 'PostgreSQL'],
-            status: 'Completed',
-            proofHealthScore: 84,
-            astDepth: 'Level 3 (Moderate)',
-            entropyScore: 88,
-            featured: true,
-            highlights: ['Designed normalized relational schema', 'Implemented optimistic UI state updates'],
-          },
-        ];
-
-        const initialAchievements: AchievementItem[] = [
-          {
-            id: 'usr-ach-1',
-            title: 'University Hackathon Finalist',
-            issuer: 'Institute Annual Tech Symposium',
-            date: '2025-10-14',
-            category: 'Hackathon',
-            verified: true,
-            description: 'Built high-concurrency campus event management microservice.',
-          },
-        ];
-
         setUserProfiles([initialProfile]);
         setActiveProfileId(initialProfile.id);
-        setUserSkills(initialSkills);
-        setUserProjects(initialProjects);
-        setUserAchievements(initialAchievements);
-
-        localStorage.setItem(storageKey, JSON.stringify([initialProfile]));
+        localStorage.setItem(profileStorageKey, JSON.stringify([initialProfile]));
       } catch (err) {
         console.error('Failed to load student profiles:', err);
       } finally {
@@ -330,45 +332,47 @@ export const StudentTwinProvider: React.FC<{
     loadUserData();
   }, [user?.id]);
 
-  // Active Profile Calculation
+  // Active Profile Calculation (Strict zero-demo fallback for authenticated users)
   const activeProfile: StudentProfile = isDemoMode
     ? DEMO_STUDENT_PROFILE
     : userProfiles.find((p) => p.id === activeProfileId) ||
       userProfiles[0] || {
-        id: 'temp-profile',
-        name: userProfile?.fullName || 'Student Explorer',
-        fullName: userProfile?.fullName || 'Student Explorer',
-        displayName: userProfile?.fullName || 'Student Explorer',
-        role: 'Student',
-        headline: 'Exploring Student Twin',
-        university: 'University Campus',
-        academicProgram: 'B.Tech CSE',
-        degree: 'B.Tech',
-        branch: 'CSE',
-        year: '2nd',
-        yearOfStudy: '2nd Year',
-        gradYear: '2026',
-        careerFocus: 'Software Engineering',
-        specialty: 'Systems Engineering',
-        bio: 'Welcome to your Student Digital Twin OS.',
-        avatarUrl: userProfile?.avatarUrl || '',
-        email: user?.email || 'scholar@university.edu',
-        phone: '+91 98765 43210',
+        id: user ? `profile-${user.id}` : 'empty-profile',
+        userId: user?.id,
+        isDemo: false,
+        name: userProfile?.fullName || user?.user_metadata?.full_name || '',
+        fullName: userProfile?.fullName || user?.user_metadata?.full_name || '',
+        displayName: userProfile?.fullName || user?.user_metadata?.full_name || '',
+        role: '',
+        headline: '',
+        university: '',
+        academicProgram: '',
+        degree: '',
+        branch: '',
+        year: '',
+        yearOfStudy: '',
+        gradYear: '',
+        careerFocus: '',
+        specialty: '',
+        bio: '',
+        avatarUrl: userProfile?.avatarUrl || user?.user_metadata?.avatar_url || '',
+        email: user?.email || '',
+        phone: '',
         githubUrl: '',
         linkedinUrl: '',
         portfolioUrl: '',
-        location: 'India',
-        readinessScore: 70,
-        skillsVerifiedCount: 4,
-        projectIndexCount: 1,
-        milestonesCount: 2,
-        targetRole: 'Software Engineer',
-        targetCompanyTier: 'Tech Leaders',
-        currentGpa: '8.4 / 10.0',
-        cgpa: 8.4,
-        semester: '4th',
-        status: 'Active Twin',
-        subscriptionTier: subscription.tier,
+        location: '',
+        readinessScore: 0,
+        skillsVerifiedCount: 0,
+        projectIndexCount: 0,
+        milestonesCount: 0,
+        targetRole: '',
+        targetCompanyTier: '',
+        currentGpa: '',
+        cgpa: 0,
+        semester: '',
+        status: 'Draft',
+        subscriptionTier: subscription.tier || 'free',
         createdAt: new Date().toISOString(),
       };
 
@@ -378,25 +382,79 @@ export const StudentTwinProvider: React.FC<{
   const projects: ProjectItem[] = isDemoMode ? DEMO_PROJECTS : userProjects;
   const achievements: AchievementItem[] = isDemoMode ? DEMO_ACHIEVEMENTS : userAchievements;
   const careerGoals: CareerGoal[] = isDemoMode ? DEMO_CAREER_GOALS : userCareerGoals;
-  const careerGoal: CareerGoal = isDemoMode ? DEMO_CAREER_GOAL : userCareerGoals[0];
+  const careerGoal: CareerGoal = isDemoMode ? DEMO_CAREER_GOAL : (userCareerGoals[0] || {
+    id: 'user-goal-empty',
+    title: '',
+    targetRole: activeProfile.targetRole || '',
+    targetDomain: '',
+    targetTimeline: '',
+    targetDate: '',
+    progress: 0,
+    status: 'Planned',
+    confidenceScore: 0,
+    requiredSkills: [],
+    acquiredSkills: [],
+    keyMilestones: [],
+  });
+
+  // Calculate dynamic twin report based purely on real user data or demo mode
+  const dynamicReportScore = activeProfile.readinessScore || (
+    skills.length > 0 || projects.length > 0
+      ? Math.min(100, Math.round((skills.length * 8) + (projects.length * 15) + (achievements.length * 10)))
+      : 0
+  );
 
   const digitalTwinReport: DigitalTwinReport = isDemoMode
     ? DEMO_DIGITAL_TWIN_REPORT
     : {
-        overallScore: activeProfile.readinessScore || 74,
-        codeProofHealth: 82,
-        marketRoleAlignment: 79,
-        academicIndex: 85,
-        dsaProficiency: 78,
-        careerVelocity: 81,
-        primaryInsight: `Twin analysis calibrated for ${activeProfile.targetRole || 'Software Development'}. Good foundational proof.`,
-        recommendedNextStep: 'Add 2 more verified proof-of-work project repositories to boost Code & Proof Health above 90%.',
+        overallScore: dynamicReportScore,
+        codeProofHealth: projects.length > 0 ? Math.min(100, 45 + projects.length * 15) : 0,
+        marketRoleAlignment: skills.length > 0 ? Math.min(100, 35 + skills.length * 9) : 0,
+        academicIndex: activeProfile.cgpa ? Math.min(100, Math.round(activeProfile.cgpa * 10)) : 0,
+        dsaProficiency: skills.some((s) => s.category?.toLowerCase().includes('algorithm') || s.name.toLowerCase().includes('dsa')) ? 75 : 0,
+        careerVelocity: (skills.length > 0 || projects.length > 0) ? Math.min(100, (skills.length + projects.length) * 10) : 0,
+        primaryInsight: skills.length > 0 || projects.length > 0
+          ? `Twin profile active with ${skills.length} verified skills and ${projects.length} repository index records.`
+          : 'Your Student Twin is ready to be built. Add your skills and projects to calibrate your readiness index.',
+        recommendedNextStep: projects.length === 0
+          ? 'Add your first verified project repository to evaluate Code & Proof Health.'
+          : 'Continue logging skill proofs and project updates to raise market role alignment.',
         vectors: [
-          { dimension: 'Role Alignment Score', score: 79, benchmark: 75, status: 'On Track', insight: 'Core CS foundational competencies are verified.' },
-          { dimension: 'Code & Proof Health', score: 82, benchmark: 70, status: 'Optimal', insight: 'Solid architecture hygiene across repository index.' },
-          { dimension: 'Academic Standing', score: 85, benchmark: 75, status: 'Optimal', insight: 'Consistent academic GPA standing.' },
-          { dimension: 'DSA & Algorithmic Rigor', score: 78, benchmark: 80, status: 'Needs Attention', insight: 'Practice graph problems and system design fundamentals.' },
-          { dimension: 'Adaptive Milestones', score: 81, benchmark: 65, status: 'Optimal', insight: 'Milestone tracking is active and on schedule.' },
+          {
+            dimension: 'Role Alignment Score',
+            score: skills.length > 0 ? Math.min(100, 35 + skills.length * 9) : 0,
+            benchmark: 75,
+            status: skills.length >= 4 ? 'Optimal' : skills.length > 0 ? 'On Track' : 'Needs Attention',
+            insight: skills.length > 0 ? `${skills.length} verified competencies recorded.` : 'Add your technical skills to calculate alignment.',
+          },
+          {
+            dimension: 'Code & Proof Health',
+            score: projects.length > 0 ? Math.min(100, 45 + projects.length * 15) : 0,
+            benchmark: 70,
+            status: projects.length >= 2 ? 'Optimal' : projects.length > 0 ? 'On Track' : 'Needs Attention',
+            insight: projects.length > 0 ? `${projects.length} project repositories indexed.` : 'Add GitHub projects to evaluate code authenticity.',
+          },
+          {
+            dimension: 'Academic Standing',
+            score: activeProfile.cgpa ? Math.min(100, Math.round(activeProfile.cgpa * 10)) : 0,
+            benchmark: 75,
+            status: activeProfile.cgpa && activeProfile.cgpa >= 8 ? 'Optimal' : activeProfile.cgpa ? 'On Track' : 'Needs Attention',
+            insight: activeProfile.cgpa ? `CGPA of ${activeProfile.cgpa} recorded.` : 'Add academic GPA in profile.',
+          },
+          {
+            dimension: 'DSA & Algorithmic Rigor',
+            score: skills.some((s) => s.category?.toLowerCase().includes('algorithm') || s.name.toLowerCase().includes('dsa')) ? 75 : 0,
+            benchmark: 80,
+            status: skills.some((s) => s.category?.toLowerCase().includes('algorithm') || s.name.toLowerCase().includes('dsa')) ? 'On Track' : 'Needs Attention',
+            insight: 'Add Data Structures & Algorithms under skills or run the Syllabus Prep engine.',
+          },
+          {
+            dimension: 'Adaptive Milestones',
+            score: achievements.length > 0 ? Math.min(100, achievements.length * 25) : 0,
+            benchmark: 65,
+            status: achievements.length >= 2 ? 'Optimal' : achievements.length > 0 ? 'On Track' : 'Needs Attention',
+            insight: achievements.length > 0 ? `${achievements.length} verified achievements logged.` : 'Log hackathons, honors, or certifications.',
+          },
         ],
       };
 
@@ -407,13 +465,28 @@ export const StudentTwinProvider: React.FC<{
 
   const updateStudentProfile = async (profileData: Partial<StudentProfile>) => {
     if (isDemoMode) return;
+    
+    // Automatically recalculate readiness score dynamically if user adds data and score is 0
+    const updatedSkillsCount = profileData.skillsVerifiedCount !== undefined ? profileData.skillsVerifiedCount : activeProfile.skillsVerifiedCount;
+    const updatedProjectCount = profileData.projectIndexCount !== undefined ? profileData.projectIndexCount : activeProfile.projectIndexCount;
+    
+    let computedReadiness = profileData.readinessScore !== undefined ? profileData.readinessScore : activeProfile.readinessScore;
+    if (computedReadiness === 0 && (updatedSkillsCount > 0 || updatedProjectCount > 0)) {
+      computedReadiness = Math.min(95, Math.round((updatedSkillsCount * 8) + (updatedProjectCount * 15)));
+    }
+
+    const mergedData = {
+      ...profileData,
+      ...(computedReadiness !== undefined ? { readinessScore: computedReadiness } : {}),
+    };
+
     setUserProfiles((prev) =>
-      prev.map((p) => (p.id === activeProfile.id ? { ...p, ...profileData } : p))
+      prev.map((p) => (p.id === activeProfile.id ? { ...p, ...mergedData } : p))
     );
 
     if (user) {
       const updated = userProfiles.map((p) =>
-        p.id === activeProfile.id ? { ...p, ...profileData } : p
+        p.id === activeProfile.id ? { ...p, ...mergedData } : p
       );
       localStorage.setItem(`${USER_STUDENT_PROFILES_KEY}_${user.id}`, JSON.stringify(updated));
 
@@ -421,23 +494,33 @@ export const StudentTwinProvider: React.FC<{
         await supabase
           .from('student_profiles')
           .update({
-            name: profileData.name || profileData.fullName,
-            display_name: profileData.displayName || profileData.fullName,
-            role: profileData.role,
-            headline: profileData.headline,
-            university: profileData.university,
-            academic_program: profileData.academicProgram,
-            year_of_study: profileData.yearOfStudy,
-            career_focus: profileData.careerFocus,
-            specialty: profileData.specialty,
-            bio: profileData.bio,
-            avatar_url: profileData.avatarUrl,
-            github_url: profileData.githubUrl,
-            linkedin_url: profileData.linkedinUrl,
-            portfolio_url: profileData.portfolioUrl,
-            location: profileData.location,
-            current_gpa: profileData.currentGpa,
-            target_role: profileData.targetRole,
+            name: mergedData.name || mergedData.fullName,
+            display_name: mergedData.displayName || mergedData.fullName,
+            role: mergedData.role,
+            headline: mergedData.headline,
+            university: mergedData.university,
+            academic_program: mergedData.academicProgram,
+            degree: mergedData.degree,
+            branch: mergedData.branch,
+            year: mergedData.year,
+            year_of_study: mergedData.yearOfStudy,
+            grad_year: mergedData.gradYear,
+            career_focus: mergedData.careerFocus,
+            specialty: mergedData.specialty,
+            bio: mergedData.bio,
+            avatar_url: mergedData.avatarUrl,
+            phone: mergedData.phone,
+            github_url: mergedData.githubUrl,
+            linkedin_url: mergedData.linkedinUrl,
+            portfolio_url: mergedData.portfolioUrl,
+            location: mergedData.location,
+            current_gpa: mergedData.currentGpa,
+            cgpa: mergedData.cgpa,
+            semester: mergedData.semester,
+            target_role: mergedData.targetRole,
+            target_company_tier: mergedData.targetCompanyTier,
+            readiness_score: mergedData.readinessScore,
+            status: mergedData.status,
           })
           .eq('id', activeProfile.id);
       }
@@ -519,35 +602,35 @@ export const StudentTwinProvider: React.FC<{
       name: profileData.name || 'New Student',
       fullName: profileData.fullName || profileData.name || 'New Student',
       displayName: profileData.displayName || profileData.name || 'New Student',
-      role: profileData.role || 'Student Scholar',
-      headline: profileData.headline || 'B.Tech Student | Ready for Industry Placement',
-      university: profileData.university || 'Engineering University',
-      academicProgram: profileData.academicProgram || 'B.Tech CSE',
-      degree: 'B.Tech',
-      branch: 'CSE',
-      year: '2nd',
-      yearOfStudy: profileData.yearOfStudy || '2nd Year',
-      gradYear: '2026',
-      careerFocus: profileData.careerFocus || 'Software Development',
-      specialty: profileData.specialty || 'Generalist & Distributed Systems',
-      bio: profileData.bio || 'Continuous learner and digital twin builder.',
+      role: profileData.role || '',
+      headline: profileData.headline || '',
+      university: profileData.university || '',
+      academicProgram: profileData.academicProgram || '',
+      degree: profileData.degree || '',
+      branch: profileData.branch || '',
+      year: profileData.year || '',
+      yearOfStudy: profileData.yearOfStudy || '',
+      gradYear: profileData.gradYear || '',
+      careerFocus: profileData.careerFocus || '',
+      specialty: profileData.specialty || '',
+      bio: profileData.bio || '',
       avatarUrl: profileData.avatarUrl,
       email: profileData.email || user?.email || '',
       phone: profileData.phone || '',
       githubUrl: profileData.githubUrl || '',
       linkedinUrl: profileData.linkedinUrl || '',
       portfolioUrl: profileData.portfolioUrl || '',
-      location: profileData.location || 'India',
-      readinessScore: 68,
-      skillsVerifiedCount: 3,
-      projectIndexCount: 1,
-      milestonesCount: 2,
-      targetRole: profileData.targetRole || 'Software Engineer',
-      targetCompanyTier: profileData.targetCompanyTier || 'Tier-1 Tech',
-      currentGpa: profileData.currentGpa || '8.2 / 10.0',
-      cgpa: 8.2,
-      semester: '4th',
-      status: 'Active Twin',
+      location: profileData.location || '',
+      readinessScore: 0,
+      skillsVerifiedCount: 0,
+      projectIndexCount: 0,
+      milestonesCount: 0,
+      targetRole: profileData.targetRole || '',
+      targetCompanyTier: profileData.targetCompanyTier || '',
+      currentGpa: profileData.currentGpa || '',
+      cgpa: 0,
+      semester: '',
+      status: 'Draft',
       subscriptionTier: subscription.tier,
       createdAt: new Date().toISOString(),
     };
@@ -577,7 +660,7 @@ export const StudentTwinProvider: React.FC<{
           github_url: newProfile.githubUrl,
           linkedin_url: newProfile.linkedinUrl,
           location: newProfile.location,
-          readiness_score: newProfile.readinessScore,
+          readiness_score: 0,
         });
       }
     }
@@ -590,17 +673,29 @@ export const StudentTwinProvider: React.FC<{
       id: `skill-${Date.now()}`,
       lastAssessed: new Date().toISOString().split('T')[0],
     };
-    setUserSkills((prev) => [newSkill, ...prev]);
+    const updated = [newSkill, ...userSkills];
+    setUserSkills(updated);
+    if (user) {
+      localStorage.setItem(`${USER_SKILLS_KEY}_${user.id}`, JSON.stringify(updated));
+    }
   };
 
   const updateSkill = (id: string, updates: Partial<SkillItem>) => {
     if (isDemoMode) return;
-    setUserSkills((prev) => prev.map((s) => (s.id === id ? { ...s, ...updates } : s)));
+    const updated = userSkills.map((s) => (s.id === id ? { ...s, ...updates } : s));
+    setUserSkills(updated);
+    if (user) {
+      localStorage.setItem(`${USER_SKILLS_KEY}_${user.id}`, JSON.stringify(updated));
+    }
   };
 
   const removeSkill = (id: string) => {
     if (isDemoMode) return;
-    setUserSkills((prev) => prev.filter((s) => s.id !== id));
+    const updated = userSkills.filter((s) => s.id !== id);
+    setUserSkills(updated);
+    if (user) {
+      localStorage.setItem(`${USER_SKILLS_KEY}_${user.id}`, JSON.stringify(updated));
+    }
   };
 
   const addProject = (projectData: Omit<ProjectItem, 'id'>) => {
@@ -609,17 +704,29 @@ export const StudentTwinProvider: React.FC<{
       ...projectData,
       id: `proj-${Date.now()}`,
     };
-    setUserProjects((prev) => [newProject, ...prev]);
+    const updated = [newProject, ...userProjects];
+    setUserProjects(updated);
+    if (user) {
+      localStorage.setItem(`${USER_PROJECTS_KEY}_${user.id}`, JSON.stringify(updated));
+    }
   };
 
   const updateProject = (id: string, updates: Partial<ProjectItem>) => {
     if (isDemoMode) return;
-    setUserProjects((prev) => prev.map((p) => (p.id === id ? { ...p, ...updates } : p)));
+    const updated = userProjects.map((p) => (p.id === id ? { ...p, ...updates } : p));
+    setUserProjects(updated);
+    if (user) {
+      localStorage.setItem(`${USER_PROJECTS_KEY}_${user.id}`, JSON.stringify(updated));
+    }
   };
 
   const removeProject = (id: string) => {
     if (isDemoMode) return;
-    setUserProjects((prev) => prev.filter((p) => p.id !== id));
+    const updated = userProjects.filter((p) => p.id !== id);
+    setUserProjects(updated);
+    if (user) {
+      localStorage.setItem(`${USER_PROJECTS_KEY}_${user.id}`, JSON.stringify(updated));
+    }
   };
 
   const addAchievement = (achievementData: Omit<AchievementItem, 'id'>) => {
@@ -628,24 +735,55 @@ export const StudentTwinProvider: React.FC<{
       ...achievementData,
       id: `ach-${Date.now()}`,
     };
-    setUserAchievements((prev) => [newAchievement, ...prev]);
+    const updated = [newAchievement, ...userAchievements];
+    setUserAchievements(updated);
+    if (user) {
+      localStorage.setItem(`${USER_ACHIEVEMENTS_KEY}_${user.id}`, JSON.stringify(updated));
+    }
   };
 
   const updateAchievement = (id: string, updates: Partial<AchievementItem>) => {
     if (isDemoMode) return;
-    setUserAchievements((prev) => prev.map((a) => (a.id === id ? { ...a, ...updates } : a)));
+    const updated = userAchievements.map((a) => (a.id === id ? { ...a, ...updates } : a));
+    setUserAchievements(updated);
+    if (user) {
+      localStorage.setItem(`${USER_ACHIEVEMENTS_KEY}_${user.id}`, JSON.stringify(updated));
+    }
   };
 
   const removeAchievement = (id: string) => {
     if (isDemoMode) return;
-    setUserAchievements((prev) => prev.filter((a) => a.id !== id));
+    const updated = userAchievements.filter((a) => a.id !== id);
+    setUserAchievements(updated);
+    if (user) {
+      localStorage.setItem(`${USER_ACHIEVEMENTS_KEY}_${user.id}`, JSON.stringify(updated));
+    }
   };
 
   const updateCareerGoal = (goalUpdates: Partial<CareerGoal>) => {
     if (isDemoMode) return;
-    setUserCareerGoals((prev) =>
-      prev.map((g, i) => (i === 0 ? { ...g, ...goalUpdates } : g))
-    );
+    const updated = userCareerGoals.length > 0
+      ? userCareerGoals.map((g, i) => (i === 0 ? { ...g, ...goalUpdates } : g))
+      : [
+          {
+            id: `goal-${Date.now()}`,
+            title: goalUpdates.title || 'Career Placement Milestone',
+            targetRole: goalUpdates.targetRole || activeProfile.targetRole || 'Software Development',
+            targetDomain: goalUpdates.targetDomain || '',
+            targetTimeline: goalUpdates.targetTimeline || '',
+            targetDate: goalUpdates.targetDate || '',
+            progress: goalUpdates.progress || 0,
+            status: goalUpdates.status || 'Planned',
+            confidenceScore: goalUpdates.confidenceScore || 0,
+            requiredSkills: goalUpdates.requiredSkills || [],
+            acquiredSkills: goalUpdates.acquiredSkills || [],
+            keyMilestones: goalUpdates.keyMilestones || [],
+          },
+        ];
+    setUserCareerGoals(updated);
+    if (user) {
+      localStorage.setItem(`${USER_GOALS_KEY}_${user.id}`, JSON.stringify(updated));
+    }
   };
 
   return (

@@ -13,9 +13,11 @@ import {
 } from 'lucide-react';
 
 export const ReadinessView: React.FC = () => {
-  const { profile } = useStudentTwin();
+  const { profile, digitalTwinReport, skills, projects, achievements, isDemoMode } = useStudentTwin();
 
-  const diagnosticVectors = [
+  const currentScore = isDemoMode ? 94 : (profile?.readinessScore || digitalTwinReport.overallScore || 0);
+
+  const diagnosticVectors = isDemoMode ? [
     {
       title: 'Role Alignment Vector',
       score: 95,
@@ -55,6 +57,46 @@ export const ReadinessView: React.FC = () => {
         { label: 'Academic Standing (CGPA: 9.15)', match: 'Top 5% Cohort' },
       ],
     },
+  ] : [
+    {
+      title: 'Role Alignment Vector',
+      score: skills.length > 0 ? Math.min(100, skills.length * 15) : 0,
+      benchmark: 75,
+      icon: Target,
+      status: skills.length >= 5 ? 'Calibrated' : 'Needs Attention',
+      desc: 'Matches student skill ontologies against active industry role benchmarks.',
+      details: [
+        { label: 'Skills Indexed', match: `${skills.length} skills recorded` },
+        { label: 'Verified Skills', match: `${skills.filter((s) => s.verified).length} verified` },
+        { label: 'Target Career Role', match: profile?.targetRole || 'Not configured' },
+      ],
+    },
+    {
+      title: 'Code & Proof Health Vector',
+      score: projects.length > 0 ? Math.min(100, projects.length * 25) : 0,
+      benchmark: 70,
+      icon: Code2,
+      status: projects.length >= 3 ? 'Calibrated' : 'Needs Attention',
+      desc: 'Evaluates codebase authenticity, multi-file architectural modularity, and organic commit frequency.',
+      details: [
+        { label: 'Proof Repositories', match: `${projects.length} repositories` },
+        { label: 'AST Depth Audit', match: projects.length > 0 ? 'Audited' : 'Pending Upload' },
+        { label: 'Entropy Verification', match: projects.length > 0 ? 'Verified' : 'Pending Upload' },
+      ],
+    },
+    {
+      title: 'Adaptive Milestones Vector',
+      score: achievements.length > 0 ? Math.min(100, achievements.length * 30) : 0,
+      benchmark: 65,
+      icon: Milestone,
+      status: achievements.length >= 2 ? 'Calibrated' : 'Needs Attention',
+      desc: 'Tracks progress across competitive hackathons, distinctions, and academic standing.',
+      details: [
+        { label: 'Logged Distinctions', match: `${achievements.length} recorded` },
+        { label: 'Academic Standing', match: profile?.cgpa ? `CGPA ${profile.cgpa}` : 'Not recorded' },
+        { label: 'Placement Velocity', match: currentScore > 0 ? `${currentScore}%` : 'Uncalibrated' },
+      ],
+    },
   ];
 
   return (
@@ -78,23 +120,25 @@ export const ReadinessView: React.FC = () => {
         <div className="space-y-2 text-center md:text-left">
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-50 dark:bg-white/5 border border-blue-200 dark:border-white/10 text-blue-600 dark:text-cyan-300 text-xs font-mono font-bold">
             <Sparkles className="w-3.5 h-3.5" />
-            <span>Placement Calibration Tier-1</span>
+            <span>{currentScore > 0 ? 'Placement Calibration Active' : 'Twin Awaiting Calibration'}</span>
           </div>
           <h2 className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white">
-            Overall Placement Probability: {profile?.readinessScore}%
+            Overall Placement Probability: {currentScore}%
           </h2>
           <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-400 max-w-xl leading-relaxed">
-            Your Student Digital Twin exceeds benchmark criteria for campus placement and Tier-1 engineering fellowship eligibility.
+            {currentScore > 0
+              ? 'Your Student Digital Twin telemetry is computed against benchmark criteria for campus placement and engineering fellowship eligibility.'
+              : 'Add your skills, proof projects, and academic standing in My Profile or execute AI Career Engines to calculate your placement probability vector.'}
           </p>
         </div>
 
         <div className="p-5 rounded-2xl bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 text-center shrink-0 w-full sm:w-auto">
           <div className="text-[10px] font-mono uppercase text-slate-500 dark:text-slate-400">Readiness Score</div>
           <div className="text-4xl font-black text-blue-600 dark:text-cyan-400 font-mono mt-1">
-            {profile?.readinessScore}%
+            {currentScore}%
           </div>
-          <div className="text-[11px] text-emerald-600 dark:text-emerald-400 font-mono mt-0.5 font-semibold">
-            Rank: Top 5% Percentile
+          <div className="text-[11px] text-blue-600 dark:text-cyan-400 font-mono mt-0.5 font-semibold">
+            {currentScore > 0 ? (currentScore >= 80 ? 'Tier-1 Ready' : 'In Progress') : 'Calibration Pending'}
           </div>
         </div>
       </div>
@@ -118,7 +162,7 @@ export const ReadinessView: React.FC = () => {
                     <div className="text-xl font-bold font-mono text-slate-900 dark:text-white">
                       {vec.score}%
                     </div>
-                    <div className="text-[10px] font-mono text-emerald-600 dark:text-emerald-400 font-semibold">
+                    <div className="text-[10px] font-mono text-slate-500 dark:text-slate-400 font-semibold">
                       vs {vec.benchmark}% avg
                     </div>
                   </div>
