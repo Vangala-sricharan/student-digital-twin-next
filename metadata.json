@@ -1,0 +1,6 @@
+{
+  "name": "Student Digital Twin OS",
+  "description": "AI-powered Student Career Readiness Operating System based on a student's Digital Twin.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
