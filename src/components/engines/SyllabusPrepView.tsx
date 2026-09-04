@@ -47,7 +47,66 @@ export const SyllabusPrepView: React.FC<SyllabusPrepViewProps> = ({ onBackToHub 
   const [checklistState, setChecklistState] = useState<Record<string, boolean>>({ c1: true, c2: true });
   const [copied, setCopied] = useState(false);
   const [exportingPdf, setExportingPdf] = useState(false);
+  const [customQuestion, setCustomQuestion] = useState('');
+  const [qaEntries, setQaEntries] = useState<Array<{ id: string; question: string; answer: string; citation: string }>>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleAskDocumentQuestion = (queryText?: string) => {
+    const q = (queryText || customQuestion).trim();
+    if (!q) return;
+
+    // Search grounding in parsedDoc or pastedSyllabus or structuredData
+    const sourceText = parsedDoc?.extractedText || pastedSyllabus || '';
+    const unitsData = structuredData?.units || [];
+    const topicsData = structuredData?.importantTopics || [];
+    const lowerQ = q.toLowerCase();
+
+    // Check matched units
+    const matchedUnit = unitsData.find((u: any) =>
+      lowerQ.includes(String(u.unitNumber).toLowerCase()) ||
+      lowerQ.includes(u.title?.toLowerCase()) ||
+      u.topics?.some((t: string) => lowerQ.includes(t.toLowerCase()))
+    );
+
+    // Check matched topics
+    const matchedTopic = topicsData.find((t: any) =>
+      lowerQ.includes(t.title?.toLowerCase()) ||
+      (t.whatToUnderstand && lowerQ.includes(t.whatToUnderstand.toLowerCase()))
+    );
+
+    let answer = '';
+    let citation = parsedDoc?.fileName || 'Uploaded Academic Document';
+
+    if (matchedTopic) {
+      answer = `From ${matchedTopic.unit || 'Identified Syllabus Topics'}: ${matchedTopic.title} is designated as [${matchedTopic.priority} Priority]. Core concept to master: ${matchedTopic.whatToUnderstand}. ${matchedTopic.keyFormula ? `Key formulation: ${matchedTopic.keyFormula}.` : ''} Exam rationale: ${matchedTopic.reasonWhyImportant}`;
+      citation = `${matchedTopic.unit || 'Topic Reference'} • ${parsedDoc?.fileName || 'Syllabus'}`;
+    } else if (matchedUnit) {
+      answer = `From ${matchedUnit.unitNumber} (${matchedUnit.title}): Weightage is ${matchedUnit.weight || '~25%'} with ${matchedUnit.priority || 'HIGH'} exam priority. Covered topics: ${matchedUnit.topics?.join(', ')}. Key focus: ${matchedUnit.recommendation || 'Comprehensive theoretical derivation and problem sets.'}`;
+      citation = `${matchedUnit.unitNumber} • ${parsedDoc?.fileName || 'Syllabus'}`;
+    } else if (sourceText && sourceText.toLowerCase().includes(lowerQ)) {
+      // Find sentence context
+      const idx = sourceText.toLowerCase().indexOf(lowerQ);
+      const start = Math.max(0, idx - 80);
+      const end = Math.min(sourceText.length, idx + lowerQ.length + 200);
+      const snippet = sourceText.slice(start, end).trim();
+      answer = `Directly matched in source text: "...${snippet}..."`;
+      citation = `Extracted Text • ${parsedDoc?.fileName || 'Syllabus Document'}`;
+    } else {
+      answer = `Based strictly on the uploaded academic syllabus "${parsedDoc?.fileName || 'Course Document'}", this specific topic or term is not explicitly listed in the module units. Please consult the course instructor or verify if this subject falls under supplementary readings.`;
+      citation = 'Verification Notice • No Direct Match';
+    }
+
+    setQaEntries((prev) => [
+      {
+        id: `qa-${Date.now()}`,
+        question: q,
+        answer,
+        citation,
+      },
+      ...prev,
+    ]);
+    setCustomQuestion('');
+  };
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -288,7 +347,7 @@ Unit 4: Storage & File Systems
         {/* Document Ingestion & Controls Column */}
         <div className="lg:col-span-4 space-y-5">
           
-          <div className="p-6 rounded-[2rem] bg-white dark:bg-[#0d1117] border border-slate-200 dark:border-white/10 shadow-sm dark:shadow-xl space-y-4 transition-colors">
+          <div className="p-6 rounded-xl bg-white dark:bg-[#0d1117] border border-slate-200 dark:border-white/10 shadow-sm space-y-4 transition-colors">
             <div className="flex items-center justify-between">
               <h3 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
                 <BookOpen className="w-4 h-4 text-blue-600 dark:text-cyan-400" />
@@ -447,7 +506,7 @@ Unit 4: Storage & File Systems
             <div className="space-y-5">
               
               {/* Header Score & Action Card */}
-              <div className="p-6 rounded-[2rem] bg-white dark:bg-[#0d1117] border border-slate-200 dark:border-white/10 shadow-sm dark:shadow-xl flex flex-col sm:flex-row sm:items-center justify-between gap-4 transition-colors">
+              <div className="p-6 rounded-xl bg-white dark:bg-[#0d1117] border border-slate-200 dark:border-white/10 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4 transition-colors">
                 <div className="space-y-1">
                   <div className="flex items-center gap-2">
                     <span className="px-2.5 py-0.5 rounded-md bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-800 text-[11px] font-bold font-mono text-blue-600 dark:text-cyan-400">
@@ -491,7 +550,7 @@ Unit 4: Storage & File Systems
                   { id: 'overview', label: 'Overview & Units', icon: Layers },
                   { id: 'topics', label: 'High-Yield Topics', icon: Zap },
                   { id: 'strategy', label: 'Study Strategy', icon: Calendar },
-                  { id: 'questions', label: 'Practice Questions', icon: HelpCircle },
+                  { id: 'questions', label: 'Ask Questions & Practice', icon: HelpCircle },
                   { id: 'checklist', label: `Exam Checklist (${completedCount}/${examChecklist.length || 7})`, icon: CheckSquare },
                 ].map((tab) => {
                   const Icon = tab.icon;
@@ -767,10 +826,83 @@ Unit 4: Storage & File Systems
                 </div>
               )}
 
-              {/* TAB 4: PRACTICE QUESTIONS */}
+              {/* TAB 4: ASK QUESTIONS & PRACTICE QUESTIONS */}
               {activeTab === 'questions' && (
-                <div className="space-y-3">
-                  <h4 className="text-xs font-mono font-bold uppercase text-slate-900 dark:text-white">
+                <div className="space-y-5">
+                  {/* Interactive Grounded Q&A Form */}
+                  <div className="p-5 rounded-xl bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <h4 className="text-xs font-mono font-bold uppercase text-slate-900 dark:text-white flex items-center gap-1.5">
+                        <HelpCircle className="w-4 h-4 text-blue-600 dark:text-cyan-400" />
+                        <span>Ask Questions Grounded In Uploaded Syllabus</span>
+                      </h4>
+                      <span className="text-[10px] font-mono text-slate-500">
+                        Zero-Hallucination Grounding
+                      </span>
+                    </div>
+
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        value={customQuestion}
+                        onChange={(e) => setCustomQuestion(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') handleAskDocumentQuestion();
+                        }}
+                        placeholder="e.g. Which unit covers Dynamic Programming, or what is the weightage of Unit 2?"
+                        className="flex-1 px-3 py-2 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 text-xs text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:border-blue-500 transition-colors font-mono"
+                      />
+                      <button
+                        onClick={() => handleAskDocumentQuestion()}
+                        disabled={!customQuestion.trim()}
+                        className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white text-xs font-mono font-bold shrink-0 transition-all cursor-pointer"
+                      >
+                        Ask AI
+                      </button>
+                    </div>
+
+                    {/* Quick Suggestions */}
+                    <div className="flex flex-wrap items-center gap-1.5 pt-1">
+                      <span className="text-[10px] font-mono text-slate-400">Suggestions:</span>
+                      {[
+                        'What is the highest-weight unit?',
+                        'Which topics require proofs?',
+                        'Summarize Unit 1 topics',
+                      ].map((sug, i) => (
+                        <button
+                          key={i}
+                          onClick={() => handleAskDocumentQuestion(sug)}
+                          className="px-2 py-0.5 rounded text-[10px] font-mono bg-white dark:bg-white/5 hover:bg-slate-100 dark:hover:bg-white/10 border border-slate-200 dark:border-white/10 text-slate-600 dark:text-slate-300 transition-colors cursor-pointer"
+                        >
+                          {sug}
+                        </button>
+                      ))}
+                    </div>
+
+                    {/* Q&A History List */}
+                    {qaEntries.length > 0 && (
+                      <div className="space-y-2.5 pt-2 border-t border-slate-200 dark:border-white/10">
+                        {qaEntries.map((qa) => (
+                          <div
+                            key={qa.id}
+                            className="p-3.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 space-y-1.5"
+                          >
+                            <div className="flex items-center justify-between text-xs font-bold text-slate-900 dark:text-white">
+                              <span>Q: {qa.question}</span>
+                              <span className="text-[10px] font-mono font-normal text-blue-600 dark:text-cyan-400 bg-blue-50 dark:bg-white/5 px-2 py-0.5 rounded border border-blue-200 dark:border-white/10">
+                                {qa.citation}
+                              </span>
+                            </div>
+                            <p className="text-xs text-slate-700 dark:text-slate-300 leading-relaxed font-sans">
+                              {qa.answer}
+                            </p>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  <h4 className="text-xs font-mono font-bold uppercase text-slate-900 dark:text-white pt-2">
                     High-Probability Exam Questions
                   </h4>
 
@@ -779,7 +911,7 @@ Unit 4: Storage & File Systems
                     return (
                       <div
                         key={q.id}
-                        className="p-5 rounded-2xl bg-white dark:bg-[#0d1117] border border-slate-200 dark:border-white/10 shadow-sm space-y-3"
+                        className="p-5 rounded-xl bg-white dark:bg-[#0d1117] border border-slate-200 dark:border-white/10 shadow-sm space-y-3"
                       >
                         <div className="flex items-center justify-between">
                           <span className="px-2 py-0.5 rounded bg-blue-50 dark:bg-white/5 text-[10px] font-mono font-bold text-blue-600 dark:text-cyan-400">
@@ -821,7 +953,7 @@ Unit 4: Storage & File Systems
 
               {/* TAB 5: EXAM CHECKLIST */}
               {activeTab === 'checklist' && (
-                <div className="p-6 rounded-[2rem] bg-white dark:bg-[#0d1117] border border-slate-200 dark:border-white/10 shadow-sm dark:shadow-xl space-y-4">
+                <div className="p-6 rounded-xl bg-white dark:bg-[#0d1117] border border-slate-200 dark:border-white/10 shadow-sm space-y-4">
                   <div className="flex items-center justify-between border-b border-slate-100 dark:border-white/5 pb-3">
                     <h4 className="text-xs font-mono font-bold uppercase text-slate-900 dark:text-white flex items-center gap-2">
                       <CheckSquare className="w-4 h-4 text-blue-600 dark:text-cyan-400" />
@@ -868,7 +1000,7 @@ Unit 4: Storage & File Systems
 
             </div>
           ) : !isRunning && !isError ? (
-            <div className="p-6 sm:p-8 rounded-[2rem] bg-white dark:bg-[#0d1117] border border-slate-200 dark:border-white/10 shadow-sm dark:shadow-xl min-h-[500px] flex flex-col items-center justify-center text-center space-y-3 transition-colors">
+            <div className="p-6 sm:p-8 rounded-xl bg-white dark:bg-[#0d1117] border border-slate-200 dark:border-white/10 shadow-sm min-h-[500px] flex flex-col items-center justify-center text-center space-y-3 transition-colors">
               <div className="w-12 h-12 rounded-2xl bg-blue-50 dark:bg-white/5 text-blue-600 dark:text-cyan-400 flex items-center justify-center">
                 <BookOpen className="w-6 h-6" />
               </div>

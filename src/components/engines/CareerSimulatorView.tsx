@@ -21,6 +21,9 @@ import {
   Layers,
   Award,
   Target,
+  ArrowDown,
+  Info,
+  ShieldCheck,
 } from 'lucide-react';
 
 interface CareerSimulatorViewProps {
@@ -36,6 +39,7 @@ export const CareerSimulatorView: React.FC<CareerSimulatorViewProps> = ({ onBack
   const [timeHorizon, setTimeHorizon] = useState<'1yr' | '2yr' | '4yr'>('2yr');
   const [copied, setCopied] = useState(false);
   const [exportingPdf, setExportingPdf] = useState(false);
+  const [viewMode, setViewMode] = useState<'structured' | 'raw'>('structured');
 
   const handleSimulate = async () => {
     if (!profile || isRunning) return;
@@ -100,6 +104,13 @@ export const CareerSimulatorView: React.FC<CareerSimulatorViewProps> = ({ onBack
   const riskFactors = [
     'Remaining on status quo coursework without public verifiable GitHub commits slows recruiter visibility.',
     'Generic resume formatting without quantified STAR impact metrics causes automated ATS drop-offs.',
+    'Lack of distributed systems or container orchestration exposure limits senior engineering shortlists.',
+  ];
+
+  const currentGaps = [
+    'Absence of live multi-tenant microservices deployment in portfolio projects.',
+    'Limited automated CI/CD pipeline telemetry and unit/integration test suites.',
+    'Infrequent GitHub contribution streaks compared to Tier-1 applicant cohorts.',
   ];
 
   const handleCopy = () => {
@@ -151,7 +162,7 @@ export const CareerSimulatorView: React.FC<CareerSimulatorViewProps> = ({ onBack
         {/* Simulation Controls (4 Cols) */}
         <div className="lg:col-span-4 space-y-5">
           
-          <div className="p-6 rounded-[2rem] bg-white dark:bg-[#0d1117] border border-slate-200 dark:border-white/10 shadow-sm dark:shadow-xl space-y-4 transition-colors">
+          <div className="p-6 rounded-xl bg-white dark:bg-[#0d1117] border border-slate-200 dark:border-white/10 shadow-sm space-y-4 transition-colors">
             <h3 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
               <Compass className="w-4 h-4 text-blue-600 dark:text-cyan-400" />
               <span>Trajectory Scenarios</span>
@@ -235,8 +246,16 @@ export const CareerSimulatorView: React.FC<CareerSimulatorViewProps> = ({ onBack
           )}
 
           {/* Top Comparison Card */}
-          <div className="p-6 rounded-[2rem] bg-white dark:bg-[#0d1117] border border-slate-200 dark:border-white/10 shadow-sm dark:shadow-xl space-y-6 transition-colors">
+          <div className="p-6 rounded-xl bg-white dark:bg-[#0d1117] border border-slate-200 dark:border-white/10 shadow-sm space-y-6 transition-colors">
             
+            {/* Disclaimer Banner */}
+            <div className="flex items-center gap-2 p-3 rounded-xl bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 text-blue-800 dark:text-blue-300 text-xs">
+              <ShieldCheck className="w-4 h-4 shrink-0 text-blue-600 dark:text-cyan-400" />
+              <span>
+                <strong>Scenario Estimate:</strong> Career simulations provide statistical trajectory models based on Student Twin signals, not guaranteed future outcomes.
+              </span>
+            </div>
+
             {/* Header & Delta */}
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 dark:border-white/5 pb-4">
               <div className="space-y-1">
@@ -250,11 +269,11 @@ export const CareerSimulatorView: React.FC<CareerSimulatorViewProps> = ({ onBack
                   {trajectoryTitle}
                 </h2>
                 <p className="text-xs text-slate-500 dark:text-slate-400">
-                  Candidate: <strong className="text-slate-800 dark:text-slate-200">{candidateName}</strong>
+                  Candidate: <strong className="text-slate-800 dark:text-slate-200">{candidateName}</strong> • Target Role: <strong className="text-slate-800 dark:text-slate-200">{profile?.targetRole || 'Software Engineer'}</strong>
                 </p>
               </div>
 
-              <div className="flex items-center gap-3 bg-emerald-500/10 border border-emerald-500/20 p-3 rounded-2xl shrink-0">
+              <div className="flex items-center gap-3 bg-emerald-500/10 border border-emerald-500/20 p-3 rounded-xl shrink-0">
                 <ArrowUpRight className="w-6 h-6 text-emerald-600 dark:text-emerald-400" />
                 <div className="text-right">
                   <div className="text-xl font-bold font-mono text-emerald-600 dark:text-emerald-400">
@@ -267,95 +286,201 @@ export const CareerSimulatorView: React.FC<CareerSimulatorViewProps> = ({ onBack
               </div>
             </div>
 
-            {/* Baseline vs Projected Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="p-4 rounded-2xl bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/5 space-y-2">
-                <span className="text-[10px] font-mono uppercase text-slate-400 font-bold block">
-                  Current Baseline
-                </span>
-                <div className="text-2xl font-bold font-mono text-slate-800 dark:text-slate-200">
-                  {baselineScore}% Readiness
-                </div>
-                <div className="text-xs font-mono text-slate-500">
-                  Projected Comp: <strong className="text-slate-700 dark:text-slate-300">{baselineCTC}</strong>
-                </div>
+            {/* View Mode Toggle */}
+            <div className="flex items-center justify-between">
+              <div className="text-xs font-mono text-slate-400 uppercase font-bold">
+                Simulation Sequence
               </div>
-
-              <div className="p-4 rounded-2xl bg-blue-50/50 dark:bg-blue-900/10 border border-blue-200 dark:border-blue-800 space-y-2">
-                <span className="text-[10px] font-mono uppercase text-blue-600 dark:text-cyan-400 font-bold block">
-                  Simulated Outcome ({timeHorizon})
-                </span>
-                <div className="text-2xl font-bold font-mono text-blue-600 dark:text-cyan-400">
-                  {projectedScore}% Readiness
-                </div>
-                <div className="text-xs font-mono text-slate-600 dark:text-slate-300">
-                  Projected Comp: <strong className="text-blue-600 dark:text-cyan-400">{projectedCTC}</strong>
-                </div>
+              <div className="flex items-center rounded-lg border border-slate-200 dark:border-white/10 p-0.5 bg-slate-50 dark:bg-white/5">
+                <button
+                  onClick={() => setViewMode('structured')}
+                  className={`px-3 py-1 rounded text-xs font-mono transition-all cursor-pointer ${
+                    viewMode === 'structured'
+                      ? 'bg-white dark:bg-slate-800 text-slate-900 dark:text-white shadow-xs font-bold'
+                      : 'text-slate-500 hover:text-slate-900 dark:hover:text-white'
+                  }`}
+                >
+                  Sequential View
+                </button>
+                <button
+                  onClick={() => setViewMode('raw')}
+                  className={`px-3 py-1 rounded text-xs font-mono transition-all cursor-pointer ${
+                    viewMode === 'raw'
+                      ? 'bg-white dark:bg-slate-800 text-slate-900 dark:text-white shadow-xs font-bold'
+                      : 'text-slate-500 hover:text-slate-900 dark:hover:text-white'
+                  }`}
+                >
+                  Raw AI Text
+                </button>
               </div>
             </div>
 
-            {/* Trajectory Dimension Deltas */}
-            <div className="space-y-3">
-              <h3 className="text-xs font-mono font-bold uppercase text-slate-500 dark:text-slate-400 flex items-center gap-1.5">
-                <Layers className="w-3.5 h-3.5 text-blue-500" />
-                <span>Simulated Capability Metrics</span>
-              </h3>
-              <div className="space-y-2.5">
-                {dimensions.map((dim, idx) => (
-                  <div
-                    key={idx}
-                    className="p-3.5 rounded-xl bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/5 space-y-1.5"
-                  >
-                    <div className="flex items-center justify-between text-xs">
-                      <span className="font-medium text-slate-800 dark:text-slate-200">{dim.label}</span>
-                      <span className="font-mono text-xs">
-                        <span className="text-slate-400 line-through mr-2">{dim.baseline}%</span>
-                        <strong className="text-blue-600 dark:text-cyan-400 font-bold">{dim.projected}%</strong>
-                      </span>
+            {viewMode === 'structured' ? (
+              <div className="space-y-6">
+                
+                {/* 1. CURRENT POSITION */}
+                <div className="p-4 rounded-xl bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-mono font-bold uppercase text-slate-500 dark:text-slate-400 flex items-center gap-1.5">
+                      <Target className="w-3.5 h-3.5 text-blue-500" />
+                      <span>1. Current Position (Baseline Assessment)</span>
+                    </span>
+                    <span className="text-[11px] font-mono text-slate-500">Student Twin Baseline</span>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div className="p-3 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10">
+                      <div className="text-[10px] font-mono text-slate-400 uppercase">Current Readiness</div>
+                      <div className="text-xl font-bold font-mono text-slate-800 dark:text-slate-200">{baselineScore}%</div>
+                      <div className="text-[10px] text-slate-500">Verified twin profile</div>
                     </div>
-                    <div className="w-full h-1.5 rounded-full bg-slate-200 dark:bg-white/10 overflow-hidden">
-                      <div
-                        className="h-full bg-blue-600 dark:bg-cyan-400 rounded-full transition-all duration-500"
-                        style={{ width: `${dim.projected}%` }}
-                      />
+                    <div className="p-3 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10">
+                      <div className="text-[10px] font-mono text-slate-400 uppercase">Target Role</div>
+                      <div className="text-sm font-bold text-slate-800 dark:text-slate-200 truncate">{profile?.targetRole || 'Software Engineer'}</div>
+                      <div className="text-[10px] text-slate-500">{skills.length} verified skills</div>
+                    </div>
+                    <div className="p-3 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10">
+                      <div className="text-[10px] font-mono text-slate-400 uppercase">Baseline Market Comp</div>
+                      <div className="text-sm font-bold font-mono text-slate-800 dark:text-slate-200">{baselineCTC}</div>
+                      <div className="text-[10px] text-slate-500">Current market tier</div>
                     </div>
                   </div>
-                ))}
-              </div>
-            </div>
+                </div>
 
-            {/* High ROI Upgrades & Risks */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="p-4 rounded-2xl bg-emerald-500/5 border border-emerald-500/20 space-y-2.5">
-                <h4 className="text-xs font-bold font-mono text-emerald-700 dark:text-emerald-400 uppercase flex items-center gap-1.5">
-                  <Zap className="w-4 h-4" />
-                  <span>Highest ROI Career Upgrades</span>
-                </h4>
-                <ul className="space-y-2 text-xs text-slate-700 dark:text-slate-300">
-                  {highestRoiUpgrades.map((u, i) => (
-                    <li key={i} className="flex items-start gap-2">
-                      <span className="text-emerald-500 mt-0.5">•</span>
-                      <span>{u}</span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
+                {/* Arrow Transition */}
+                <div className="flex justify-center -my-2">
+                  <div className="p-1.5 rounded-full bg-slate-100 dark:bg-white/10 text-slate-400">
+                    <ArrowDown className="w-4 h-4" />
+                  </div>
+                </div>
 
-              <div className="p-4 rounded-2xl bg-amber-500/5 border border-amber-500/20 space-y-2.5">
-                <h4 className="text-xs font-bold font-mono text-amber-700 dark:text-amber-400 uppercase flex items-center gap-1.5">
-                  <AlertTriangle className="w-4 h-4" />
-                  <span>Key Trajectory Risk Factors</span>
-                </h4>
-                <ul className="space-y-2 text-xs text-slate-700 dark:text-slate-300">
-                  {riskFactors.map((r, i) => (
-                    <li key={i} className="flex items-start gap-2">
-                      <span className="text-amber-500 mt-0.5">•</span>
-                      <span>{r}</span>
-                    </li>
-                  ))}
-                </ul>
+                {/* 2. IDENTIFIED GAPS */}
+                <div className="p-4 rounded-xl bg-amber-500/5 border border-amber-500/20 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-mono font-bold uppercase text-amber-700 dark:text-amber-400 flex items-center gap-1.5">
+                      <AlertTriangle className="w-3.5 h-3.5" />
+                      <span>2. Identified Competency Gaps</span>
+                    </span>
+                    <span className="text-[10px] font-mono text-amber-700 dark:text-amber-400">Barriers to Tier-1</span>
+                  </div>
+                  <ul className="space-y-2 text-xs text-slate-700 dark:text-slate-300">
+                    {currentGaps.map((gap, i) => (
+                      <li key={i} className="flex items-start gap-2">
+                        <span className="text-amber-500 font-bold">•</span>
+                        <span>{gap}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+
+                {/* Arrow Transition */}
+                <div className="flex justify-center -my-2">
+                  <div className="p-1.5 rounded-full bg-slate-100 dark:bg-white/10 text-slate-400">
+                    <ArrowDown className="w-4 h-4" />
+                  </div>
+                </div>
+
+                {/* 3. LIKELY OUTCOMES (Estimated Scenarios) */}
+                <div className="p-4 rounded-xl bg-blue-50/40 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800 space-y-4">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-mono font-bold uppercase text-blue-700 dark:text-cyan-400 flex items-center gap-1.5">
+                      <TrendingUp className="w-3.5 h-3.5" />
+                      <span>3. Likely Outcomes ({timeHorizon} Simulated Horizon)</span>
+                    </span>
+                    <span className="text-[10px] font-mono text-blue-600 dark:text-cyan-400 font-semibold">
+                      Monte Carlo Projection
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="p-3.5 rounded-lg bg-white dark:bg-slate-900 border border-blue-200 dark:border-blue-800 space-y-1">
+                      <span className="text-[10px] font-mono uppercase text-slate-400 font-bold block">
+                        Projected Readiness
+                      </span>
+                      <div className="text-2xl font-bold font-mono text-blue-600 dark:text-cyan-400">
+                        {projectedScore}% Readiness
+                      </div>
+                      <div className="text-xs text-slate-500">
+                        Top decile competitiveness among applicant pools
+                      </div>
+                    </div>
+
+                    <div className="p-3.5 rounded-lg bg-white dark:bg-slate-900 border border-blue-200 dark:border-blue-800 space-y-1">
+                      <span className="text-[10px] font-mono uppercase text-slate-400 font-bold block">
+                        Projected Compensation Band
+                      </span>
+                      <div className="text-2xl font-bold font-mono text-blue-600 dark:text-cyan-400">
+                        {projectedCTC}
+                      </div>
+                      <div className="text-xs text-slate-500">
+                        Tier-1 product & enterprise engineering compensation
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Capability Dimension Deltas */}
+                  <div className="space-y-2.5 pt-1">
+                    <span className="text-[11px] font-mono text-slate-500 uppercase font-bold block">
+                      Dimension Growth Deltas
+                    </span>
+                    <div className="space-y-2">
+                      {dimensions.map((dim, idx) => (
+                        <div
+                          key={idx}
+                          className="p-3 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 space-y-1"
+                        >
+                          <div className="flex items-center justify-between text-xs">
+                            <span className="font-medium text-slate-800 dark:text-slate-200">{dim.label}</span>
+                            <span className="font-mono text-xs">
+                              <span className="text-slate-400 line-through mr-2">{dim.baseline}%</span>
+                              <strong className="text-blue-600 dark:text-cyan-400 font-bold">{dim.projected}%</strong>
+                            </span>
+                          </div>
+                          <div className="w-full h-1.5 rounded-full bg-slate-200 dark:bg-white/10 overflow-hidden">
+                            <div
+                              className="h-full bg-blue-600 dark:bg-cyan-400 rounded-full transition-all duration-500"
+                              style={{ width: `${dim.projected}%` }}
+                            />
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Arrow Transition */}
+                <div className="flex justify-center -my-2">
+                  <div className="p-1.5 rounded-full bg-slate-100 dark:bg-white/10 text-slate-400">
+                    <ArrowDown className="w-4 h-4" />
+                  </div>
+                </div>
+
+                {/* 4. RECOMMENDED ACTIONS */}
+                <div className="p-4 rounded-xl bg-emerald-500/5 border border-emerald-500/20 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold font-mono text-emerald-700 dark:text-emerald-400 uppercase flex items-center gap-1.5">
+                      <Zap className="w-3.5 h-3.5" />
+                      <span>4. Recommended High-ROI Actions</span>
+                    </span>
+                    <span className="text-[10px] font-mono text-emerald-700 dark:text-emerald-400">
+                      Trajectory Unlocks
+                    </span>
+                  </div>
+                  <div className="space-y-2">
+                    {highestRoiUpgrades.map((u, i) => (
+                      <div key={i} className="p-3 rounded-lg bg-white dark:bg-slate-900 border border-emerald-500/20 flex items-start gap-2 text-xs text-slate-800 dark:text-slate-200">
+                        <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" />
+                        <span>{u}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
               </div>
-            </div>
+            ) : (
+              <div className="text-xs text-slate-800 dark:text-slate-200 leading-relaxed font-mono whitespace-pre-wrap max-h-[550px] overflow-y-auto p-4 rounded-xl bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10">
+                {rawText || 'Simulation executed. No raw text logged.'}
+              </div>
+            )}
 
             {/* Action Bar */}
             <div className="flex items-center justify-end gap-2 pt-4 border-t border-slate-100 dark:border-white/5">
@@ -372,7 +497,7 @@ export const CareerSimulatorView: React.FC<CareerSimulatorViewProps> = ({ onBack
                 className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold font-mono flex items-center gap-1.5 shadow-sm transition-all cursor-pointer"
               >
                 <Download className="w-3.5 h-3.5" />
-                <span>{exportingPdf ? 'Exporting...' : 'Download Simulation PDF'}</span>
+                <span>{exportingPdf ? 'Exporting...' : 'PDF'}</span>
               </button>
             </div>
 

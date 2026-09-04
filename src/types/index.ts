@@ -62,6 +62,7 @@ export interface StudentProfile {
   subscriptionTier?: SubscriptionTier;
   subscriptionExpiresAt?: string;
   certifications?: string[];
+  isOnboarded?: boolean;
   createdAt: string;
 }
 

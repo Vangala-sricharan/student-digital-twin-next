@@ -10,7 +10,7 @@ function aiEngineApiPlugin(): Plugin {
     name: 'vite-plugin-ai-engine-api',
     configureServer(server) {
       server.middlewares.use(async (req, res, next) => {
-        if (req.url === '/api/engine-ai' && req.method === 'POST') {
+        if ((req.url === '/api/engine-ai' || req.url === '/api/generate-description') && req.method === 'POST') {
           let body = '';
           req.on('data', (chunk) => {
             body += chunk;
@@ -105,6 +105,10 @@ export default defineConfig(() => {
       },
     },
     server: {
+      port: 3000,
+      host: '0.0.0.0',
+      strictPort: true,
+      allowedHosts: true as const,
       // HMR is disabled in AI Studio via DISABLE_HMR env var.
       // Do not modifyâfile watching is disabled to prevent flickering during agent edits.
       hmr: process.env.DISABLE_HMR !== 'true',

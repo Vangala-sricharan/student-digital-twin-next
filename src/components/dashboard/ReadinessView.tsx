@@ -103,42 +103,42 @@ export const ReadinessView: React.FC = () => {
     <div className="space-y-6 animate-in fade-in duration-200">
       
       {/* Header */}
-      <div className="p-6 sm:p-8 rounded-[2.5rem] bg-white dark:bg-[#0d1117] border border-slate-200 dark:border-white/10 shadow-sm dark:shadow-2xl space-y-2 transition-colors">
-        <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 text-blue-600 dark:text-cyan-300 text-[10px] font-bold uppercase tracking-wider font-mono">
+      <div className="p-6 sm:p-7 rounded-2xl bg-white dark:bg-[#0d1117] border border-slate-200 dark:border-white/10 shadow-sm space-y-2 transition-colors">
+        <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-md bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 text-blue-600 dark:text-cyan-300 text-[10px] font-bold uppercase tracking-wider font-mono">
           Deterministic Telemetry
         </div>
         <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 dark:text-white tracking-tight">
           Multi-Vector Readiness Diagnostics
         </h1>
         <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400">
-          Mathematical decomposition of career readiness calibrated against industry rubrics.
+          Mathematical decomposition of placement readiness calibrated strictly against verified student evidence.
         </p>
       </div>
 
       {/* Main Readiness Gauge Card */}
-      <div className="p-6 sm:p-8 rounded-[2.5rem] bg-white dark:bg-[#0d1117] border border-slate-200 dark:border-white/10 text-slate-900 dark:text-white shadow-sm dark:shadow-2xl flex flex-col md:flex-row items-center justify-between gap-6 transition-colors">
+      <div className="p-6 sm:p-7 rounded-2xl bg-white dark:bg-[#0d1117] border border-slate-200 dark:border-white/10 text-slate-900 dark:text-white shadow-sm flex flex-col md:flex-row items-center justify-between gap-6 transition-colors">
         <div className="space-y-2 text-center md:text-left">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-50 dark:bg-white/5 border border-blue-200 dark:border-white/10 text-blue-600 dark:text-cyan-300 text-xs font-mono font-bold">
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-md bg-blue-50 dark:bg-white/5 border border-blue-200 dark:border-white/10 text-blue-600 dark:text-cyan-300 text-xs font-mono font-bold">
             <Sparkles className="w-3.5 h-3.5" />
-            <span>{currentScore > 0 ? 'Placement Calibration Active' : 'Twin Awaiting Calibration'}</span>
+            <span>{currentScore > 0 ? 'Placement Calibration Active' : 'Start Building Career Evidence'}</span>
           </div>
           <h2 className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white">
-            Overall Placement Probability: {currentScore}%
+            {currentScore > 0 ? `Overall Placement Probability: ${currentScore}%` : '0% READINESS — Awaiting Evidence'}
           </h2>
           <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-400 max-w-xl leading-relaxed">
             {currentScore > 0
               ? 'Your Student Digital Twin telemetry is computed against benchmark criteria for campus placement and engineering fellowship eligibility.'
-              : 'Add your skills, proof projects, and academic standing in My Profile or execute AI Career Engines to calculate your placement probability vector.'}
+              : 'Your readiness score will grow as you build your Student Twin. Add your technical skills, verified proof projects, and distinctions in My Profile or execute AI Career Engines to calibrate your score.'}
           </p>
         </div>
 
-        <div className="p-5 rounded-2xl bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 text-center shrink-0 w-full sm:w-auto">
-          <div className="text-[10px] font-mono uppercase text-slate-500 dark:text-slate-400">Readiness Score</div>
+        <div className="p-5 rounded-xl bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 text-center shrink-0 w-full sm:w-56">
+          <div className="text-[10px] font-mono uppercase text-slate-500 dark:text-slate-400 font-bold">Readiness Score</div>
           <div className="text-4xl font-black text-blue-600 dark:text-cyan-400 font-mono mt-1">
             {currentScore}%
           </div>
           <div className="text-[11px] text-blue-600 dark:text-cyan-400 font-mono mt-0.5 font-semibold">
-            {currentScore > 0 ? (currentScore >= 80 ? 'Tier-1 Ready' : 'In Progress') : 'Calibration Pending'}
+            {currentScore > 0 ? (currentScore >= 80 ? 'Tier-1 Ready' : 'In Progress') : '0% • Empty Baseline'}
           </div>
         </div>
       </div>
@@ -150,11 +150,11 @@ export const ReadinessView: React.FC = () => {
           return (
             <div
               key={i}
-              className="p-6 rounded-[2.5rem] bg-white dark:bg-[#0d1117] border border-slate-200 dark:border-white/10 shadow-sm dark:shadow-lg space-y-4 flex flex-col justify-between hover:border-blue-500/40 dark:hover:border-cyan-500/40 transition-colors"
+              className="p-6 rounded-2xl bg-white dark:bg-[#0d1117] border border-slate-200 dark:border-white/10 shadow-sm space-y-4 flex flex-col justify-between hover:border-blue-500/40 dark:hover:border-cyan-500/40 transition-colors"
             >
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
-                  <div className="p-2.5 rounded-xl bg-blue-50 dark:bg-white/5 border border-blue-100 dark:border-white/5 text-blue-600 dark:text-cyan-400">
+                  <div className="p-2.5 rounded-lg bg-blue-50 dark:bg-white/5 border border-blue-100 dark:border-white/5 text-blue-600 dark:text-cyan-400">
                     <Icon className="w-5 h-5" />
                   </div>
 

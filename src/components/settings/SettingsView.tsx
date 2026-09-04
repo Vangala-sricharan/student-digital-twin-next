@@ -79,9 +79,9 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   return (
     <div className="space-y-8 max-w-5xl mx-auto pb-16">
       {/* Top Header Banner */}
-      <div className="p-6 md:p-8 rounded-[2rem] bg-white dark:bg-[#0d1117] border border-slate-200 dark:border-white/10 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-6 transition-colors">
+      <div className="p-6 md:p-8 rounded-[2.5rem] bg-white dark:bg-[#0d1117] border border-slate-200/90 dark:border-white/10 shadow-sm dark:shadow-xl flex flex-col md:flex-row md:items-center justify-between gap-6 transition-colors">
         <div className="flex items-center gap-4">
-          <div className="w-14 h-14 rounded-2xl bg-gradient-to-tr from-slate-800 to-slate-950 dark:from-blue-600 dark:to-cyan-500 text-white flex items-center justify-center shrink-0 shadow-lg shadow-slate-500/10">
+          <div className="w-14 h-14 rounded-3xl bg-gradient-to-tr from-slate-800 to-slate-950 dark:from-blue-600 dark:to-cyan-500 text-white flex items-center justify-center shrink-0 shadow-lg shadow-slate-500/10">
             <Settings className="w-7 h-7" />
           </div>
           <div>
@@ -89,7 +89,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
               <h1 className="text-xl md:text-2xl font-bold text-slate-900 dark:text-white tracking-tight">
                 Account & Workspace Settings
               </h1>
-              <span className="px-2.5 py-0.5 rounded-full bg-slate-100 dark:bg-white/10 text-slate-700 dark:text-slate-300 font-mono text-[10px] font-bold border border-slate-200 dark:border-white/10">
+              <span className="px-3 py-1 rounded-full bg-slate-100 dark:bg-white/10 text-slate-700 dark:text-slate-300 font-mono text-[10px] font-bold border border-slate-200 dark:border-white/10">
                 V4 ENGINE
               </span>
             </div>
@@ -102,7 +102,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
         {onBackToDashboard && (
           <button
             onClick={onBackToDashboard}
-            className="px-4 py-2 rounded-xl bg-slate-100 dark:bg-white/5 hover:bg-slate-200 dark:hover:bg-white/10 text-slate-700 dark:text-slate-300 text-xs font-mono font-medium transition-colors cursor-pointer self-start md:self-auto"
+            className="px-4 py-2 rounded-full bg-slate-100 dark:bg-white/5 hover:bg-slate-200 dark:hover:bg-white/10 text-slate-700 dark:text-slate-300 text-xs font-mono font-medium transition-colors cursor-pointer self-start md:self-auto"
           >
             Dashboard
           </button>
@@ -110,10 +110,10 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
       </div>
 
       {/* Navigation Tabs */}
-      <div className="flex items-center gap-1.5 p-1.5 rounded-2xl bg-slate-100 dark:bg-white/5 border border-slate-200/80 dark:border-white/10 overflow-x-auto">
+      <div className="flex items-center gap-1.5 p-1.5 rounded-full bg-slate-100 dark:bg-white/5 border border-slate-200/80 dark:border-white/10 overflow-x-auto no-scrollbar">
         <button
           onClick={() => setActiveTab('account')}
-          className={`px-4 py-2 rounded-xl text-xs font-mono font-bold transition-all cursor-pointer flex items-center gap-2 shrink-0 ${
+          className={`px-5 py-2.5 rounded-full text-xs font-mono font-bold transition-all cursor-pointer flex items-center gap-2 shrink-0 ${
             activeTab === 'account'
               ? 'bg-white dark:bg-[#0d1117] text-blue-600 dark:text-cyan-400 shadow-sm'
               : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
@@ -125,7 +125,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
 
         <button
           onClick={() => setActiveTab('appearance')}
-          className={`px-4 py-2 rounded-xl text-xs font-mono font-bold transition-all cursor-pointer flex items-center gap-2 shrink-0 ${
+          className={`px-5 py-2.5 rounded-full text-xs font-mono font-bold transition-all cursor-pointer flex items-center gap-2 shrink-0 ${
             activeTab === 'appearance'
               ? 'bg-white dark:bg-[#0d1117] text-blue-600 dark:text-cyan-400 shadow-sm'
               : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
@@ -137,7 +137,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
 
         <button
           onClick={() => setActiveTab('profile')}
-          className={`px-4 py-2 rounded-xl text-xs font-mono font-bold transition-all cursor-pointer flex items-center gap-2 shrink-0 ${
+          className={`px-5 py-2.5 rounded-full text-xs font-mono font-bold transition-all cursor-pointer flex items-center gap-2 shrink-0 ${
             activeTab === 'profile'
               ? 'bg-white dark:bg-[#0d1117] text-blue-600 dark:text-cyan-400 shadow-sm'
               : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
@@ -149,7 +149,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
 
         <button
           onClick={() => setActiveTab('subscription')}
-          className={`px-4 py-2 rounded-xl text-xs font-mono font-bold transition-all cursor-pointer flex items-center gap-2 shrink-0 ${
+          className={`px-5 py-2.5 rounded-full text-xs font-mono font-bold transition-all cursor-pointer flex items-center gap-2 shrink-0 ${
             activeTab === 'subscription'
               ? 'bg-white dark:bg-[#0d1117] text-blue-600 dark:text-cyan-400 shadow-sm'
               : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
@@ -161,7 +161,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
 
         <button
           onClick={() => setActiveTab('data')}
-          className={`px-4 py-2 rounded-xl text-xs font-mono font-bold transition-all cursor-pointer flex items-center gap-2 shrink-0 ${
+          className={`px-5 py-2.5 rounded-full text-xs font-mono font-bold transition-all cursor-pointer flex items-center gap-2 shrink-0 ${
             activeTab === 'data'
               ? 'bg-white dark:bg-[#0d1117] text-blue-600 dark:text-cyan-400 shadow-sm'
               : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
@@ -175,7 +175,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
       {/* TAB CONTENT: ACCOUNT */}
       {activeTab === 'account' && (
         <div className="space-y-6">
-          <div className="p-6 md:p-8 rounded-[2rem] bg-white dark:bg-[#0d1117] border border-slate-200 dark:border-white/10 shadow-sm space-y-6">
+          <div className="p-6 md:p-8 rounded-[2.5rem] bg-white dark:bg-[#0d1117] border border-slate-200/90 dark:border-white/10 shadow-sm dark:shadow-xl space-y-6">
             <h2 className="text-sm font-bold text-slate-900 dark:text-white uppercase tracking-wider font-mono">
               Account Credentials & Identity
             </h2>
@@ -187,7 +187,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                   type="text"
                   value={displayName}
                   onChange={(e) => setDisplayName(e.target.value)}
-                  className="w-full px-3.5 py-2 rounded-xl bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 text-xs text-slate-900 dark:text-white focus:outline-none focus:border-blue-500"
+                  className="w-full px-4 py-2.5 rounded-2xl bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 text-xs text-slate-900 dark:text-white focus:outline-none focus:border-blue-500"
                 />
               </div>
 
@@ -198,9 +198,9 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                     type="email"
                     disabled
                     value={user?.email || profile.email || 'scholar@university.edu'}
-                    className="w-full pl-9 pr-3.5 py-2 rounded-xl bg-slate-100 dark:bg-white/10 border border-slate-200 dark:border-white/10 text-xs font-mono text-slate-600 dark:text-slate-400 cursor-not-allowed"
+                    className="w-full pl-10 pr-4 py-2.5 rounded-2xl bg-slate-100 dark:bg-white/10 border border-slate-200 dark:border-white/10 text-xs font-mono text-slate-600 dark:text-slate-400 cursor-not-allowed"
                   />
-                  <Mail className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-2.5" />
+                  <Mail className="w-3.5 h-3.5 text-slate-400 absolute left-3.5 top-3" />
                 </div>
               </div>
 
@@ -210,7 +210,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                   type="text"
                   disabled
                   value={user?.id || 'demo-mode-sandbox-uid-2026'}
-                  className="w-full px-3.5 py-2 rounded-xl bg-slate-100 dark:bg-white/10 border border-slate-200 dark:border-white/10 text-[11px] font-mono text-slate-500 cursor-not-allowed"
+                  className="w-full px-4 py-2.5 rounded-2xl bg-slate-100 dark:bg-white/10 border border-slate-200 dark:border-white/10 text-[11px] font-mono text-slate-500 cursor-not-allowed"
                 />
               </div>
             </div>
@@ -223,7 +223,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
 
               <button
                 onClick={handleSaveAccount}
-                className="px-5 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold font-mono transition-all cursor-pointer flex items-center gap-1.5"
+                className="px-6 py-2.5 rounded-full bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold font-mono transition-all cursor-pointer flex items-center gap-1.5 shadow-md shadow-blue-600/20"
               >
                 {saveSuccess ? <CheckCircle2 className="w-3.5 h-3.5" /> : null}
                 <span>{saveSuccess ? 'Saved' : 'Update Account'}</span>
@@ -232,7 +232,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
           </div>
 
           {/* Logout Section */}
-          <div className="p-6 md:p-8 rounded-[2rem] bg-red-50/40 dark:bg-red-950/10 border border-red-200/80 dark:border-red-900/30 flex items-center justify-between gap-4">
+          <div className="p-6 md:p-8 rounded-[2.5rem] bg-red-50/40 dark:bg-red-950/10 border border-red-200/80 dark:border-red-900/30 flex items-center justify-between gap-4">
             <div>
               <h3 className="text-xs font-bold text-red-700 dark:text-red-400 uppercase tracking-wider font-mono">
                 Session Management
@@ -244,7 +244,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
 
             <button
               onClick={() => setShowLogoutConfirm(true)}
-              className="px-4 py-2 rounded-xl bg-red-600 hover:bg-red-500 text-white text-xs font-bold font-mono transition-all cursor-pointer flex items-center gap-1.5 shrink-0 shadow-sm"
+              className="px-5 py-2.5 rounded-full bg-red-600 hover:bg-red-500 text-white text-xs font-bold font-mono transition-all cursor-pointer flex items-center gap-1.5 shrink-0 shadow-md shadow-red-600/20"
             >
               <LogOut className="w-3.5 h-3.5" />
               <span>Sign Out</span>
@@ -255,7 +255,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
 
       {/* TAB CONTENT: APPEARANCE */}
       {activeTab === 'appearance' && (
-        <div className="p-6 md:p-8 rounded-[2rem] bg-white dark:bg-[#0d1117] border border-slate-200 dark:border-white/10 shadow-sm space-y-6">
+        <div className="p-6 md:p-8 rounded-[2.5rem] bg-white dark:bg-[#0d1117] border border-slate-200/90 dark:border-white/10 shadow-sm dark:shadow-xl space-y-6">
           <div className="flex items-center justify-between border-b border-slate-100 dark:border-white/5 pb-4">
             <div>
               <h2 className="text-sm font-bold text-slate-900 dark:text-white uppercase tracking-wider font-mono">
@@ -274,7 +274,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
               onClick={() => {
                 if (isDarkMode) toggleTheme();
               }}
-              className={`p-5 rounded-2xl border-2 cursor-pointer transition-all ${
+              className={`p-6 rounded-3xl border-2 cursor-pointer transition-all ${
                 !isDarkMode
                   ? 'border-blue-500 bg-blue-50/30 dark:bg-blue-950/20 ring-4 ring-blue-500/10'
                   : 'border-slate-200 dark:border-white/10 hover:border-slate-300'
@@ -282,11 +282,11 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
             >
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-amber-100 text-amber-600 flex items-center justify-center">
-                    <Sun className="w-5 h-5" />
+                  <div className="w-12 h-12 rounded-2xl bg-amber-100 text-amber-600 flex items-center justify-center">
+                    <Sun className="w-6 h-6" />
                   </div>
                   <div>
-                    <h3 className="text-xs font-bold text-slate-900 dark:text-white">Light Mode</h3>
+                    <h3 className="text-sm font-bold text-slate-900 dark:text-white">Light Mode</h3>
                     <p className="text-[11px] text-slate-500">Clean, high-contrast daylight aesthetic</p>
                   </div>
                 </div>
@@ -299,7 +299,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
               onClick={() => {
                 if (!isDarkMode) toggleTheme();
               }}
-              className={`p-5 rounded-2xl border-2 cursor-pointer transition-all ${
+              className={`p-6 rounded-3xl border-2 cursor-pointer transition-all ${
                 isDarkMode
                   ? 'border-cyan-400 bg-cyan-950/20 ring-4 ring-cyan-400/10'
                   : 'border-slate-200 dark:border-white/10 hover:border-slate-300'
@@ -307,11 +307,11 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
             >
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-slate-800 text-cyan-400 flex items-center justify-center">
-                    <Moon className="w-5 h-5" />
+                  <div className="w-12 h-12 rounded-2xl bg-slate-800 text-cyan-400 flex items-center justify-center">
+                    <Moon className="w-6 h-6" />
                   </div>
                   <div>
-                    <h3 className="text-xs font-bold text-slate-900 dark:text-white">Dark Mode</h3>
+                    <h3 className="text-sm font-bold text-slate-900 dark:text-white">Dark Mode</h3>
                     <p className="text-[11px] text-slate-400">Deep obsidian palette for focus</p>
                   </div>
                 </div>
@@ -324,7 +324,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
 
       {/* TAB CONTENT: STUDENT PROFILE (QUICK EDIT) */}
       {activeTab === 'profile' && (
-        <div className="p-6 md:p-8 rounded-[2rem] bg-white dark:bg-[#0d1117] border border-slate-200 dark:border-white/10 shadow-sm space-y-6">
+        <div className="p-6 md:p-8 rounded-[2.5rem] bg-white dark:bg-[#0d1117] border border-slate-200/90 dark:border-white/10 shadow-sm dark:shadow-xl space-y-6">
           <div className="flex items-center justify-between border-b border-slate-100 dark:border-white/5 pb-4">
             <div>
               <h2 className="text-sm font-bold text-slate-900 dark:text-white uppercase tracking-wider font-mono">
@@ -338,7 +338,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
             {onNavigateToProfile && (
               <button
                 onClick={onNavigateToProfile}
-                className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold font-mono transition-all flex items-center gap-1.5 cursor-pointer shadow-sm"
+                className="px-5 py-2.5 rounded-full bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold font-mono transition-all flex items-center gap-1.5 cursor-pointer shadow-md shadow-blue-600/20"
               >
                 <span>Full Profile View</span>
                 <ChevronRight className="w-3.5 h-3.5" />
@@ -346,7 +346,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
             )}
           </div>
 
-          <div className="p-4 rounded-2xl bg-slate-50 dark:bg-white/5 border border-slate-200/80 dark:border-white/5">
+          <div className="p-5 rounded-3xl bg-slate-50 dark:bg-white/5 border border-slate-200/80 dark:border-white/5">
             <ProfilePictureUploader studentName={profile.fullName || profile.name} size="xl" />
           </div>
 
@@ -357,7 +357,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                 type="text"
                 value={profile.university || ''}
                 disabled
-                className="w-full px-3.5 py-2 rounded-xl bg-slate-100 dark:bg-white/10 border border-slate-200 dark:border-white/10 text-xs text-slate-700 dark:text-slate-300 cursor-not-allowed"
+                className="w-full px-4 py-2.5 rounded-2xl bg-slate-100 dark:bg-white/10 border border-slate-200 dark:border-white/10 text-xs text-slate-700 dark:text-slate-300 cursor-not-allowed"
               />
             </div>
 
@@ -365,9 +365,13 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
               <label className="text-[11px] font-mono text-slate-500 dark:text-slate-400">Degree & Year</label>
               <input
                 type="text"
-                value={`${profile.degree || 'B.Tech'} • ${profile.yearOfStudy || '3rd Year'}`}
+                value={
+                  profile.degree || profile.yearOfStudy
+                    ? `${profile.degree || 'Degree not specified'}${profile.yearOfStudy ? ` • ${profile.yearOfStudy}` : ''}`
+                    : 'Not specified'
+                }
                 disabled
-                className="w-full px-3.5 py-2 rounded-xl bg-slate-100 dark:bg-white/10 border border-slate-200 dark:border-white/10 text-xs text-slate-700 dark:text-slate-300 cursor-not-allowed"
+                className="w-full px-4 py-2.5 rounded-2xl bg-slate-100 dark:bg-white/10 border border-slate-200 dark:border-white/10 text-xs text-slate-700 dark:text-slate-300 cursor-not-allowed"
               />
             </div>
           </div>
@@ -376,7 +380,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
 
       {/* TAB CONTENT: SUBSCRIPTION */}
       {activeTab === 'subscription' && (
-        <div className="p-6 md:p-8 rounded-[2rem] bg-white dark:bg-[#0d1117] border border-slate-200 dark:border-white/10 shadow-sm space-y-6">
+        <div className="p-6 md:p-8 rounded-[2.5rem] bg-white dark:bg-[#0d1117] border border-slate-200/90 dark:border-white/10 shadow-sm dark:shadow-xl space-y-6">
           <div className="flex items-center justify-between border-b border-slate-100 dark:border-white/5 pb-4">
             <div>
               <h2 className="text-sm font-bold text-slate-900 dark:text-white uppercase tracking-wider font-mono">
@@ -390,7 +394,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
             {onNavigateToUpgrade && (
               <button
                 onClick={onNavigateToUpgrade}
-                className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold font-mono transition-all flex items-center gap-1.5 cursor-pointer shadow-sm"
+                className="px-5 py-2.5 rounded-full bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold font-mono transition-all flex items-center gap-1.5 cursor-pointer shadow-md shadow-blue-600/20"
               >
                 <span>Upgrade Plan</span>
                 <ChevronRight className="w-3.5 h-3.5" />
@@ -399,7 +403,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
           </div>
 
           {/* Current Tier Box */}
-          <div className="p-6 rounded-2xl bg-gradient-to-br from-blue-500/10 via-indigo-500/5 to-cyan-500/10 border border-blue-200 dark:border-blue-900/40 space-y-4">
+          <div className="p-6 md:p-8 rounded-3xl bg-gradient-to-br from-blue-500/10 via-indigo-500/5 to-cyan-500/10 border border-blue-200 dark:border-blue-900/40 space-y-4">
             <div className="flex items-start justify-between">
               <div>
                 <span className="text-[10px] font-mono font-bold text-blue-600 dark:text-cyan-400 uppercase tracking-widest">
@@ -413,12 +417,12 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                 </p>
               </div>
 
-              <span className="px-3 py-1 rounded-full bg-blue-600 text-white font-mono text-[10px] font-bold">
+              <span className="px-3.5 py-1 rounded-full bg-blue-600 text-white font-mono text-[10px] font-bold shadow-sm">
                 SIMULATED BILLING
               </span>
             </div>
 
-            <div className="pt-2 border-t border-blue-100 dark:border-white/5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs font-mono text-slate-600 dark:text-slate-400">
+            <div className="pt-3 border-t border-blue-100 dark:border-white/5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs font-mono text-slate-600 dark:text-slate-400">
               <span>All 11 AI Career Engines: Active</span>
               <span>Vector PDF Exports: Enabled</span>
             </div>
@@ -428,7 +432,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
 
       {/* TAB CONTENT: DATA & PRIVACY */}
       {activeTab === 'data' && (
-        <div className="p-6 md:p-8 rounded-[2rem] bg-white dark:bg-[#0d1117] border border-slate-200 dark:border-white/10 shadow-sm space-y-6">
+        <div className="p-6 md:p-8 rounded-[2.5rem] bg-white dark:bg-[#0d1117] border border-slate-200/90 dark:border-white/10 shadow-sm dark:shadow-xl space-y-6">
           <div className="flex items-center justify-between border-b border-slate-100 dark:border-white/5 pb-4">
             <div>
               <h2 className="text-sm font-bold text-slate-900 dark:text-white uppercase tracking-wider font-mono">
@@ -441,7 +445,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div className="p-5 rounded-2xl bg-slate-50 dark:bg-white/5 border border-slate-200/80 dark:border-white/5 space-y-3">
+            <div className="p-6 rounded-3xl bg-slate-50 dark:bg-white/5 border border-slate-200/80 dark:border-white/5 space-y-3">
               <div className="flex items-center gap-2.5">
                 <Download className="w-5 h-5 text-blue-600 dark:text-cyan-400" />
                 <h3 className="text-xs font-bold text-slate-900 dark:text-white">Export Digital Twin JSON</h3>
@@ -451,14 +455,14 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
               </p>
               <button
                 onClick={handleExportData}
-                className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-mono font-bold flex items-center gap-1.5 cursor-pointer shadow-sm transition-all"
+                className="px-5 py-2.5 rounded-full bg-blue-600 hover:bg-blue-500 text-white text-xs font-mono font-bold flex items-center gap-1.5 cursor-pointer shadow-md shadow-blue-600/20 transition-all"
               >
                 {exportSuccess ? <CheckCircle2 className="w-3.5 h-3.5" /> : <Download className="w-3.5 h-3.5" />}
                 <span>{exportSuccess ? 'Exported!' : 'Export JSON'}</span>
               </button>
             </div>
 
-            <div className="p-5 rounded-2xl bg-slate-50 dark:bg-white/5 border border-slate-200/80 dark:border-white/5 space-y-3">
+            <div className="p-6 rounded-3xl bg-slate-50 dark:bg-white/5 border border-slate-200/80 dark:border-white/5 space-y-3">
               <div className="flex items-center gap-2.5">
                 <Shield className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
                 <h3 className="text-xs font-bold text-slate-900 dark:text-white">Security & Isolation</h3>
@@ -466,7 +470,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
               <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
                 Your data is strictly partitioned by your Supabase user ID and protected under Row Level Security.
               </p>
-              <div className="px-3 py-1.5 rounded-lg bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 font-mono text-[10px] font-bold inline-block border border-emerald-200 dark:border-emerald-800">
+              <div className="px-3.5 py-1.5 rounded-full bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 font-mono text-[10px] font-bold inline-block border border-emerald-200 dark:border-emerald-800">
                 STATUS: RLS SECURED
               </div>
             </div>
@@ -477,7 +481,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
       {/* LOGOUT CONFIRMATION MODAL */}
       {showLogoutConfirm && (
         <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white dark:bg-[#0d1117] border border-slate-200 dark:border-white/10 rounded-[2rem] max-w-sm w-full p-6 shadow-2xl space-y-4 text-center">
+          <div className="bg-white dark:bg-[#0d1117] border border-slate-200 dark:border-white/10 rounded-[2.5rem] max-w-sm w-full p-6 shadow-2xl space-y-4 text-center">
             <div className="w-12 h-12 rounded-full bg-red-100 dark:bg-red-950/50 text-red-600 flex items-center justify-center mx-auto">
               <AlertTriangle className="w-6 h-6" />
             </div>
@@ -492,7 +496,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
             <div className="flex items-center gap-2 pt-2">
               <button
                 onClick={() => setShowLogoutConfirm(false)}
-                className="flex-1 py-2.5 rounded-xl bg-slate-100 dark:bg-white/5 hover:bg-slate-200 dark:hover:bg-white/10 text-slate-700 dark:text-slate-300 text-xs font-mono font-bold transition-colors cursor-pointer"
+                className="flex-1 py-2.5 rounded-full bg-slate-100 dark:bg-white/5 hover:bg-slate-200 dark:hover:bg-white/10 text-slate-700 dark:text-slate-300 text-xs font-mono font-bold transition-colors cursor-pointer"
               >
                 Cancel
               </button>
@@ -501,7 +505,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                   setShowLogoutConfirm(false);
                   await signOut();
                 }}
-                className="flex-1 py-2.5 rounded-xl bg-red-600 hover:bg-red-500 text-white text-xs font-mono font-bold transition-colors cursor-pointer shadow-sm"
+                className="flex-1 py-2.5 rounded-full bg-red-600 hover:bg-red-500 text-white text-xs font-mono font-bold transition-colors cursor-pointer shadow-md shadow-red-600/20"
               >
                 Yes, Sign Out
               </button>

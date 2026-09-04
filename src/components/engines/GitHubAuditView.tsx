@@ -40,7 +40,7 @@ export const GitHubAuditView: React.FC<GitHubAuditViewProps> = ({ onBackToHub })
   const { job, isRunning, isError, execute, retry } = useEngineJob('github-audit');
 
   const [githubUrlInput, setGithubUrlInput] = useState(
-    profile?.githubUrl || 'https://github.com/Vangala-sricharan'
+    profile?.githubUrl || ''
   );
   const [localInputError, setLocalInputError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
@@ -168,7 +168,7 @@ export const GitHubAuditView: React.FC<GitHubAuditViewProps> = ({ onBackToHub })
       <div className="space-y-6">
         
         {/* Top Search & Audit Control Bar */}
-        <div className="p-4 sm:p-5 rounded-2xl bg-white dark:bg-[#0d1117] border border-slate-200 dark:border-white/10 shadow-sm flex flex-col sm:flex-row items-center gap-3 transition-colors">
+        <div className="p-4 sm:p-5 rounded-xl bg-white dark:bg-[#0d1117] border border-slate-200 dark:border-white/10 shadow-sm flex flex-col sm:flex-row items-center gap-3 transition-colors">
           <div className="relative flex-1 w-full">
             <Github className="w-5 h-5 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
             <input
@@ -217,8 +217,8 @@ export const GitHubAuditView: React.FC<GitHubAuditViewProps> = ({ onBackToHub })
 
         {/* Idle State Prompt when no analysis has run yet */}
         {!isRunning && !auditData && !isError && (
-          <div className="p-8 sm:p-12 rounded-2xl bg-white dark:bg-[#0d1117] border border-dashed border-slate-200 dark:border-white/10 text-center space-y-4">
-            <div className="w-14 h-14 rounded-2xl bg-blue-50 dark:bg-white/5 text-blue-600 dark:text-cyan-400 flex items-center justify-center mx-auto">
+          <div className="p-8 sm:p-12 rounded-xl bg-white dark:bg-[#0d1117] border border-dashed border-slate-200 dark:border-white/10 text-center space-y-4">
+            <div className="w-14 h-14 rounded-xl bg-blue-50 dark:bg-white/5 text-blue-600 dark:text-cyan-400 flex items-center justify-center mx-auto">
               <Github className="w-7 h-7" />
             </div>
             <div className="space-y-1 max-w-md mx-auto">
@@ -237,7 +237,7 @@ export const GitHubAuditView: React.FC<GitHubAuditViewProps> = ({ onBackToHub })
           <div className="space-y-6 animate-in fade-in duration-300">
             
             {/* Top Action Header Bar */}
-            <div className="p-4 rounded-2xl bg-white dark:bg-[#0d1117] border border-slate-200 dark:border-white/10 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div className="p-4 rounded-xl bg-white dark:bg-[#0d1117] border border-slate-200 dark:border-white/10 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div className="flex items-center gap-2">
                 <span className="px-2.5 py-1 rounded-md bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-cyan-400 font-mono text-xs font-bold border border-blue-200 dark:border-blue-800">
                   REAL GITHUB AUDIT
@@ -270,7 +270,7 @@ export const GitHubAuditView: React.FC<GitHubAuditViewProps> = ({ onBackToHub })
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
               
               {/* Left Column: GITHUB PROFILE CARD */}
-              <div className="lg:col-span-6 p-6 rounded-2xl bg-white dark:bg-[#0d1117] border border-slate-200 dark:border-white/10 shadow-sm flex flex-col justify-between space-y-6 transition-colors">
+              <div className="lg:col-span-6 p-6 rounded-xl bg-white dark:bg-[#0d1117] border border-slate-200 dark:border-white/10 shadow-sm flex flex-col justify-between space-y-6 transition-colors">
                 <div className="space-y-4">
                   
                   {/* Avatar + Username Header */}
@@ -283,7 +283,7 @@ export const GitHubAuditView: React.FC<GitHubAuditViewProps> = ({ onBackToHub })
                         // Fallback avatar
                         (e.target as HTMLElement).style.display = 'none';
                       }}
-                      className="w-16 h-16 rounded-2xl object-cover border border-slate-200 dark:border-white/10 shrink-0 bg-slate-100 dark:bg-white/5"
+                      className="w-16 h-16 rounded-xl object-cover border border-slate-200 dark:border-white/10 shrink-0 bg-slate-100 dark:bg-white/5"
                     />
                     <div className="space-y-1 min-w-0">
                       <h3 className="text-lg sm:text-xl font-bold text-slate-900 dark:text-white truncate">
@@ -381,7 +381,7 @@ export const GitHubAuditView: React.FC<GitHubAuditViewProps> = ({ onBackToHub })
               </div>
 
               {/* Right Column: RECRUITER-READINESS SCORE & PARAMETERS */}
-              <div className="lg:col-span-6 p-6 rounded-2xl bg-white dark:bg-[#0d1117] border border-slate-200 dark:border-white/10 shadow-sm flex flex-col justify-between space-y-6 transition-colors">
+              <div className="lg:col-span-6 p-6 rounded-xl bg-white dark:bg-[#0d1117] border border-slate-200 dark:border-white/10 shadow-sm flex flex-col justify-between space-y-6 transition-colors">
                 
                 {/* Score & Evaluation Header */}
                 <div className="flex items-center justify-between gap-4 pb-4 border-b border-slate-100 dark:border-white/5">
@@ -453,7 +453,7 @@ export const GitHubAuditView: React.FC<GitHubAuditViewProps> = ({ onBackToHub })
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
               
               {/* Empirical Strengths */}
-              <div className="lg:col-span-6 p-6 rounded-2xl bg-white dark:bg-[#0d1117] border border-slate-200 dark:border-white/10 shadow-sm space-y-4 transition-colors">
+              <div className="lg:col-span-6 p-6 rounded-xl bg-white dark:bg-[#0d1117] border border-slate-200 dark:border-white/10 shadow-sm space-y-4 transition-colors">
                 <div className="flex items-center gap-2 text-emerald-600 dark:text-emerald-400 text-xs font-bold font-mono uppercase tracking-wider">
                   <CheckCircle2 className="w-4 h-4" />
                   <span>Empirical Strengths</span>
@@ -469,7 +469,7 @@ export const GitHubAuditView: React.FC<GitHubAuditViewProps> = ({ onBackToHub })
               </div>
 
               {/* Deficiencies & Red Flags */}
-              <div className="lg:col-span-6 p-6 rounded-2xl bg-white dark:bg-[#0d1117] border border-slate-200 dark:border-white/10 shadow-sm space-y-4 transition-colors">
+              <div className="lg:col-span-6 p-6 rounded-xl bg-white dark:bg-[#0d1117] border border-slate-200 dark:border-white/10 shadow-sm space-y-4 transition-colors">
                 <div className="flex items-center gap-2 text-rose-600 dark:text-rose-400 text-xs font-bold font-mono uppercase tracking-wider">
                   <AlertTriangle className="w-4 h-4" />
                   <span>Deficiencies & Red Flags</span>
@@ -487,7 +487,7 @@ export const GitHubAuditView: React.FC<GitHubAuditViewProps> = ({ onBackToHub })
             </div>
 
             {/* Row 3: High Impact Profile Adjustments */}
-            <div className="p-6 rounded-2xl bg-white dark:bg-[#0d1117] border border-slate-200 dark:border-white/10 shadow-sm space-y-4 transition-colors">
+            <div className="p-6 rounded-xl bg-white dark:bg-[#0d1117] border border-slate-200 dark:border-white/10 shadow-sm space-y-4 transition-colors">
               <div className="flex items-center gap-2 text-blue-600 dark:text-cyan-400 text-xs font-bold font-mono uppercase tracking-wider">
                 <Lightbulb className="w-4 h-4" />
                 <span>High Impact Profile Adjustments</span>
@@ -515,7 +515,7 @@ export const GitHubAuditView: React.FC<GitHubAuditViewProps> = ({ onBackToHub })
             </div>
 
             {/* Row 4: Recruiter Search Optimization */}
-            <div className="p-6 rounded-2xl bg-white dark:bg-[#0d1117] border border-slate-200 dark:border-white/10 shadow-sm space-y-3 transition-colors">
+            <div className="p-6 rounded-xl bg-white dark:bg-[#0d1117] border border-slate-200 dark:border-white/10 shadow-sm space-y-3 transition-colors">
               <div className="flex items-center gap-2 text-indigo-600 dark:text-indigo-400 text-xs font-bold font-mono uppercase tracking-wider">
                 <Search className="w-4 h-4" />
                 <span>Recruiter Search Optimization</span>

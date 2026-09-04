@@ -1,12 +1,15 @@
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useContext, useEffect, useState, useRef } from 'react';
 import { User, Session } from '@supabase/supabase-js';
-import { supabase, isSupabaseConfigured } from '../lib/supabase';
+import { supabase, isSupabaseConfigured, withTimeout } from '../lib/supabase';
 import { UserProfile } from '../types';
 
 interface AuthContextType {
   user: User | null;
   session: Session | null;
   userProfile: UserProfile | null;
+  isAuthChecking: boolean;
+  isProfileHydrating: boolean;
+  isAuthReady: boolean;
   isLoading: boolean;
   loading: boolean;
   isConfigured: boolean;
@@ -27,56 +30,102 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
-  const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [isAuthChecking, setIsAuthChecking] = useState<boolean>(true);
+  const [isProfileHydrating, setIsProfileHydrating] = useState<boolean>(false);
+  const [isAuthReady, setIsAuthReady] = useState<boolean>(false);
+
+  // In-flight deduplication ref for profile fetching
+  const inFlightProfileRef = useRef<string | null>(null);
 
   const fetchOrCreateProfile = async (authUser: User) => {
-    // Synchronously ensure userProfile has immediate data from auth user
-    const fallbackProfile: UserProfile = {
-      id: authUser.id,
-      email: authUser.email || '',
-      fullName:
-        authUser.user_metadata?.full_name ||
-        authUser.user_metadata?.name ||
-        authUser.email?.split('@')[0] ||
-        'Student Scholar',
-      avatarUrl: authUser.user_metadata?.avatar_url || authUser.user_metadata?.picture,
-      role: 'student',
-      createdAt: new Date().toISOString(),
-    };
-
-    setUserProfile((prev) => prev || fallbackProfile);
-
-    if (!isSupabaseConfigured) return;
+    if (!authUser || !authUser.id) return;
+    if (inFlightProfileRef.current === authUser.id) {
+      return;
+    }
+    inFlightProfileRef.current = authUser.id;
+    setIsProfileHydrating(true);
 
     try {
-      const { data, error } = await supabase
-        .from('user_profiles')
-        .select('*')
-        .eq('id', authUser.id)
-        .maybeSingle();
+      // 1. Fast path: load cached profile from user-scoped storage for 0ms rendering
+      const cacheKey = `${LOCAL_PROFILE_STORAGE_KEY}_${authUser.id}`;
+      const cached = localStorage.getItem(cacheKey);
+      if (cached) {
+        try {
+          const parsed = JSON.parse(cached);
+          if (parsed && parsed.id === authUser.id) {
+            setUserProfile(parsed);
+          }
+        } catch {
+          // ignore cache parse failure
+        }
+      }
 
-      if (data && !error) {
-        setUserProfile({
-          id: data.id,
-          email: data.email,
-          fullName: data.full_name || fallbackProfile.fullName,
-          avatarUrl: data.avatar_url || fallbackProfile.avatarUrl,
-          role: data.role || 'student',
-          createdAt: data.created_at,
-        });
+      // Synchronously ensure userProfile has immediate baseline data from auth user
+      const fallbackProfile: UserProfile = {
+        id: authUser.id,
+        email: authUser.email || '',
+        fullName:
+          authUser.user_metadata?.full_name ||
+          authUser.user_metadata?.name ||
+          authUser.email?.split('@')[0] ||
+          '',
+        avatarUrl: authUser.user_metadata?.avatar_url || authUser.user_metadata?.picture,
+        role: 'student',
+        createdAt: new Date().toISOString(),
+      };
+
+      setUserProfile((prev) => prev || fallbackProfile);
+
+      if (!isSupabaseConfigured) {
+        setIsProfileHydrating(false);
         return;
       }
 
-      // Upsert profile in background if missing
-      await supabase.from('user_profiles').upsert({
-        id: fallbackProfile.id,
-        email: fallbackProfile.email,
-        full_name: fallbackProfile.fullName,
-        avatar_url: fallbackProfile.avatarUrl,
-        role: fallbackProfile.role,
-      });
-    } catch (err) {
-      console.warn('Profile background sync notice:', err);
+      // 2. Query Supabase with a strict 3500ms timeout to prevent 30-second freezing
+      try {
+        const queryPromise = supabase
+          .from('user_profiles')
+          .select('*')
+          .eq('id', authUser.id)
+          .maybeSingle();
+
+        const { data, error } = await withTimeout(
+          queryPromise,
+          3500,
+          { data: null, error: null } as any
+        );
+
+        if (data && !error) {
+          const resolvedProfile: UserProfile = {
+            id: data.id,
+            email: data.email,
+            fullName: data.full_name || fallbackProfile.fullName,
+            avatarUrl: data.avatar_url || fallbackProfile.avatarUrl,
+            role: data.role || 'student',
+            createdAt: data.created_at,
+          };
+          setUserProfile(resolvedProfile);
+          localStorage.setItem(cacheKey, JSON.stringify(resolvedProfile));
+          return;
+        }
+
+        // Background non-blocking upsert if table exists
+        withTimeout(
+          supabase.from('user_profiles').upsert({
+            id: fallbackProfile.id,
+            email: fallbackProfile.email,
+            full_name: fallbackProfile.fullName,
+            avatar_url: fallbackProfile.avatarUrl,
+            role: fallbackProfile.role,
+          }),
+          2500
+        ).catch(() => {});
+      } catch (err) {
+        console.warn('Profile background sync noticed:', err);
+      }
+    } finally {
+      inFlightProfileRef.current = null;
+      setIsProfileHydrating(false);
     }
   };
 
@@ -85,12 +134,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     let mounted = true;
 
     async function initializeAuth() {
+      setIsAuthChecking(true);
       try {
         if (isSupabaseConfigured) {
-          const { data: { session: existingSession }, error } = await supabase.auth.getSession();
+          const sessionPromise = supabase.auth.getSession();
+          const { data, error } = await withTimeout(
+            sessionPromise,
+            4000,
+            { data: { session: null }, error: null } as any
+          );
+
           if (error) {
-            console.warn('Supabase getSession error:', error.message);
+            console.warn('Supabase getSession notice:', error.message);
           }
+
+          const existingSession = data?.session;
           if (mounted && existingSession) {
             setSession(existingSession);
             setUser(existingSession.user);
@@ -111,10 +169,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           }
         }
       } catch (err) {
-        console.error('Failed to initialize auth:', err);
+        console.error('Failed to initialize auth session:', err);
       } finally {
         if (mounted) {
-          setIsLoading(false);
+          setIsAuthChecking(false);
+          setIsAuthReady(true);
         }
       }
     }
@@ -127,7 +186,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         if (!mounted) return;
         setSession(currentSession);
         setUser(currentSession?.user ?? null);
-        setIsLoading(false);
+        setIsAuthChecking(false);
+        setIsAuthReady(true);
 
         if (currentSession?.user) {
           fetchOrCreateProfile(currentSession.user).catch((e) => console.warn(e));
@@ -150,7 +210,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const signUpWithEmail = async (email: string, password: string, fullName: string) => {
     try {
       if (isSupabaseConfigured) {
-        const { data, error } = await supabase.auth.signUp({
+        const signUpPromise = supabase.auth.signUp({
           email: email.trim(),
           password,
           options: {
@@ -158,11 +218,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           },
         });
 
+        const { data, error } = await withTimeout(signUpPromise, 5000);
+
         if (error) {
           return { error, success: false };
         }
 
-        if (data.user) {
+        if (data?.user) {
           setUser(data.user);
           setSession(data.session);
           fetchOrCreateProfile(data.user).catch((e) => console.warn(e));
@@ -205,16 +267,29 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const signInWithEmail = async (email: string, password: string) => {
     try {
       if (isSupabaseConfigured) {
-        const { data, error } = await supabase.auth.signInWithPassword({
+        const signInPromise = supabase.auth.signInWithPassword({
           email: email.trim(),
           password,
+        });
+
+        // Strict 5-second timeout so invalid credentials or slow servers fail fast
+        const { data, error } = await withTimeout(
+          signInPromise,
+          5000
+        ).catch((err: any) => {
+          return {
+            data: { user: null, session: null },
+            error: new Error(err?.message?.includes('timed out')
+              ? 'Authentication server timed out. Please check your connection and try again.'
+              : err?.message || 'Login failed.'),
+          };
         });
 
         if (error) {
           return { error, success: false };
         }
 
-        if (data.user) {
+        if (data?.user) {
           setUser(data.user);
           setSession(data.session);
           fetchOrCreateProfile(data.user).catch((e) => console.warn(e));
@@ -272,24 +347,23 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       } else {
         // Sandbox Google sign in simulation
         const mockUserId = `google-user-${Date.now()}`;
+        const simulatedEmail = `scholar.${Date.now().toString().slice(-4)}@gmail.com`;
         const mockUser: User = {
           id: mockUserId,
           app_metadata: { provider: 'google' },
           user_metadata: {
-            full_name: 'Student Scholar',
-            avatar_url: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
+            full_name: '',
           },
           aud: 'authenticated',
           created_at: new Date().toISOString(),
-          email: 'student@university.edu',
+          email: simulatedEmail,
           role: 'authenticated',
         } as unknown as User;
 
         const profile: UserProfile = {
           id: mockUserId,
-          email: 'student@university.edu',
-          fullName: 'Student Scholar',
-          avatarUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
+          email: simulatedEmail,
+          fullName: '',
           role: 'student',
           createdAt: new Date().toISOString(),
         };
@@ -328,7 +402,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const signOut = async () => {
     try {
       if (isSupabaseConfigured) {
-        await supabase.auth.signOut();
+        await withTimeout(supabase.auth.signOut(), 2500).catch(() => {});
       }
       localStorage.removeItem(LOCAL_USER_STORAGE_KEY);
       localStorage.removeItem(LOCAL_PROFILE_STORAGE_KEY);
@@ -345,14 +419,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const updated = { ...userProfile, ...updates } as UserProfile;
     setUserProfile(updated);
 
+    const cacheKey = `${LOCAL_PROFILE_STORAGE_KEY}_${user.id}`;
+    localStorage.setItem(cacheKey, JSON.stringify(updated));
+
     if (isSupabaseConfigured) {
-      await supabase.from('user_profiles').upsert({
-        id: user.id,
-        email: updated.email,
-        full_name: updated.fullName,
-        avatar_url: updated.avatarUrl,
-        role: updated.role,
-      });
+      withTimeout(
+        supabase.from('user_profiles').upsert({
+          id: user.id,
+          email: updated.email,
+          full_name: updated.fullName,
+          avatar_url: updated.avatarUrl,
+          role: updated.role,
+        }),
+        3000
+      ).catch(() => {});
     } else {
       localStorage.setItem(LOCAL_PROFILE_STORAGE_KEY, JSON.stringify(updated));
     }
@@ -364,8 +444,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         user,
         session,
         userProfile,
-        isLoading,
-        loading: isLoading,
+        isAuthChecking,
+        isProfileHydrating,
+        isAuthReady,
+        isLoading: isAuthChecking,
+        loading: isAuthChecking,
         isConfigured: isSupabaseConfigured,
         signUpWithEmail,
         signInWithEmail,
@@ -387,3 +470,4 @@ export const useAuth = (): AuthContextType => {
   }
   return context;
 };
+

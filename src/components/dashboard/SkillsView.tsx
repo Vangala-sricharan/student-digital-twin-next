@@ -19,8 +19,8 @@ export const SkillsView: React.FC = () => {
     <div className="space-y-6 animate-in fade-in duration-200">
       
       {/* Header */}
-      <div className="p-6 sm:p-8 rounded-[2.5rem] bg-white dark:bg-[#0d1117] border border-slate-200 dark:border-white/10 shadow-sm dark:shadow-2xl space-y-2 transition-colors">
-        <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 text-blue-600 dark:text-cyan-300 text-[10px] font-bold uppercase tracking-wider font-mono">
+      <div className="p-6 sm:p-8 rounded-xl bg-white dark:bg-[#0d1117] border border-slate-200 dark:border-white/10 shadow-sm dark:shadow-xl space-y-2 transition-colors">
+        <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-md bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 text-blue-600 dark:text-cyan-300 text-[10px] font-bold uppercase tracking-wider font-mono">
           Living Skills Graph
         </div>
         <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 dark:text-white tracking-tight">
@@ -68,7 +68,7 @@ export const SkillsView: React.FC = () => {
           {filteredSkills.map((s) => (
             <div
               key={s.id}
-              className="p-5 rounded-[2rem] bg-white dark:bg-[#0d1117] border border-slate-200 dark:border-white/10 shadow-sm dark:shadow-lg space-y-3 hover:border-blue-500/40 dark:hover:border-cyan-500/40 transition-colors"
+              className="p-5 rounded-xl bg-white dark:bg-[#0d1117] border border-slate-200 dark:border-white/10 shadow-sm space-y-3 hover:border-blue-500/40 dark:hover:border-cyan-500/40 transition-colors"
             >
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
@@ -107,8 +107,8 @@ export const SkillsView: React.FC = () => {
           ))}
         </div>
       ) : (
-        <div className="p-12 text-center rounded-[2.5rem] bg-white dark:bg-[#0d1117] border border-slate-200 dark:border-white/10 space-y-4">
-          <div className="w-12 h-12 rounded-2xl bg-blue-50 dark:bg-white/5 border border-blue-200 dark:border-white/10 text-blue-600 dark:text-cyan-400 flex items-center justify-center mx-auto">
+        <div className="p-12 text-center rounded-xl bg-white dark:bg-[#0d1117] border border-slate-200 dark:border-white/10 space-y-4">
+          <div className="w-12 h-12 rounded-xl bg-blue-50 dark:bg-white/5 border border-blue-200 dark:border-white/10 text-blue-600 dark:text-cyan-400 flex items-center justify-center mx-auto">
             <Cpu className="w-6 h-6" />
           </div>
           <div className="space-y-1">

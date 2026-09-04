@@ -11,6 +11,11 @@ export type EngineId =
   | 'internship-ready'
   | 'career-simulator';
 
+export type EngineActionId =
+  | EngineId
+  | 'generate-project-description'
+  | 'generate-achievement-description';
+
 export interface EngineMeta {
   id: EngineId;
   number: number;
@@ -23,7 +28,7 @@ export interface EngineMeta {
 }
 
 export interface EngineAiRequest {
-  engineId: EngineId;
+  engineId: EngineActionId;
   studentContext: {
     name: string;
     targetRole: string;
@@ -50,7 +55,7 @@ export interface EngineAiRequest {
 }
 
 export interface EngineAiResponse {
-  engineId: EngineId;
+  engineId: EngineActionId;
   timestamp: string;
   status: 'success' | 'error';
   data: any;

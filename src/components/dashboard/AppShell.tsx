@@ -68,13 +68,13 @@ export const AppShell: React.FC<AppShellProps> = ({
   };
 
   const twinNavItems = [
-    { id: 'dashboard', label: 'Twin Overview', icon: LayoutDashboard },
-    { id: 'my-profile', label: 'My Profile', icon: User, badge: 'Core' },
-    { id: 'profiles', label: 'Manage Profiles', icon: UserCheck },
-    { id: 'skills', label: 'Skills Graph', icon: Cpu },
-    { id: 'projects', label: 'Proof-of-Work', icon: FolderGit2 },
-    { id: 'readiness', label: 'Readiness Diagnostics', icon: TrendingUp },
-    { id: 'achievements', label: 'Milestones & Honors', icon: Award },
+    { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
+    { id: 'my-profile', label: 'My Foundation', icon: User, badge: 'Core' },
+    { id: 'profiles', label: 'Student Twins', icon: UserCheck },
+    { id: 'skills', label: 'Skills & DSA', icon: Cpu },
+    { id: 'projects', label: 'Projects & Work', icon: FolderGit2 },
+    { id: 'achievements', label: 'Achievements', icon: Award },
+    { id: 'readiness', label: 'Career Goals', icon: TrendingUp },
   ];
 
   const aiEngineItems = [
@@ -158,7 +158,7 @@ export const AppShell: React.FC<AppShellProps> = ({
             {/* Upgrade Button */}
             <button
               onClick={() => handleTabSelect('upgrade')}
-              className={`hidden md:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-mono font-bold transition-all cursor-pointer ${
+              className={`hidden md:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-mono font-bold transition-all cursor-pointer ${
                 subscription.tier === 'free'
                   ? 'bg-gradient-to-r from-blue-600 to-cyan-600 text-white shadow-sm hover:opacity-90'
                   : 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800'
@@ -171,7 +171,7 @@ export const AppShell: React.FC<AppShellProps> = ({
             {/* Settings Quick Icon */}
             <button
               onClick={() => handleTabSelect('settings')}
-              className={`p-2 rounded-xl border transition-colors cursor-pointer ${
+              className={`p-2 rounded-lg border transition-colors cursor-pointer ${
                 currentTab === 'settings'
                   ? 'bg-blue-600 text-white border-blue-600'
                   : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/5 border-slate-200 dark:border-white/10'
@@ -184,7 +184,7 @@ export const AppShell: React.FC<AppShellProps> = ({
             {/* Profile Avatar / Indicator (clickable to open My Profile) */}
             <div
               onClick={() => handleTabSelect('my-profile')}
-              className="flex items-center gap-2.5 px-2.5 sm:px-3 py-1.5 rounded-full bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 cursor-pointer hover:border-blue-400 transition-all group"
+              className="flex items-center gap-2.5 px-2.5 sm:px-3 py-1.5 rounded-lg bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 cursor-pointer hover:border-blue-400 transition-all group"
               title="Open Student Profile"
             >
               {profile?.avatarUrl ? (
@@ -192,10 +192,10 @@ export const AppShell: React.FC<AppShellProps> = ({
                   src={profile.avatarUrl}
                   alt={profile.fullName || 'Student Avatar'}
                   referrerPolicy="no-referrer"
-                  className="w-7 h-7 rounded-full object-cover border border-slate-300 dark:border-white/20 shrink-0"
+                  className="w-7 h-7 rounded-md object-cover border border-slate-300 dark:border-white/20 shrink-0"
                 />
               ) : (
-                <div className="w-7 h-7 rounded-full bg-gradient-to-tr from-blue-600 to-cyan-500 text-white font-mono text-[10px] font-bold flex items-center justify-center shrink-0">
+                <div className="w-7 h-7 rounded-md bg-gradient-to-tr from-blue-600 to-cyan-500 text-white font-mono text-[10px] font-bold flex items-center justify-center shrink-0">
                   {initials}
                 </div>
               )}
@@ -212,7 +212,7 @@ export const AppShell: React.FC<AppShellProps> = ({
 
             <button
               onClick={handleSignOutOrExit}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold text-slate-600 dark:text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-500/10 border border-slate-200 dark:border-white/10 transition-colors cursor-pointer"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-600 dark:text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-500/10 border border-slate-200 dark:border-white/10 transition-colors cursor-pointer"
               title="Sign Out"
             >
               <LogOut className="w-3.5 h-3.5" />
@@ -251,8 +251,8 @@ export const AppShell: React.FC<AppShellProps> = ({
           </div>
 
           {/* Twin Status Summary Card (Full or Compact) */}
-          <div className={`rounded-[2rem] bg-white dark:bg-[#0d1117] border border-slate-200 dark:border-white/10 shadow-sm transition-all ${
-            isCollapsed ? 'p-3 text-center' : 'p-5 space-y-3'
+          <div className={`rounded-xl bg-white dark:bg-[#0d1117] border border-slate-200/90 dark:border-white/10 shadow-sm dark:shadow-xl transition-all ${
+            isCollapsed ? 'p-3.5 text-center' : 'p-5 space-y-3.5'
           }`}>
             {isCollapsed ? (
               <div className="flex flex-col items-center gap-1" title={`Readiness: ${profile?.readinessScore || 0}%`}>
@@ -264,14 +264,14 @@ export const AppShell: React.FC<AppShellProps> = ({
             ) : (
               <>
                 <div className="flex items-center justify-between text-xs">
-                  <span className="font-mono text-slate-500 dark:text-slate-400 uppercase tracking-wider text-[10px]">Readiness Index</span>
+                  <span className="font-mono text-slate-500 dark:text-slate-400 uppercase tracking-wider text-[10px] font-semibold">Readiness Index</span>
                   <span className="font-bold text-blue-600 dark:text-cyan-400 font-mono text-sm">
                     {profile?.readinessScore || 0}%
                   </span>
                 </div>
                 
                 {/* Progress Bar */}
-                <div className="w-full h-2 rounded-full bg-slate-100 dark:bg-white/5 overflow-hidden">
+                <div className="w-full h-2 rounded-full bg-slate-100 dark:bg-white/5 overflow-hidden p-0.5">
                   <div
                     className="h-full bg-gradient-to-r from-blue-600 to-cyan-400 rounded-full transition-all duration-500"
                     style={{ width: `${profile?.readinessScore || 0}%` }}
@@ -279,15 +279,15 @@ export const AppShell: React.FC<AppShellProps> = ({
                 </div>
 
                 <div className="text-[11px] text-slate-600 dark:text-slate-400 leading-snug truncate">
-                  {profile?.targetRole || 'Target Career'} @ <span className="font-medium text-slate-800 dark:text-slate-200">{profile?.university || 'University'}</span>
+                  {profile?.targetRole || 'Target Career'} @ <span className="font-semibold text-slate-800 dark:text-slate-200">{profile?.university || 'University'}</span>
                 </div>
               </>
             )}
           </div>
 
           {/* Navigation Links */}
-          <nav className={`rounded-[2rem] bg-white dark:bg-[#0d1117] border border-slate-200 dark:border-white/10 shadow-sm transition-all ${
-            isCollapsed ? 'p-2 space-y-3' : 'p-3 space-y-4'
+          <nav className={`rounded-xl bg-white dark:bg-[#0d1117] border border-slate-200/90 dark:border-white/10 shadow-sm dark:shadow-xl transition-all ${
+            isCollapsed ? 'p-2 space-y-3' : 'p-3.5 space-y-4'
           }`}>
             
             {/* Section 1: Twin Core */}
@@ -305,10 +305,10 @@ export const AppShell: React.FC<AppShellProps> = ({
                     key={item.id}
                     onClick={() => handleTabSelect(item.id)}
                     className={`w-full flex items-center ${
-                      isCollapsed ? 'justify-center px-2 py-2.5' : 'justify-between px-3.5 py-2'
-                    } rounded-xl text-xs font-semibold transition-all cursor-pointer ${
+                      isCollapsed ? 'justify-center px-2 py-2' : 'justify-between px-3 py-2'
+                    } rounded-lg text-xs font-semibold transition-all cursor-pointer ${
                       isActive
-                        ? 'bg-blue-600 text-white shadow-[0_4px_14px_rgba(37,99,235,0.3)]'
+                        ? 'bg-blue-600 text-white shadow-sm'
                         : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-white/5 hover:text-slate-900 dark:hover:text-white'
                     }`}
                     title={isCollapsed ? item.label : undefined}
@@ -319,7 +319,7 @@ export const AppShell: React.FC<AppShellProps> = ({
                     </div>
 
                     {!isCollapsed && item.badge && (
-                      <span className={`text-[9px] font-mono px-1.5 py-0.2 rounded-full font-bold shrink-0 ${
+                      <span className={`text-[9px] font-mono px-2 py-0.5 rounded-md font-bold shrink-0 ${
                         isActive ? 'bg-blue-700 text-cyan-200' : 'bg-blue-50 dark:bg-white/5 text-blue-600 dark:text-cyan-300'
                       }`}>
                         {item.badge}
@@ -331,11 +331,11 @@ export const AppShell: React.FC<AppShellProps> = ({
             </div>
 
             {/* Section 2: AI Career OS */}
-            <div className="space-y-1 pt-2 border-t border-slate-100 dark:border-white/5">
+            <div className="space-y-1 pt-2.5 border-t border-slate-100 dark:border-white/5">
               {!isCollapsed ? (
                 <div
                   onClick={() => setEnginesExpanded(!enginesExpanded)}
-                  className="px-3 py-1 text-[10px] font-mono font-bold uppercase tracking-wider text-blue-600 dark:text-cyan-400 flex items-center justify-between cursor-pointer"
+                  className="px-3 py-1 text-[10px] font-mono font-bold uppercase tracking-wider text-blue-600 dark:text-cyan-400 flex items-center justify-between cursor-pointer hover:opacity-80 transition-opacity"
                 >
                   <span>AI Career OS (11)</span>
                   {enginesExpanded ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />}
@@ -360,10 +360,10 @@ export const AppShell: React.FC<AppShellProps> = ({
                         key={item.id}
                         onClick={() => handleTabSelect(item.id)}
                         className={`w-full flex items-center ${
-                          isCollapsed ? 'justify-center px-2 py-2' : 'justify-between px-3 py-2'
-                        } rounded-xl text-[11px] font-semibold transition-all cursor-pointer ${
+                          isCollapsed ? 'justify-center px-2 py-1.5' : 'justify-between px-3 py-1.5'
+                        } rounded-md text-[11px] font-semibold transition-all cursor-pointer ${
                           isActive
-                            ? 'bg-blue-600 text-white shadow-[0_4px_14px_rgba(37,99,235,0.3)]'
+                            ? 'bg-blue-600 text-white shadow-sm'
                             : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-white/5 hover:text-slate-900 dark:hover:text-white'
                         }`}
                         title={isCollapsed ? item.label : undefined}
@@ -375,7 +375,7 @@ export const AppShell: React.FC<AppShellProps> = ({
 
                         {!isCollapsed && item.badge && (
                           <span
-                            className={`text-[9px] font-mono px-1.5 py-0.2 rounded-full font-bold shrink-0 ${
+                            className={`text-[9px] font-mono px-1.5 py-0.5 rounded font-bold shrink-0 ${
                               isActive
                                 ? 'bg-blue-700 text-cyan-200'
                                 : 'bg-blue-50 dark:bg-white/5 text-blue-600 dark:text-cyan-300'
@@ -392,7 +392,7 @@ export const AppShell: React.FC<AppShellProps> = ({
             </div>
 
             {/* Section 3: Workspace & Settings */}
-            <div className="space-y-1 pt-2 border-t border-slate-100 dark:border-white/5">
+            <div className="space-y-1 pt-2.5 border-t border-slate-100 dark:border-white/5">
               {!isCollapsed && (
                 <div className="px-3 py-1 text-[10px] font-mono font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500">
                   Account & Settings
@@ -407,10 +407,10 @@ export const AppShell: React.FC<AppShellProps> = ({
                     key={item.id}
                     onClick={() => handleTabSelect(item.id)}
                     className={`w-full flex items-center ${
-                      isCollapsed ? 'justify-center px-2 py-2' : 'justify-between px-3.5 py-2'
-                    } rounded-xl text-xs font-semibold transition-all cursor-pointer ${
+                      isCollapsed ? 'justify-center px-2 py-2' : 'justify-between px-3 py-2'
+                    } rounded-lg text-xs font-semibold transition-all cursor-pointer ${
                       isActive
-                        ? 'bg-blue-600 text-white shadow-[0_4px_14px_rgba(37,99,235,0.3)]'
+                        ? 'bg-blue-600 text-white shadow-sm'
                         : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-white/5 hover:text-slate-900 dark:hover:text-white'
                     }`}
                     title={isCollapsed ? item.label : undefined}
@@ -421,7 +421,7 @@ export const AppShell: React.FC<AppShellProps> = ({
                     </div>
 
                     {!isCollapsed && item.badge && (
-                      <span className="text-[9px] font-mono px-1.5 py-0.2 rounded-full font-bold bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20">
+                      <span className="text-[9px] font-mono px-2 py-0.5 rounded-md font-bold bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20">
                         {item.badge}
                       </span>
                     )}
@@ -434,7 +434,7 @@ export const AppShell: React.FC<AppShellProps> = ({
 
           {/* Verification Badge in Sidebar (Expanded only) */}
           {!isCollapsed && (
-            <div className="p-4 rounded-[1.5rem] bg-white dark:bg-[#0d1117] border border-slate-200 dark:border-white/10 text-xs text-slate-700 dark:text-slate-300 space-y-1 transition-colors shadow-sm">
+            <div className="p-4 rounded-xl bg-white dark:bg-[#0d1117] border border-slate-200/90 dark:border-white/10 text-xs text-slate-700 dark:text-slate-300 space-y-1 transition-colors shadow-sm dark:shadow-xl">
               <div className="flex items-center gap-1.5 font-bold text-blue-600 dark:text-cyan-400 text-[11px] font-mono">
                 <Sparkles className="w-3.5 h-3.5" />
                 <span>Phase 2 OS Active</span>
@@ -451,14 +451,14 @@ export const AppShell: React.FC<AppShellProps> = ({
         {mobileMenuOpen && (
           <div className="lg:hidden fixed inset-0 z-40 bg-black/60 backdrop-blur-md animate-in fade-in" onClick={() => setMobileMenuOpen(false)}>
             <div
-              className="w-72 h-full bg-white dark:bg-[#0d1117] border-r border-slate-200 dark:border-white/10 p-6 space-y-4 shadow-2xl animate-in slide-in-from-left duration-200 overflow-y-auto"
+              className="w-72 h-full bg-white dark:bg-[#0d1117] rounded-r-2xl border-r border-slate-200 dark:border-white/10 p-6 space-y-4 shadow-2xl animate-in slide-in-from-left duration-200 overflow-y-auto"
               onClick={(e) => e.stopPropagation()}
             >
               <div className="flex items-center justify-between pb-4 border-b border-slate-200 dark:border-white/10">
                 <SDTLogo size="sm" />
                 <button
                   onClick={() => setMobileMenuOpen(false)}
-                  className="p-1.5 rounded-lg text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-white/5 hover:text-slate-900 dark:hover:text-white"
+                  className="p-2 rounded-full text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-white/5 hover:text-slate-900 dark:hover:text-white transition-colors"
                 >
                   <X className="w-5 h-5" />
                 </button>
@@ -476,9 +476,9 @@ export const AppShell: React.FC<AppShellProps> = ({
                     <button
                       key={item.id}
                       onClick={() => handleTabSelect(item.id)}
-                      className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all ${
+                      className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-2xl text-xs font-semibold transition-all ${
                         isActive
-                          ? 'bg-blue-600 text-white shadow-sm'
+                          ? 'bg-blue-600 text-white shadow-md shadow-blue-600/20'
                           : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-white/5 hover:text-slate-900 dark:hover:text-white'
                       }`}
                     >
@@ -514,7 +514,7 @@ export const AppShell: React.FC<AppShellProps> = ({
                         <span className="truncate">{item.label}</span>
                       </div>
                       {item.badge && (
-                        <span className="text-[9px] font-mono px-1.5 py-0.5 rounded-full bg-blue-50 dark:bg-white/5 text-blue-600 dark:text-cyan-300">
+                        <span className="text-[9px] font-mono px-2 py-0.5 rounded-full bg-blue-50 dark:bg-white/5 text-blue-600 dark:text-cyan-300">
                           {item.badge}
                         </span>
                       )}
@@ -535,9 +535,9 @@ export const AppShell: React.FC<AppShellProps> = ({
                     <button
                       key={item.id}
                       onClick={() => handleTabSelect(item.id)}
-                      className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all ${
+                      className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-2xl text-xs font-semibold transition-all ${
                         isActive
-                          ? 'bg-blue-600 text-white shadow-sm'
+                          ? 'bg-blue-600 text-white shadow-md shadow-blue-600/20'
                           : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-white/5 hover:text-slate-900 dark:hover:text-white'
                       }`}
                     >
@@ -546,7 +546,7 @@ export const AppShell: React.FC<AppShellProps> = ({
                         <span>{item.label}</span>
                       </div>
                       {item.badge && (
-                        <span className="text-[9px] font-mono px-1.5 py-0.5 rounded-full bg-amber-500/10 text-amber-600 dark:text-amber-400">
+                        <span className="text-[9px] font-mono px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-600 dark:text-amber-400">
                           {item.badge}
                         </span>
                       )}
@@ -558,7 +558,7 @@ export const AppShell: React.FC<AppShellProps> = ({
               <div className="pt-4 border-t border-slate-200 dark:border-white/10">
                 <button
                   onClick={handleSignOutOrExit}
-                  className="w-full py-2.5 px-3 rounded-xl text-xs font-semibold text-rose-600 dark:text-rose-400 bg-rose-500/10 border border-rose-500/20 flex items-center justify-center gap-2"
+                  className="w-full py-2.5 px-3 rounded-full text-xs font-semibold text-rose-600 dark:text-rose-400 bg-rose-500/10 border border-rose-500/20 flex items-center justify-center gap-2 hover:bg-rose-500/20 transition-colors"
                 >
                   <LogOut className="w-4 h-4" />
                   <span>{isDemoMode ? 'Exit Demo' : 'Sign Out'}</span>

@@ -70,7 +70,7 @@ export const AIJobProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       const current = jobs[engineId];
       // Prevent duplicate executions if already actively running
       if (current && current.status === 'running') {
-        console.warn(`[AIJobManager] Job for engine ${engineId} is already running.`);
+        console.info(`[AIJobManager] Job for engine ${engineId} is already running.`);
         return null;
       }
 
@@ -100,33 +100,29 @@ export const AIJobProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         },
       }));
 
-      // Stage progression timers for real visual feedback while async promise executes
-      const stepDuration = 900; // Fast and responsive stage transitions
+      // Real-time stage progression handler updated dynamically as execution progresses
+      const handleStageProgress = (stageIndex: number, badge?: string) => {
+        setJobs((prev) => {
+          const currentJob = prev[engineId];
+          if (currentJob && currentJob.status === 'running') {
+            const boundedIndex = Math.max(0, Math.min(stages.length - 1, stageIndex));
+            const targetProgress = Math.min(95, Math.round(((boundedIndex + 0.6) / stages.length) * 100));
+            return {
+              ...prev,
+              [engineId]: {
+                ...currentJob,
+                currentStageIndex: boundedIndex,
+                progress: targetProgress,
+              },
+            };
+          }
+          return prev;
+        });
+      };
+
       jobTimers.current[engineId] = [];
 
-      for (let i = 1; i < stages.length; i++) {
-        const timer = setTimeout(() => {
-          setJobs((prev) => {
-            const currentJob = prev[engineId];
-            if (currentJob && currentJob.status === 'running') {
-              const targetProgress = Math.min(92, Math.round(((i + 0.5) / stages.length) * 100));
-              return {
-                ...prev,
-                [engineId]: {
-                  ...currentJob,
-                  currentStageIndex: i,
-                  progress: targetProgress,
-                },
-              };
-            }
-            return prev;
-          });
-        }, i * stepDuration);
-
-        jobTimers.current[engineId].push(timer);
-      }
-
-      // Safety timeout after 45 seconds
+      // Safety timeout after 45 seconds to guard against network stalls
       const timeoutTimer = setTimeout(() => {
         setJobs((prev) => {
           const currentJob = prev[engineId];
@@ -146,31 +142,28 @@ export const AIJobProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       jobTimers.current[engineId].push(timeoutTimer);
 
       try {
-        // Execute the actual AI engine call
-        const response = await executeAiEngine(requestPayload);
+        // Execute the actual AI engine call with real-time stage updates
+        const response = await executeAiEngine(requestPayload, handleStageProgress);
 
         // Immediate completion: clear timers and finalize
         clearJobTimers(engineId);
 
         if (response.status === 'error') {
-          setJobs((prev) => {
-            const prevJob = prev[engineId];
-            return {
-              ...prev,
-              [engineId]: {
-                engineId,
-                status: 'error',
-                stages,
-                currentStageIndex: 0,
-                progress: 0,
-                startTime,
-                error: response.error || 'Failed to complete analysis. Please check parameters and retry.',
-                inputsSnapshot: requestPayload.userInputs,
-                result: prevJob?.result,
-                rawText: prevJob?.rawText,
-              },
-            };
-          });
+          setJobs((prev) => ({
+            ...prev,
+            [engineId]: {
+              engineId,
+              status: 'error',
+              stages,
+              currentStageIndex: 0,
+              progress: 0,
+              startTime,
+              error: response.error || 'Failed to complete analysis. Please check parameters and retry.',
+              inputsSnapshot: requestPayload.userInputs,
+              result: undefined,
+              rawText: undefined,
+            },
+          }));
           return response;
         }
 
@@ -196,24 +189,21 @@ export const AIJobProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         clearJobTimers(engineId);
         const errorMessage = err?.message || 'An error occurred during AI execution. Please try again.';
 
-        setJobs((prev) => {
-          const prevJob = prev[engineId];
-          return {
-            ...prev,
-            [engineId]: {
-              engineId,
-              status: 'error',
-              stages,
-              currentStageIndex: 0,
-              progress: 0,
-              startTime,
-              error: errorMessage,
-              inputsSnapshot: requestPayload.userInputs,
-              result: prevJob?.result,
-              rawText: prevJob?.rawText,
-            },
-          };
-        });
+        setJobs((prev) => ({
+          ...prev,
+          [engineId]: {
+            engineId,
+            status: 'error',
+            stages,
+            currentStageIndex: 0,
+            progress: 0,
+            startTime,
+            error: errorMessage,
+            inputsSnapshot: requestPayload.userInputs,
+            result: undefined,
+            rawText: undefined,
+          },
+        }));
         return null;
       }
     },

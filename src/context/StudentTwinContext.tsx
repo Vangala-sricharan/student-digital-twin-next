@@ -19,7 +19,8 @@ import {
   DEMO_DIGITAL_TWIN_REPORT,
 } from '../data/demoData';
 import { useAuth } from './AuthContext';
-import { supabase, isSupabaseConfigured } from '../lib/supabase';
+import { supabase, isSupabaseConfigured, withTimeout } from '../lib/supabase';
+import { calculateRealReadiness } from '../lib/readinessScore';
 
 export const SUBSCRIPTION_PLANS: Record<SubscriptionTier, SubscriptionPlan> = {
   free: {
@@ -71,6 +72,8 @@ interface StudentTwinContextType {
   careerGoals: CareerGoal[];
   digitalTwinReport: DigitalTwinReport;
   subscription: SubscriptionPlan;
+  isTwinHydrating: boolean;
+  isTwinReady: boolean;
   isLoading: boolean;
   switchProfile: (profileId: string) => void;
   addNewStudentProfile: (profileData: Partial<StudentProfile>) => Promise<void>;
@@ -123,7 +126,8 @@ export const StudentTwinProvider: React.FC<{
   const [userAchievements, setUserAchievements] = useState<AchievementItem[]>([]);
   const [userCareerGoals, setUserCareerGoals] = useState<CareerGoal[]>([]);
 
-  const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [isTwinHydrating, setIsTwinHydrating] = useState<boolean>(false);
+  const [isTwinReady, setIsTwinReady] = useState<boolean>(false);
 
   // Load authenticated student data whenever authenticated user changes
   useEffect(() => {
@@ -135,83 +139,110 @@ export const StudentTwinProvider: React.FC<{
       setUserAchievements([]);
       setUserCareerGoals([]);
       setSubscription(SUBSCRIPTION_PLANS.free);
+      setIsTwinHydrating(false);
+      setIsTwinReady(false);
       return;
     }
 
     async function loadUserData() {
-      setIsLoading(true);
-      try {
-        const userId = user!.id;
+      const userId = user!.id;
+      setIsTwinHydrating(true);
 
-        // 1. Load Subscription scoped to user.id
-        const subStorageKey = `${USER_SUBSCRIPTION_KEY}_${userId}`;
-        const savedSub = localStorage.getItem(subStorageKey);
-        if (savedSub) {
-          try {
-            const parsedSub = JSON.parse(savedSub);
-            if (parsedSub && parsedSub.tier && SUBSCRIPTION_PLANS[parsedSub.tier as SubscriptionTier]) {
-              setSubscription(parsedSub);
-            }
-          } catch (e) {
-            console.error('Failed to parse subscription', e);
+      // STEP 1: FAST LOCAL-FIRST HYDRATION (0ms Latency)
+      // Immediately hydrate existing user profiles and records from user-scoped storage
+      const profileStorageKey = `${USER_STUDENT_PROFILES_KEY}_${userId}`;
+      const localSavedProfiles = localStorage.getItem(profileStorageKey);
+      let hasCachedProfiles = false;
+
+      if (localSavedProfiles) {
+        try {
+          const parsed = JSON.parse(localSavedProfiles);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            setUserProfiles(parsed);
+            setActiveProfileId(parsed[0].id);
+            hasCachedProfiles = true;
+            // Mark ready immediately so returning users never see an onboarding modal
+            setIsTwinReady(true);
           }
-        } else {
-          setSubscription(SUBSCRIPTION_PLANS.free);
+        } catch {
+          // parse error fallback
         }
+      }
 
-        // 2. Load User Skills, Projects, Achievements, Goals from user-scoped storage
-        const skillsStorageKey = `${USER_SKILLS_KEY}_${userId}`;
-        const projectsStorageKey = `${USER_PROJECTS_KEY}_${userId}`;
-        const achStorageKey = `${USER_ACHIEVEMENTS_KEY}_${userId}`;
-        const goalsStorageKey = `${USER_GOALS_KEY}_${userId}`;
-
-        const savedSkills = localStorage.getItem(skillsStorageKey);
-        const savedProjects = localStorage.getItem(projectsStorageKey);
-        const savedAch = localStorage.getItem(achStorageKey);
-        const savedGoals = localStorage.getItem(goalsStorageKey);
-
-        if (savedSkills) {
-          try {
-            const parsed = JSON.parse(savedSkills);
-            if (Array.isArray(parsed)) setUserSkills(parsed);
-          } catch (e) {}
-        } else {
-          setUserSkills([]);
+      // Load Subscription scoped to user.id immediately
+      const subStorageKey = `${USER_SUBSCRIPTION_KEY}_${userId}`;
+      const savedSub = localStorage.getItem(subStorageKey);
+      if (savedSub) {
+        try {
+          const parsedSub = JSON.parse(savedSub);
+          if (parsedSub && parsedSub.tier && SUBSCRIPTION_PLANS[parsedSub.tier as SubscriptionTier]) {
+            setSubscription(parsedSub);
+          }
+        } catch (e) {
+          console.error('Failed to parse subscription', e);
         }
+      } else {
+        setSubscription(SUBSCRIPTION_PLANS.free);
+      }
 
-        if (savedProjects) {
-          try {
-            const parsed = JSON.parse(savedProjects);
-            if (Array.isArray(parsed)) setUserProjects(parsed);
-          } catch (e) {}
-        } else {
-          setUserProjects([]);
-        }
+      // Load User Skills, Projects, Achievements, Goals from user-scoped storage immediately
+      const skillsStorageKey = `${USER_SKILLS_KEY}_${userId}`;
+      const projectsStorageKey = `${USER_PROJECTS_KEY}_${userId}`;
+      const achStorageKey = `${USER_ACHIEVEMENTS_KEY}_${userId}`;
+      const goalsStorageKey = `${USER_GOALS_KEY}_${userId}`;
 
-        if (savedAch) {
-          try {
-            const parsed = JSON.parse(savedAch);
-            if (Array.isArray(parsed)) setUserAchievements(parsed);
-          } catch (e) {}
-        } else {
-          setUserAchievements([]);
-        }
+      const savedSkills = localStorage.getItem(skillsStorageKey);
+      const savedProjects = localStorage.getItem(projectsStorageKey);
+      const savedAch = localStorage.getItem(achStorageKey);
+      const savedGoals = localStorage.getItem(goalsStorageKey);
 
-        if (savedGoals) {
-          try {
-            const parsed = JSON.parse(savedGoals);
-            if (Array.isArray(parsed)) setUserCareerGoals(parsed);
-          } catch (e) {}
-        } else {
-          setUserCareerGoals([]);
-        }
+      if (savedSkills) {
+        try {
+          const parsed = JSON.parse(savedSkills);
+          if (Array.isArray(parsed)) setUserSkills(parsed);
+        } catch (e) {}
+      } else {
+        setUserSkills([]);
+      }
 
-        // 3. Load Student Profiles
+      if (savedProjects) {
+        try {
+          const parsed = JSON.parse(savedProjects);
+          if (Array.isArray(parsed)) setUserProjects(parsed);
+        } catch (e) {}
+      } else {
+        setUserProjects([]);
+      }
+
+      if (savedAch) {
+        try {
+          const parsed = JSON.parse(savedAch);
+          if (Array.isArray(parsed)) setUserAchievements(parsed);
+        } catch (e) {}
+      } else {
+        setUserAchievements([]);
+      }
+
+      if (savedGoals) {
+        try {
+          const parsed = JSON.parse(savedGoals);
+          if (Array.isArray(parsed)) setUserCareerGoals(parsed);
+        } catch (e) {}
+      } else {
+        setUserCareerGoals([]);
+      }
+
+      // STEP 2: CLOUD SYNCHRONIZATION WITH STRICT TIMEOUT (Max 3500ms)
+      try {
         if (isSupabaseConfigured) {
-          const { data, error } = await supabase
-            .from('student_profiles')
-            .select('*')
-            .eq('user_id', userId);
+          const { data, error } = await withTimeout(
+            supabase
+              .from('student_profiles')
+              .select('*')
+              .eq('user_id', userId),
+            3500,
+            { data: null, error: null } as any
+          );
 
           if (data && data.length > 0 && !error) {
             const mappedProfiles: StudentProfile[] = data.map((item) => ({
@@ -251,33 +282,24 @@ export const StudentTwinProvider: React.FC<{
               semester: item.semester || '',
               status: (item.status as any) || 'Active Twin',
               subscriptionTier: item.subscription_tier || 'free',
+              isOnboarded: Boolean(item.university && (item.degree || item.target_role)),
               createdAt: item.created_at,
             }));
 
             setUserProfiles(mappedProfiles);
             setActiveProfileId(mappedProfiles[0].id);
+            localStorage.setItem(profileStorageKey, JSON.stringify(mappedProfiles));
             return;
           }
         }
 
-        // Local user-scoped storage fallback
-        const profileStorageKey = `${USER_STUDENT_PROFILES_KEY}_${userId}`;
-        const localSaved = localStorage.getItem(profileStorageKey);
-
-        if (localSaved) {
-          try {
-            const parsed = JSON.parse(localSaved);
-            if (Array.isArray(parsed) && parsed.length > 0) {
-              setUserProfiles(parsed);
-              setActiveProfileId(parsed[0].id);
-              return;
-            }
-          } catch {
-            // parse error fallback
-          }
+        // If user already had cached profiles, keep them
+        if (hasCachedProfiles) {
+          return;
         }
 
-        // Create empty personalized initial profile for this new user (ZERO dummy data)
+        // STEP 3: BRAND NEW USER INITIALIZATION (ZERO DUMMY DATA)
+        // Only reached when user genuinely has neither cloud profiles nor local cached profiles
         const userName = userProfile?.fullName || user!.user_metadata?.full_name || '';
         const initialProfile: StudentProfile = {
           id: `profile-${userId}`,
@@ -316,6 +338,7 @@ export const StudentTwinProvider: React.FC<{
           semester: '',
           status: 'Draft',
           subscriptionTier: 'free',
+          isOnboarded: false,
           createdAt: new Date().toISOString(),
         };
 
@@ -323,9 +346,10 @@ export const StudentTwinProvider: React.FC<{
         setActiveProfileId(initialProfile.id);
         localStorage.setItem(profileStorageKey, JSON.stringify([initialProfile]));
       } catch (err) {
-        console.error('Failed to load student profiles:', err);
+        console.warn('Student profile background sync caught:', err);
       } finally {
-        setIsLoading(false);
+        setIsTwinHydrating(false);
+        setIsTwinReady(true);
       }
     }
 
@@ -333,7 +357,7 @@ export const StudentTwinProvider: React.FC<{
   }, [user?.id]);
 
   // Active Profile Calculation (Strict zero-demo fallback for authenticated users)
-  const activeProfile: StudentProfile = isDemoMode
+  const rawActiveProfile: StudentProfile = isDemoMode
     ? DEMO_STUDENT_PROFILE
     : userProfiles.find((p) => p.id === activeProfileId) ||
       userProfiles[0] || {
@@ -382,6 +406,45 @@ export const StudentTwinProvider: React.FC<{
   const projects: ProjectItem[] = isDemoMode ? DEMO_PROJECTS : userProjects;
   const achievements: AchievementItem[] = isDemoMode ? DEMO_ACHIEVEMENTS : userAchievements;
   const careerGoals: CareerGoal[] = isDemoMode ? DEMO_CAREER_GOALS : userCareerGoals;
+
+  // Deterministically compute dynamic readiness breakdown purely from verified user evidence
+  const dynamicReadiness = isDemoMode
+    ? {
+        overallScore: 94,
+        foundationScore: 15,
+        skillsScore: 25,
+        projectsScore: 30,
+        achievementsScore: 15,
+        profilesScore: 15,
+        skillsCoverage: 95,
+        codeProofHealth: 96,
+        marketAlignment: 94,
+        verificationIndex: 92,
+        hasEvidence: true,
+        evidenceCounts: {
+          skills: DEMO_SKILLS.length,
+          verifiedSkills: DEMO_SKILLS.filter((s) => s.verified).length,
+          projects: DEMO_PROJECTS.length,
+          achievements: DEMO_ACHIEVEMENTS.length,
+          hasGithub: true,
+          hasLinkedin: true,
+          hasPortfolio: true,
+          hasTargetRole: true,
+        },
+      }
+    : calculateRealReadiness(rawActiveProfile, userSkills, userProjects, userAchievements);
+
+  // Authenticated activeProfile always adopts the calculated evidence score
+  const activeProfile: StudentProfile = isDemoMode
+    ? DEMO_STUDENT_PROFILE
+    : {
+        ...rawActiveProfile,
+        readinessScore: dynamicReadiness.overallScore,
+        skillsVerifiedCount: userSkills.filter((s) => Boolean(s.verified)).length,
+        projectIndexCount: userProjects.length,
+        milestonesCount: userAchievements.length,
+      };
+
   const careerGoal: CareerGoal = isDemoMode ? DEMO_CAREER_GOAL : (userCareerGoals[0] || {
     id: 'user-goal-empty',
     title: '',
@@ -389,68 +452,65 @@ export const StudentTwinProvider: React.FC<{
     targetDomain: '',
     targetTimeline: '',
     targetDate: '',
-    progress: 0,
-    status: 'Planned',
-    confidenceScore: 0,
+    progress: dynamicReadiness.overallScore,
+    status: dynamicReadiness.hasEvidence ? 'Active' : 'Planned',
+    confidenceScore: dynamicReadiness.overallScore,
     requiredSkills: [],
     acquiredSkills: [],
     keyMilestones: [],
   });
 
-  // Calculate dynamic twin report based purely on real user data or demo mode
-  const dynamicReportScore = activeProfile.readinessScore || (
-    skills.length > 0 || projects.length > 0
-      ? Math.min(100, Math.round((skills.length * 8) + (projects.length * 15) + (achievements.length * 10)))
-      : 0
-  );
+  const dynamicReportScore = dynamicReadiness.overallScore;
 
   const digitalTwinReport: DigitalTwinReport = isDemoMode
     ? DEMO_DIGITAL_TWIN_REPORT
     : {
         overallScore: dynamicReportScore,
-        codeProofHealth: projects.length > 0 ? Math.min(100, 45 + projects.length * 15) : 0,
-        marketRoleAlignment: skills.length > 0 ? Math.min(100, 35 + skills.length * 9) : 0,
-        academicIndex: activeProfile.cgpa ? Math.min(100, Math.round(activeProfile.cgpa * 10)) : 0,
+        codeProofHealth: dynamicReadiness.codeProofHealth,
+        marketRoleAlignment: dynamicReadiness.marketAlignment,
+        academicIndex: activeProfile.cgpa ? Math.min(100, Math.round(Number(activeProfile.cgpa) * 10)) : 0,
         dsaProficiency: skills.some((s) => s.category?.toLowerCase().includes('algorithm') || s.name.toLowerCase().includes('dsa')) ? 75 : 0,
-        careerVelocity: (skills.length > 0 || projects.length > 0) ? Math.min(100, (skills.length + projects.length) * 10) : 0,
-        primaryInsight: skills.length > 0 || projects.length > 0
-          ? `Twin profile active with ${skills.length} verified skills and ${projects.length} repository index records.`
-          : 'Your Student Twin is ready to be built. Add your skills and projects to calibrate your readiness index.',
+        careerVelocity: dynamicReadiness.hasEvidence ? Math.min(100, (skills.length + projects.length) * 10) : 0,
+        primaryInsight: dynamicReadiness.hasEvidence
+          ? `Twin profile active with ${skills.length} skills, ${projects.length} repository projects, and ${achievements.length} verified milestones.`
+          : 'Your Student Twin is ready to be built. Add your skills, projects, and achievements to calibrate your readiness index.',
         recommendedNextStep: projects.length === 0
-          ? 'Add your first verified project repository to evaluate Code & Proof Health.'
-          : 'Continue logging skill proofs and project updates to raise market role alignment.',
+          ? 'Add your first verified project repository in Projects.'
+          : skills.length === 0
+          ? 'Add your core technical skills in Skills to calibrate role alignment.'
+          : 'Run an AI Career Engine like Project Auditor or Resume ATS Analyzer to evaluate placement readiness.',
         vectors: [
           {
             dimension: 'Role Alignment Score',
-            score: skills.length > 0 ? Math.min(100, 35 + skills.length * 9) : 0,
+            score: dynamicReadiness.marketAlignment,
             benchmark: 75,
             status: skills.length >= 4 ? 'Optimal' : skills.length > 0 ? 'On Track' : 'Needs Attention',
-            insight: skills.length > 0 ? `${skills.length} verified competencies recorded.` : 'Add your technical skills to calculate alignment.',
+            insight: skills.length > 0 ? `${skills.length} competencies recorded.` : 'Add technical skills to calibrate alignment.',
           },
           {
             dimension: 'Code & Proof Health',
-            score: projects.length > 0 ? Math.min(100, 45 + projects.length * 15) : 0,
+            score: dynamicReadiness.codeProofHealth,
             benchmark: 70,
             status: projects.length >= 2 ? 'Optimal' : projects.length > 0 ? 'On Track' : 'Needs Attention',
             insight: projects.length > 0 ? `${projects.length} project repositories indexed.` : 'Add GitHub projects to evaluate code authenticity.',
           },
           {
             dimension: 'Academic Standing',
-            score: activeProfile.cgpa ? Math.min(100, Math.round(activeProfile.cgpa * 10)) : 0,
+            score: activeProfile.cgpa ? Math.min(100, Math.round(Number(activeProfile.cgpa) * 10)) : 0,
             benchmark: 75,
-            status: activeProfile.cgpa && activeProfile.cgpa >= 8 ? 'Optimal' : activeProfile.cgpa ? 'On Track' : 'Needs Attention',
+            status: activeProfile.cgpa && Number(activeProfile.cgpa) >= 8 ? 'Optimal' : activeProfile.cgpa ? 'On Track' : 'Needs Attention',
             insight: activeProfile.cgpa ? `CGPA of ${activeProfile.cgpa} recorded.` : 'Add academic GPA in profile.',
           },
           {
             dimension: 'DSA & Algorithmic Rigor',
             score: skills.some((s) => s.category?.toLowerCase().includes('algorithm') || s.name.toLowerCase().includes('dsa')) ? 75 : 0,
             benchmark: 80,
-            status: skills.some((s) => s.category?.toLowerCase().includes('algorithm') || s.name.toLowerCase().includes('dsa')) ? 'On Track' : 'Needs Attention',
-            insight: 'Add Data Structures & Algorithms under skills or run the Syllabus Prep engine.',
+            status: skills.some((s) => s.category?.toLowerCase().includes('algorithm') || s.name.toLowerCase().includes('dsa')) ? 'Optimal' : 'Needs Attention',
+            insight: skills.some((s) => s.category?.toLowerCase().includes('algorithm') || s.name.toLowerCase().includes('dsa')) ? 'DSA competencies mapped.' : 'Log algorithmic problem-solving competencies.',
           },
           {
             dimension: 'Adaptive Milestones',
-            score: achievements.length > 0 ? Math.min(100, achievements.length * 25) : 0,
+            score: dynamicReadiness.verificationIndex,
             benchmark: 65,
             status: achievements.length >= 2 ? 'Optimal' : achievements.length > 0 ? 'On Track' : 'Needs Attention',
             insight: achievements.length > 0 ? `${achievements.length} verified achievements logged.` : 'Log hackathons, honors, or certifications.',
@@ -491,38 +551,43 @@ export const StudentTwinProvider: React.FC<{
       localStorage.setItem(`${USER_STUDENT_PROFILES_KEY}_${user.id}`, JSON.stringify(updated));
 
       if (isSupabaseConfigured) {
-        await supabase
-          .from('student_profiles')
-          .update({
-            name: mergedData.name || mergedData.fullName,
-            display_name: mergedData.displayName || mergedData.fullName,
-            role: mergedData.role,
-            headline: mergedData.headline,
-            university: mergedData.university,
-            academic_program: mergedData.academicProgram,
-            degree: mergedData.degree,
-            branch: mergedData.branch,
-            year: mergedData.year,
-            year_of_study: mergedData.yearOfStudy,
-            grad_year: mergedData.gradYear,
-            career_focus: mergedData.careerFocus,
-            specialty: mergedData.specialty,
-            bio: mergedData.bio,
-            avatar_url: mergedData.avatarUrl,
-            phone: mergedData.phone,
-            github_url: mergedData.githubUrl,
-            linkedin_url: mergedData.linkedinUrl,
-            portfolio_url: mergedData.portfolioUrl,
-            location: mergedData.location,
-            current_gpa: mergedData.currentGpa,
-            cgpa: mergedData.cgpa,
-            semester: mergedData.semester,
-            target_role: mergedData.targetRole,
-            target_company_tier: mergedData.targetCompanyTier,
-            readiness_score: mergedData.readinessScore,
-            status: mergedData.status,
-          })
-          .eq('id', activeProfile.id);
+        withTimeout(
+          supabase
+            .from('student_profiles')
+            .update({
+              name: mergedData.name || mergedData.fullName,
+              display_name: mergedData.displayName || mergedData.fullName,
+              role: mergedData.role,
+              headline: mergedData.headline,
+              university: mergedData.university,
+              academic_program: mergedData.academicProgram,
+              degree: mergedData.degree,
+              branch: mergedData.branch,
+              year: mergedData.year,
+              year_of_study: mergedData.yearOfStudy,
+              grad_year: mergedData.gradYear,
+              career_focus: mergedData.careerFocus,
+              specialty: mergedData.specialty,
+              bio: mergedData.bio,
+              avatar_url: mergedData.avatarUrl,
+              phone: mergedData.phone,
+              github_url: mergedData.githubUrl,
+              linkedin_url: mergedData.linkedinUrl,
+              portfolio_url: mergedData.portfolioUrl,
+              location: mergedData.location,
+              current_gpa: mergedData.currentGpa,
+              cgpa: mergedData.cgpa,
+              semester: mergedData.semester,
+              target_role: mergedData.targetRole,
+              target_company_tier: mergedData.targetCompanyTier,
+              readiness_score: mergedData.readinessScore,
+              status: mergedData.status,
+            })
+            .eq('id', activeProfile.id),
+          3000
+        ).catch((err) => {
+          console.warn('Student profile cloud update notice:', err);
+        });
       }
     }
   };
@@ -643,24 +708,29 @@ export const StudentTwinProvider: React.FC<{
       localStorage.setItem(`${USER_STUDENT_PROFILES_KEY}_${user.id}`, JSON.stringify(updated));
 
       if (isSupabaseConfigured) {
-        await supabase.from('student_profiles').insert({
-          id: newId,
-          user_id: user.id,
-          name: newProfile.name,
-          display_name: newProfile.displayName,
-          role: newProfile.role,
-          headline: newProfile.headline,
-          university: newProfile.university,
-          academic_program: newProfile.academicProgram,
-          year_of_study: newProfile.yearOfStudy,
-          career_focus: newProfile.careerFocus,
-          specialty: newProfile.specialty,
-          bio: newProfile.bio,
-          avatar_url: newProfile.avatarUrl,
-          github_url: newProfile.githubUrl,
-          linkedin_url: newProfile.linkedinUrl,
-          location: newProfile.location,
-          readiness_score: 0,
+        withTimeout(
+          supabase.from('student_profiles').insert({
+            id: newId,
+            user_id: user.id,
+            name: newProfile.name,
+            display_name: newProfile.displayName,
+            role: newProfile.role,
+            headline: newProfile.headline,
+            university: newProfile.university,
+            academic_program: newProfile.academicProgram,
+            year_of_study: newProfile.yearOfStudy,
+            career_focus: newProfile.careerFocus,
+            specialty: newProfile.specialty,
+            bio: newProfile.bio,
+            avatar_url: newProfile.avatarUrl,
+            github_url: newProfile.githubUrl,
+            linkedin_url: newProfile.linkedinUrl,
+            location: newProfile.location,
+            readiness_score: 0,
+          }),
+          3000
+        ).catch((err) => {
+          console.warn('Student profile cloud insert notice:', err);
         });
       }
     }
@@ -803,7 +873,9 @@ export const StudentTwinProvider: React.FC<{
         careerGoals,
         digitalTwinReport,
         subscription,
-        isLoading,
+        isTwinHydrating,
+        isTwinReady,
+        isLoading: isTwinHydrating,
         switchProfile,
         addNewStudentProfile,
         updateProfile,

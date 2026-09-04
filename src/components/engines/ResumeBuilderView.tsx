@@ -66,26 +66,31 @@ export const ResumeBuilderView: React.FC<ResumeBuilderViewProps> = ({ onBackToHu
   const [viewMode, setViewMode] = useState<'editor' | 'preview'>('editor');
 
   // Structured Resume State
-  const [fullName, setFullName] = useState(profile?.fullName || profile?.name || 'Sricharan Vangala');
-  const [headline, setHeadline] = useState(profile?.targetRole || 'Software Development Engineer | Full-Stack Developer');
-  const [email, setEmail] = useState((profile as any)?.email || 'sricharan.vangala@student.edu');
-  const [phone, setPhone] = useState((profile as any)?.phone || '+91 98765 43210');
-  const [location, setLocation] = useState(profile?.location || 'Bangalore, India');
-  const [githubUrl, setGithubUrl] = useState(profile?.githubUrl || 'https://github.com/Vangala-sricharan');
-  const [linkedinUrl, setLinkedinUrl] = useState(profile?.linkedinUrl || 'https://linkedin.com/in/sri-charan-vangala-a7453b384/');
-  const [targetRole, setTargetRole] = useState(profile?.targetRole || 'Software Development Engineer');
+  const [fullName, setFullName] = useState(profile?.fullName || profile?.name || '');
+  const [headline, setHeadline] = useState(profile?.targetRole || profile?.headline || '');
+  const [email, setEmail] = useState((profile as any)?.email || '');
+  const [phone, setPhone] = useState((profile as any)?.phone || '');
+  const [location, setLocation] = useState(profile?.location || '');
+  const [githubUrl, setGithubUrl] = useState(profile?.githubUrl || '');
+  const [linkedinUrl, setLinkedinUrl] = useState(profile?.linkedinUrl || '');
+  const [targetRole, setTargetRole] = useState(profile?.targetRole || '');
 
   const [summary, setSummary] = useState(
-    `Motivated computer science student targeting ${profile?.targetRole || 'Software Development Engineer'} roles with proven project experience in full-stack architecture, clean coding practices, and core algorithmic problem-solving.`
+    profile?.bio ||
+      (profile?.targetRole
+        ? `Motivated student targeting ${profile.targetRole} roles with proven capability in modern software engineering and clean code practices.`
+        : 'Motivated student with verified competencies in modern software engineering, scalable architectures, and clean code practices.')
   );
 
   const [languagesSkills, setLanguagesSkills] = useState(
     skills.filter((s) => ['TypeScript', 'JavaScript', 'Python', 'C++', 'Java', 'SQL'].includes(s.name)).map((s) => s.name).join(', ') ||
-      'TypeScript, JavaScript, Python, C++, Java, SQL'
+      skills.slice(0, 5).map((s) => s.name).join(', ') ||
+      ''
   );
   const [frameworksSkills, setFrameworksSkills] = useState(
     skills.filter((s) => !['TypeScript', 'JavaScript', 'Python', 'C++', 'Java', 'SQL'].includes(s.name)).map((s) => s.name).join(', ') ||
-      'React, Node.js, Express, Tailwind CSS, PostgreSQL, Git, Docker, REST APIs'
+      skills.slice(5, 10).map((s) => s.name).join(', ') ||
+      ''
   );
 
   const [resumeProjects, setResumeProjects] = useState<ResumeProjectItem[]>(() =>
@@ -95,17 +100,17 @@ export const ResumeBuilderView: React.FC<ResumeBuilderViewProps> = ({ onBackToHu
       techStack: p.techStack.join(' | '),
       bullets: [
         `Architected and built full-stack application using ${p.techStack.join(', ')}.`,
-        'Implemented core features with modular state management and secure data flow.',
+        p.description || 'Implemented core features with modular state management and secure data flow.',
         'Optimized performance and ensured reliable error handling across application layers.',
       ],
     }))
   );
 
-  const [university, setUniversity] = useState(profile?.university || 'Marwadi University');
-  const [degree, setDegree] = useState(profile?.degree || 'B.Tech');
-  const [branch, setBranch] = useState(profile?.branch || 'Computer Science & Engineering');
-  const [gradYear, setGradYear] = useState(profile?.year ? `${profile.year} Year` : '2022 - 2026');
-  const [cgpa, setCgpa] = useState(profile?.cgpa?.toString() || '8.8');
+  const [university, setUniversity] = useState(profile?.university || '');
+  const [degree, setDegree] = useState(profile?.degree || '');
+  const [branch, setBranch] = useState(profile?.branch || '');
+  const [gradYear, setGradYear] = useState(profile?.gradYear || (profile?.year ? `${profile.year} Year` : ''));
+  const [cgpa, setCgpa] = useState(profile?.cgpa?.toString() || '');
 
   const [resumeAchievements, setResumeAchievements] = useState<ResumeAchievementItem[]>(() =>
     achievements.map((a) => ({

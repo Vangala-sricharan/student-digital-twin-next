@@ -20,8 +20,8 @@ export const ManageProfiles: React.FC = () => {
     university: '',
     degree: '',
     branch: '',
-    year: '2nd',
-    semester: '4th',
+    year: '',
+    semester: '',
     cgpa: 0,
     targetRole: '',
     bio: '',
@@ -214,8 +214,9 @@ export const ManageProfiles: React.FC = () => {
                 name="year"
                 value={formData.year}
                 onChange={handleChange}
-                className="w-full p-3 rounded-xl bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 text-slate-900 dark:text-white text-sm focus:outline-none focus:ring-1 focus:ring-blue-600 dark:focus:ring-cyan-400 focus:border-blue-600 dark:focus:border-cyan-400"
+                className="w-full p-3 rounded-2xl bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 text-slate-900 dark:text-white text-sm focus:outline-none focus:ring-1 focus:ring-blue-600 dark:focus:ring-cyan-400 focus:border-blue-600 dark:focus:border-cyan-400"
               >
+                <option value="" className="bg-white dark:bg-[#0d1117] text-slate-500">Select Academic Year</option>
                 <option value="1st" className="bg-white dark:bg-[#0d1117] text-slate-900 dark:text-white">1st Year</option>
                 <option value="2nd" className="bg-white dark:bg-[#0d1117] text-slate-900 dark:text-white">2nd Year</option>
                 <option value="3rd" className="bg-white dark:bg-[#0d1117] text-slate-900 dark:text-white">3rd Year</option>

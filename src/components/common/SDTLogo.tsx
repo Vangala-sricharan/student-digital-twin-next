@@ -15,9 +15,9 @@ export const SDTLogo: React.FC<SDTLogoProps> = ({ className = '', showText = tru
 
   return (
     <div className={`flex items-center gap-2.5 select-none ${className}`}>
-      {/* Immersive UI Gradient Emblem with Blue Glow */}
+      {/* Immersive UI Gradient Emblem with Soft Squircle Geometry */}
       <div
-        className={`${iconSizes[size]} relative flex items-center justify-center rounded-lg bg-gradient-to-br from-blue-500 to-cyan-400 text-white font-bold font-mono shadow-[0_0_15px_rgba(59,130,246,0.5)] border border-white/20 overflow-hidden shrink-0`}
+        className={`${iconSizes[size]} relative flex items-center justify-center rounded-2xl bg-gradient-to-br from-blue-500 via-indigo-600 to-cyan-400 text-white font-bold font-mono shadow-sm border border-white/20 overflow-hidden shrink-0`}
       >
         <span className="leading-none drop-shadow">S</span>
       </div>

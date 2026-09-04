@@ -24,6 +24,25 @@ export const supabase: SupabaseClient = createClient(fallbackUrl, fallbackKey, {
 });
 
 /**
+ * Robust promise timeout wrapper to prevent slow network / paused server freezes
+ */
+export function withTimeout<T>(
+  promise: PromiseLike<T>,
+  timeoutMs: number = 4000,
+  fallbackVal?: T
+): Promise<T> {
+  return Promise.race([
+    Promise.resolve(promise),
+    new Promise<T>((_, reject) =>
+      setTimeout(() => reject(new Error(`Operation timed out after ${timeoutMs}ms`)), timeoutMs)
+    ),
+  ]).catch((err) => {
+    if (fallbackVal !== undefined) return fallbackVal;
+    throw err;
+  });
+}
+
+/**
  * Supabase PostgreSQL Database Schema Foundation
  * Phase 1 Architecture Schema Definition with Row Level Security (RLS)
  */

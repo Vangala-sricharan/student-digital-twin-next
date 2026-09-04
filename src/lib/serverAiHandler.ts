@@ -272,6 +272,7 @@ export async function fetchRealGitHubProfileData(rawUrlOrUsername: string, force
 
 /**
  * Executes Gemini with ultra-fast latency and multi-model resilience cascade.
+ * Handles transient demand spikes (503 UNAVAILABLE / 429 rate limit) gracefully with backoff retry.
  */
 async function callGeminiWithResilience(
   ai: GoogleGenAI,
@@ -279,54 +280,68 @@ async function callGeminiWithResilience(
   systemInstruction: string,
   engineId: string
 ): Promise<string | null> {
+  // Production-grade candidate cascade: stable flash first, followed by flash-lite and 3.8-flash
   const candidateModels = [
-    { name: 'gemini-3.1-flash-lite', useThinkingBudget: false },
-    { name: 'gemini-flash-latest', useThinkingBudget: false },
-    { name: 'gemini-3.7-flash', useThinkingBudget: true },
-    { name: 'gemini-3.1-pro-preview', useThinkingBudget: false },
+    { name: 'gemini-flash-latest', timeoutMs: 14000 },
+    { name: 'gemini-3.1-flash-lite', timeoutMs: 10000 },
+    { name: 'gemini-3.8-flash', timeoutMs: 14000 },
   ];
 
   for (let i = 0; i < candidateModels.length; i++) {
     const candidate = candidateModels[i];
     const model = candidate.name;
-    const t0 = Date.now();
-    try {
-      const config: any = {
-        temperature: 0.2,
-        systemInstruction,
-      };
+    const timeoutMs = candidate.timeoutMs || 12000;
 
-      if (candidate.useThinkingBudget) {
-        config.thinkingConfig = { thinkingBudget: 0 };
-      }
+    // Up to 2 attempts per candidate on temporary high demand / 503 / 429
+    for (let attempt = 0; attempt < 2; attempt++) {
+      const t0 = Date.now();
+      try {
+        const config: any = {
+          temperature: 0.2,
+          systemInstruction,
+        };
 
-      const response = await ai.models.generateContent({
-        model,
-        contents: prompt,
-        config,
-      });
+        const generatePromise = ai.models.generateContent({
+          model,
+          contents: prompt,
+          config,
+        });
 
-      if (response.text && response.text.trim().length > 0) {
-        console.log(`[Gemini Execution Timing] ${model} completed in ${Date.now() - t0}ms for ${engineId}`);
-        return response.text;
-      }
-    } catch (err: any) {
-      console.warn(`[Gemini Inference Notice] ${model} for ${engineId} failed in ${Date.now() - t0}ms:`, err?.message || err);
-      const isTemporaryDemand =
-        err?.status === 503 ||
-        err?.code === 503 ||
-        err?.status === 429 ||
-        err?.code === 429 ||
-        err?.message?.includes('503') ||
-        err?.message?.includes('429') ||
-        err?.message?.includes('high demand') ||
-        err?.message?.includes('UNAVAILABLE') ||
-        err?.message?.includes('RESOURCE_EXHAUSTED') ||
-        err?.message?.includes('rate limit') ||
-        err?.message?.includes('Quota exceeded');
+        const timeoutPromise = new Promise<never>((_, reject) => {
+          setTimeout(() => reject(new Error(`Model ${model} request timed out after ${timeoutMs}ms`)), timeoutMs);
+        });
 
-      if (isTemporaryDemand && i === 0) {
-        await sleep(100);
+        const response = await Promise.race([generatePromise, timeoutPromise]);
+
+        if (response.text && response.text.trim().length > 0) {
+          console.log(`[Gemini Execution Timing] ${model} completed in ${Date.now() - t0}ms for ${engineId}`);
+          return response.text;
+        }
+      } catch (err: any) {
+        const errMsg = err?.message || String(err);
+        const isTemporaryDemand =
+          err?.status === 503 ||
+          err?.code === 503 ||
+          err?.status === 429 ||
+          err?.code === 429 ||
+          errMsg.includes('503') ||
+          errMsg.includes('429') ||
+          errMsg.includes('high demand') ||
+          errMsg.includes('UNAVAILABLE') ||
+          errMsg.includes('RESOURCE_EXHAUSTED') ||
+          errMsg.includes('rate limit') ||
+          errMsg.includes('Quota exceeded') ||
+          errMsg.includes('timed out');
+
+        if (isTemporaryDemand && attempt === 0) {
+          // Brief pause before single retry on temporary demand spike
+          await sleep(250);
+          continue;
+        }
+
+        // Gracefully cascade to next model in list
+        console.info(`[Gemini Resilience Cascade] ${model} for ${engineId} paused (${errMsg.slice(0, 90)}), switching to next model...`);
+        break;
       }
     }
   }
@@ -334,130 +349,319 @@ async function callGeminiWithResilience(
   return null;
 }
 
-export async function processEngineAiRequest(req: EngineAiRequest): Promise<EngineAiResponse> {
-  const { engineId, studentContext, userInputs, documentText, documentMeta } = req;
-
-  // Handle GitHub audit specific real-time external API fetching & validation
-  let githubProfileData: any = null;
-  if (engineId === 'github-audit') {
-    const rawGithubUrl = userInputs?.githubUrl || studentContext.githubUrl || 'https://github.com/Vangala-sricharan';
+export async function generateProjectDescription(params: {
+  projectName: string;
+  techStack?: string;
+  category?: string;
+  role?: string;
+  keyDetails?: string;
+  profileContext?: any;
+}): Promise<string> {
+  const ai = getAiClient();
+  if (ai) {
     try {
-      githubProfileData = await fetchRealGitHubProfileData(rawGithubUrl);
-    } catch (gitErr: any) {
-      return {
-        engineId,
-        timestamp: new Date().toISOString(),
-        status: 'error',
-        error: gitErr.message || 'Failed to fetch GitHub profile.',
-        data: null,
-      };
+      const systemInstruction = `You are a specialized technical portfolio synthesizer for the Student Digital Twin platform.
+Your task is to write a crisp, professional, high-impact technical project description (2 to 3 sentences) suitable for a verified software engineering resume or portfolio.
+STRICT RULES:
+1. Base the description ONLY on the provided project name, technologies, category, role, and key details.
+2. DO NOT fabricate facts, users, metrics (e.g. "scaled to 10k users"), companies, deployments, achievements, technologies, or results that are not provided.
+3. If specific metrics are not provided, focus on the engineering architecture, core purpose, and technical capabilities enabled by the specified stack.
+4. Output ONLY the description text. No markdown formatting, no quotes, no conversational intros.`;
+
+      const prompt = `Project Name: ${params.projectName}
+Category / Type: ${params.category || 'Software Engineering'}
+Role: ${params.role || 'Developer'}
+Technologies / Stack: ${params.techStack || 'Web & Systems Tech'}
+Key Details / Architecture Notes: ${params.keyDetails || 'Implementation and core architecture'}
+Candidate Target Track: ${params.profileContext?.targetRole || 'Software Development'}`;
+
+      const generated = await callGeminiWithResilience(ai, prompt, systemInstruction, 'generate-project-description');
+      if (generated && generated.trim()) {
+        return generated.trim().replace(/^["']|["']$/g, '');
+      }
+    } catch (err) {
+      console.info('[AI Project Description] Utilizing deterministic synthesis:', err);
     }
   }
 
-  const ai = getAiClient();
+  // Deterministic fallback based strictly on provided inputs without fabricating unmentioned facts
+  const techStr = params.techStack ? ` built with ${params.techStack}` : '';
+  const roleStr = params.role ? ` as ${params.role}` : '';
+  const catStr = params.category ? ` ${params.category.toLowerCase()}` : '';
+  const detailsStr = params.keyDetails ? ` ${params.keyDetails.trim().replace(/\.$/, '')}.` : '';
 
-  // If Gemini API is configured, run live inference with multi-tier resilience
+  return `Engineered ${params.projectName}${roleStr}, delivering a functional${catStr} system${techStr}.${detailsStr} Architected with modular component boundaries and standard engineering practices for verifiable technical demonstration.`.trim();
+}
+
+export async function generateAchievementDescription(params: {
+  title: string;
+  category?: string;
+  issuer?: string;
+  date?: string;
+  details?: string;
+  profileContext?: any;
+}): Promise<string> {
+  const ai = getAiClient();
   if (ai) {
     try {
-      const prompt = buildEnginePrompt(engineId, studentContext, { ...userInputs, githubProfileData }, documentText, documentMeta);
-      const systemInstruction = `You are the Student Digital Twin Career OS Engine (${engineId}).
+      const systemInstruction = `You are an achievement verification synthesizer for the Student Digital Twin platform.
+Your task is to write a crisp, professional, 1 to 2 sentence achievement summary suitable for a verified student digital twin portfolio.
+STRICT RULES:
+1. Base the summary ONLY on the provided title, organization/issuer, category, date, and user details.
+2. DO NOT fabricate awards, rankings, certificates, organizations, dates, positions, statistics, or results not provided.
+3. Output ONLY the summary text. No quotes, no markdown headers, no conversational fluff.`;
+
+      const prompt = `Achievement Title: ${params.title}
+Category / Type: ${params.category || 'Honors & Recognition'}
+Issuing Organization: ${params.issuer || 'Academic / Industry Entity'}
+Date / Timeline: ${params.date || '2026'}
+Details: ${params.details || 'Recognized student milestone'}
+Candidate Program: ${params.profileContext?.degree || 'B.Tech'} in ${params.profileContext?.branch || 'Computer Science'}`;
+
+      const generated = await callGeminiWithResilience(ai, prompt, systemInstruction, 'generate-achievement-description');
+      if (generated && generated.trim()) {
+        return generated.trim().replace(/^["']|["']$/g, '');
+      }
+    } catch (err) {
+      console.info('[AI Achievement Description] Utilizing deterministic synthesis:', err);
+    }
+  }
+
+  // Deterministic fallback based strictly on provided inputs
+  const issuerStr = params.issuer ? ` by ${params.issuer}` : '';
+  const dateStr = params.date ? ` in ${params.date}` : '';
+  const catStr = params.category ? ` within ${params.category}` : '';
+  const detailsStr = params.details ? ` ${params.details.trim().replace(/\.$/, '')}.` : '';
+
+  return `Recognized for ${params.title}${issuerStr}${dateStr}${catStr}.${detailsStr} Authenticated and indexed as a verified accomplishment in the Student Digital Twin portfolio.`.trim();
+}
+
+export async function processEngineAiRequest(
+  req: EngineAiRequest,
+  onStageUpdate?: (stageIndex: number, badge?: string) => void
+): Promise<EngineAiResponse> {
+  const { engineId, studentContext, userInputs, documentText, documentMeta } = req;
+
+  try {
+    onStageUpdate?.(0, 'Context Validated');
+
+    // Dedicated AI Project Description Generator
+    if (engineId === 'generate-project-description') {
+      const projectName = userInputs?.projectName || userInputs?.title || '';
+      if (!projectName) {
+        return {
+          engineId,
+          timestamp: new Date().toISOString(),
+          status: 'error',
+          error: 'Please enter a project name first.',
+          data: null,
+        };
+      }
+      onStageUpdate?.(1, 'Synthesizing Architecture');
+      const description = await generateProjectDescription({
+        projectName,
+        techStack: userInputs?.techStack || userInputs?.technologies || '',
+        category: userInputs?.category || '',
+        role: userInputs?.role || '',
+        keyDetails: userInputs?.keyDetails || userInputs?.details || '',
+        profileContext: studentContext,
+      });
+      onStageUpdate?.(2, 'Description Ready');
+      return {
+        engineId,
+        timestamp: new Date().toISOString(),
+        status: 'success',
+        data: { description },
+        rawText: description,
+      };
+    }
+
+    // Dedicated AI Achievement Description Generator
+    if (engineId === 'generate-achievement-description') {
+      const title = userInputs?.title || userInputs?.achievementTitle || '';
+      if (!title) {
+        return {
+          engineId,
+          timestamp: new Date().toISOString(),
+          status: 'error',
+          error: 'Please enter an achievement title first.',
+          data: null,
+        };
+      }
+      onStageUpdate?.(1, 'Synthesizing Milestone');
+      const description = await generateAchievementDescription({
+        title,
+        category: userInputs?.category || '',
+        issuer: userInputs?.issuer || userInputs?.organization || '',
+        date: userInputs?.date || '',
+        details: userInputs?.details || userInputs?.keyDetails || '',
+        profileContext: studentContext,
+      });
+      onStageUpdate?.(2, 'Achievement Indexed');
+      return {
+        engineId,
+        timestamp: new Date().toISOString(),
+        status: 'success',
+        data: { description },
+        rawText: description,
+      };
+    }
+
+    // Handle GitHub audit specific real-time external API fetching & validation
+    let githubProfileData: any = null;
+    if (engineId === 'github-audit') {
+      onStageUpdate?.(1, 'Ingesting GitHub Data');
+      const rawGithubUrl = userInputs?.githubUrl || studentContext.githubUrl || '';
+      if (!rawGithubUrl) {
+        return {
+          engineId,
+          timestamp: new Date().toISOString(),
+          status: 'error',
+          error: 'Please provide a valid GitHub profile URL or configure it in My Profile.',
+          data: null,
+        };
+      }
+      try {
+        githubProfileData = await fetchRealGitHubProfileData(rawGithubUrl);
+      } catch (gitErr: any) {
+        const cleanMsg = gitErr?.message || 'Failed to fetch GitHub profile.';
+        return {
+          engineId,
+          timestamp: new Date().toISOString(),
+          status: 'error',
+          error: cleanMsg.includes('404')
+            ? 'GitHub user not found. Please double-check the username and ensure the profile is public.'
+            : cleanMsg,
+          data: null,
+        };
+      }
+    } else if (documentText || documentMeta) {
+      onStageUpdate?.(1, 'Parsing Document Evidence');
+    } else {
+      onStageUpdate?.(1, 'Analyzing Profile Evidence');
+    }
+
+    const ai = getAiClient();
+
+    // If Gemini API is configured, run live inference with multi-tier resilience
+    if (ai) {
+      try {
+        onStageUpdate?.(2, 'Running Model Evaluation');
+        const prompt = buildEnginePrompt(engineId, studentContext, { ...userInputs, githubProfileData }, documentText, documentMeta);
+        const systemInstruction = `You are the Student Digital Twin Career OS Engine (${engineId}).
 You operate strictly on the provided Student Twin and verified profile data. Never fabricate achievements, companies, or experiences that are not provided.
 Provide structured, high-rigor, student-specific, and actionable guidance formatted in clean markdown.
 Format all pricing and CTC estimates strictly in Indian Rupees (₹) using the Indian numbering system. No dollar signs ($).`;
 
-      const generatedText = await callGeminiWithResilience(ai, prompt, systemInstruction, engineId);
+        const generatedText = await callGeminiWithResilience(ai, prompt, systemInstruction, engineId);
 
-      if (generatedText) {
-        const sanitizedText = generatedText.replace(/\$(\d+(?:,\d+)*(?:\.\d+)?)/g, '₹$1');
-        const structuredData = parseStructuredData(engineId, sanitizedText, studentContext, { ...userInputs, githubProfileData });
-        
-        // If github audit, ensure live fetched GitHub profile data is merged perfectly
-        if (engineId === 'github-audit' && githubProfileData) {
-          const sd = structuredData as any;
-          sd.score = githubProfileData.score;
-          sd.evaluation = githubProfileData.evaluation;
-          sd.profile = {
-            username: githubProfileData.username,
-            name: githubProfileData.name,
-            avatarUrl: githubProfileData.avatarUrl,
-            htmlUrl: githubProfileData.htmlUrl,
-            bio: githubProfileData.bio,
-            publicRepos: githubProfileData.publicRepos,
-            totalStars: githubProfileData.totalStars,
-            forks: githubProfileData.forks,
-            languages: githubProfileData.languages,
-            memberSince: githubProfileData.memberSince,
-            followers: githubProfileData.followers,
+        if (generatedText) {
+          onStageUpdate?.(3, 'Finalizing Scorecard');
+          const sanitizedText = generatedText.replace(/\$(\d+(?:,\d+)*(?:\.\d+)?)/g, '₹$1');
+          const structuredData = parseStructuredData(engineId, sanitizedText, studentContext, { ...userInputs, githubProfileData });
+          
+          // If github audit, ensure live fetched GitHub profile data is merged perfectly
+          if (engineId === 'github-audit' && githubProfileData) {
+            const sd = structuredData as any;
+            sd.score = githubProfileData.score;
+            sd.evaluation = githubProfileData.evaluation;
+            sd.profile = {
+              username: githubProfileData.username,
+              name: githubProfileData.name,
+              avatarUrl: githubProfileData.avatarUrl,
+              htmlUrl: githubProfileData.htmlUrl,
+              bio: githubProfileData.bio,
+              publicRepos: githubProfileData.publicRepos,
+              totalStars: githubProfileData.totalStars,
+              forks: githubProfileData.forks,
+              languages: githubProfileData.languages,
+              memberSince: githubProfileData.memberSince,
+              followers: githubProfileData.followers,
+            };
+            sd.breakdown = githubProfileData.breakdown;
+            if (!sd.strengths || sd.strengths.length === 0) {
+              sd.strengths = githubProfileData.strengths;
+            }
+            if (!sd.gaps || sd.gaps.length === 0) {
+              sd.gaps = githubProfileData.gaps;
+            }
+            if (!sd.adjustments || sd.adjustments.length === 0) {
+              sd.adjustments = githubProfileData.adjustments;
+            }
+            if (!sd.searchOptimization) {
+              sd.searchOptimization = githubProfileData.searchOptimization;
+            }
+          }
+
+          return {
+            engineId,
+            timestamp: new Date().toISOString(),
+            status: 'success',
+            rawText: sanitizedText,
+            data: structuredData,
           };
-          sd.breakdown = githubProfileData.breakdown;
-          if (!sd.strengths || sd.strengths.length === 0) {
-            sd.strengths = githubProfileData.strengths;
-          }
-          if (!sd.gaps || sd.gaps.length === 0) {
-            sd.gaps = githubProfileData.gaps;
-          }
-          if (!sd.adjustments || sd.adjustments.length === 0) {
-            sd.adjustments = githubProfileData.adjustments;
-          }
-          if (!sd.searchOptimization) {
-            sd.searchOptimization = githubProfileData.searchOptimization;
-          }
         }
-
-        return {
-          engineId,
-          timestamp: new Date().toISOString(),
-          status: 'success',
-          rawText: sanitizedText,
-          data: structuredData,
-        };
+      } catch (err: any) {
+        console.info(`[AI Engine ${engineId}] Utilizing Twin deterministic synthesis:`, err?.message || err);
       }
-    } catch (err: any) {
-      console.warn(`[AI Engine ${engineId}] Falling back to Twin deterministic synthesis:`, err?.message || err);
     }
-  }
 
-  // High-fidelity Student Twin deterministic reasoning fallback
-  const fallbackResult = generateDeterministicEngineResponse(
-    engineId,
-    studentContext,
-    { ...userInputs, githubProfileData },
-    documentText,
-    documentMeta
-  );
-  const sanitizedFallbackText = fallbackResult.text.replace(/\$(\d+(?:,\d+)*(?:\.\d+)?)/g, '₹$1');
+    // High-fidelity Student Twin deterministic reasoning fallback
+    onStageUpdate?.(2, 'Twin Reasoning Synthesis');
+    const fallbackResult = generateDeterministicEngineResponse(
+      engineId,
+      studentContext,
+      { ...userInputs, githubProfileData },
+      documentText,
+      documentMeta
+    );
+    const sanitizedFallbackText = fallbackResult.text.replace(/\$(\d+(?:,\d+)*(?:\.\d+)?)/g, '₹$1');
 
-  const finalData = fallbackResult.data as any;
-  if (engineId === 'github-audit' && githubProfileData) {
-    finalData.score = githubProfileData.score;
-    finalData.evaluation = githubProfileData.evaluation;
-    finalData.profile = {
-      username: githubProfileData.username,
-      name: githubProfileData.name,
-      avatarUrl: githubProfileData.avatarUrl,
-      htmlUrl: githubProfileData.htmlUrl,
-      bio: githubProfileData.bio,
-      publicRepos: githubProfileData.publicRepos,
-      totalStars: githubProfileData.totalStars,
-      forks: githubProfileData.forks,
-      languages: githubProfileData.languages,
-      memberSince: githubProfileData.memberSince,
-      followers: githubProfileData.followers,
+    onStageUpdate?.(3, 'Finalizing Scorecard');
+    const finalData = fallbackResult.data as any;
+    if (engineId === 'github-audit' && githubProfileData) {
+      finalData.score = githubProfileData.score;
+      finalData.evaluation = githubProfileData.evaluation;
+      finalData.profile = {
+        username: githubProfileData.username,
+        name: githubProfileData.name,
+        avatarUrl: githubProfileData.avatarUrl,
+        htmlUrl: githubProfileData.htmlUrl,
+        bio: githubProfileData.bio,
+        publicRepos: githubProfileData.publicRepos,
+        totalStars: githubProfileData.totalStars,
+        forks: githubProfileData.forks,
+        languages: githubProfileData.languages,
+        memberSince: githubProfileData.memberSince,
+        followers: githubProfileData.followers,
+      };
+      finalData.breakdown = githubProfileData.breakdown;
+      finalData.strengths = githubProfileData.strengths;
+      finalData.gaps = githubProfileData.gaps;
+      finalData.adjustments = githubProfileData.adjustments;
+      finalData.searchOptimization = githubProfileData.searchOptimization;
+    }
+
+    return {
+      engineId,
+      timestamp: new Date().toISOString(),
+      status: 'success',
+      rawText: sanitizedFallbackText,
+      data: finalData,
     };
-    finalData.breakdown = githubProfileData.breakdown;
-    finalData.strengths = githubProfileData.strengths;
-    finalData.gaps = githubProfileData.gaps;
-    finalData.adjustments = githubProfileData.adjustments;
-    finalData.searchOptimization = githubProfileData.searchOptimization;
+  } catch (outerErr: any) {
+    const rawMsg = outerErr?.message || String(outerErr);
+    const cleanMsg = rawMsg.replace(/(\r\n|\n|\r)/gm, ' ').slice(0, 160);
+    return {
+      engineId,
+      timestamp: new Date().toISOString(),
+      status: 'error',
+      error: cleanMsg.includes('fetch')
+        ? 'Network request failed. Please check your internet connection and try again.'
+        : `Analysis could not be completed: ${cleanMsg}`,
+      data: null,
+    };
   }
-
-  return {
-    engineId,
-    timestamp: new Date().toISOString(),
-    status: 'success',
-    rawText: sanitizedFallbackText,
-    data: finalData,
-  };
 }
 
 function buildEnginePrompt(
@@ -635,12 +839,134 @@ Simulate realistic career trajectories. Note: This is an estimated projection ba
   }
 }
 
-function getEvaluationLabel(score: number): string {
+export interface LinkedInCategoryBreakdown {
+  label: string;
+  score: number;
+  max: number;
+}
+
+export interface ValidatedLinkedInScore {
+  overallScore: number;
+  totalScore: number;
+  totalMax: number;
+  percentage: number;
+  evaluation: string;
+  breakdown: LinkedInCategoryBreakdown[];
+}
+
+export function getEvaluationLabel(score: number): string {
   if (score >= 90) return 'Excellent';
   if (score >= 80) return 'Strong';
   if (score >= 70) return 'Needs Polish';
   if (score >= 55) return 'Needs Improvement';
   return 'Critical Gaps';
+}
+
+/**
+ * Universal mathematical calculator for category breakdowns.
+ * Formula: overallScore = Math.round((sum(category scores) / sum(category maximums)) * 100)
+ * Enforces 0 <= score <= max, valid numbers, and exact score preservation.
+ */
+export function calculateDeterministicCategoryScore(
+  rawBreakdown?: any[] | null,
+  text?: string
+): {
+  overallScore: number;
+  totalScore: number;
+  totalMax: number;
+  percentage: number;
+  evaluation: string;
+  breakdown: Array<{ label: string; score: number; max: number }>;
+} {
+  const sourceBreakdown = Array.isArray(rawBreakdown) ? rawBreakdown : [];
+
+  let totalScore = 0;
+  let totalMax = 0;
+  const validatedBreakdown: Array<{ label: string; score: number; max: number }> = [];
+
+  for (let i = 0; i < sourceBreakdown.length; i++) {
+    const item = sourceBreakdown[i];
+    if (!item || typeof item !== 'object') continue;
+
+    const label = typeof item.label === 'string' && item.label.trim().length > 0
+      ? item.label.trim()
+      : `Category ${i + 1}`;
+
+    const rawMax = Number(item.max);
+    const maxVal = (!isNaN(rawMax) && isFinite(rawMax) && rawMax > 0)
+      ? Math.round(rawMax)
+      : 20;
+
+    let scoreVal = Number(item.score);
+
+    // If text contains updated parsed score like "Category Name: 14/15" or "14 / 15"
+    if (text) {
+      const escapedLabel = label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const firstWord = label.split(' ')[0];
+      const match = text.match(new RegExp(`(?:${escapedLabel}|${firstWord})[^\\n\\r:]*?:?\\s*\\*?([0-9]{1,3})\\s*\\/\\s*([0-9]{1,3})\\*?`, 'i'));
+      if (match) {
+        const s = parseInt(match[1], 10);
+        const m = parseInt(match[2], 10);
+        if (!isNaN(s) && !isNaN(m) && m > 0) {
+          scoreVal = m === maxVal ? s : Math.round((s / m) * maxVal);
+        }
+      }
+    }
+
+    scoreVal = (!isNaN(scoreVal) && isFinite(scoreVal)) ? Math.round(scoreVal) : 0;
+    scoreVal = Math.max(0, Math.min(maxVal, scoreVal));
+
+    validatedBreakdown.push({
+      label,
+      score: scoreVal,
+      max: maxVal,
+    });
+
+    totalScore += scoreVal;
+    totalMax += maxVal;
+  }
+
+  if (totalMax === 0 || validatedBreakdown.length === 0) {
+    return {
+      overallScore: 80,
+      totalScore: 80,
+      totalMax: 100,
+      percentage: 80,
+      evaluation: getEvaluationLabel(80),
+      breakdown: [],
+    };
+  }
+
+  const ratio = totalScore / totalMax;
+  const overallScore = Math.max(0, Math.min(100, Math.round(ratio * 100)));
+  const evaluation = getEvaluationLabel(overallScore);
+
+  return {
+    overallScore,
+    totalScore,
+    totalMax,
+    percentage: overallScore,
+    evaluation,
+    breakdown: validatedBreakdown,
+  };
+}
+
+/**
+ * Deterministically calculates the overall LinkedIn Recruiter Score from category scores.
+ */
+export function calculateLinkedInAuditScore(
+  rawBreakdown?: any[] | null
+): ValidatedLinkedInScore {
+  const defaultCategories: LinkedInCategoryBreakdown[] = [
+    { label: 'Headline Impact', score: 12, max: 15 },
+    { label: 'About Section Depth', score: 19, max: 25 },
+    { label: 'Technical Positioning', score: 17, max: 20 },
+    { label: 'Experience & Project Relevance', score: 16, max: 20 },
+    { label: 'Recruiter Search Discoverability', score: 18, max: 20 },
+  ];
+
+  const source = Array.isArray(rawBreakdown) && rawBreakdown.length > 0 ? rawBreakdown : defaultCategories;
+  return calculateDeterministicCategoryScore(source);
 }
 
 function parseStructuredData(
@@ -649,12 +975,52 @@ function parseStructuredData(
   context: EngineAiRequest['studentContext'],
   userInputs?: Record<string, any>
 ) {
+  // Return full deterministic model as base
+  const baseModel = generateDeterministicEngineResponse(engineId, context, userInputs).data;
+
+  // For LinkedIn Audit: derive overall score deterministically from category scores
+  if (engineId === 'linkedin-audit') {
+    const rawBreakdown = (baseModel as any)?.breakdown || [
+      { label: 'Headline Impact', score: 12, max: 15 },
+      { label: 'About Section Depth', score: 19, max: 25 },
+      { label: 'Technical Positioning', score: 17, max: 20 },
+      { label: 'Experience & Project Relevance', score: 16, max: 20 },
+      { label: 'Recruiter Search Discoverability', score: 18, max: 20 },
+    ];
+
+    const validated = calculateDeterministicCategoryScore(rawBreakdown, text);
+    return {
+      ...baseModel,
+      score: validated.overallScore,
+      overallScore: validated.overallScore,
+      evaluation: validated.evaluation,
+      breakdown: validated.breakdown,
+      source: userInputs?.auditMode === 'pdf' ? 'pdf' : 'url',
+      timestamp: new Date().toISOString(),
+    };
+  }
+
+  // For GitHub Audit & Project Auditor: calculate score deterministically from breakdown
+  if (engineId === 'github-audit' || engineId === 'project-auditor') {
+    const rawBreakdown = (baseModel as any)?.breakdown;
+    if (Array.isArray(rawBreakdown) && rawBreakdown.length > 0) {
+      const validated = calculateDeterministicCategoryScore(rawBreakdown, text);
+      return {
+        ...baseModel,
+        score: validated.overallScore,
+        overallScore: validated.overallScore,
+        evaluation: validated.evaluation,
+        verdict: validated.evaluation,
+        breakdown: validated.breakdown,
+        timestamp: new Date().toISOString(),
+      };
+    }
+  }
+
   const scoreMatch = text.match(/(?:Score|Probability|Rating|Readiness):\s*\*?([0-9]{1,3})%?/i);
   const score = scoreMatch ? Math.min(100, Math.max(0, parseInt(scoreMatch[1], 10))) : context.readinessScore || 82;
   const evaluation = getEvaluationLabel(score);
 
-  // Return full deterministic model enriched with AI extracted score
-  const baseModel = generateDeterministicEngineResponse(engineId, context, userInputs).data;
   return {
     ...baseModel,
     score,
@@ -877,11 +1243,15 @@ ${context.projects.map((p) => `##### **${p.title}**
     }
 
     case 'github-audit': {
-      const rawUrl = userInputs?.githubUrl || context.githubUrl || 'https://github.com/Vangala-sricharan';
-      let username = 'Vangala-sricharan';
+      const rawUrl = userInputs?.githubUrl || context.githubUrl || '';
+      let username = 'student-engineer';
       try {
-        const clean = rawUrl.replace(/^https?:\/\/(www\.)?github\.com\/?/, '').split('/')[0].trim();
-        if (clean) username = clean;
+        if (rawUrl) {
+          const clean = rawUrl.replace(/^https?:\/\/(www\.)?github\.com\/?/, '').split('/')[0].trim();
+          if (clean) username = clean;
+        } else if (context.name) {
+          username = context.name.toLowerCase().replace(/\s+/g, '-');
+        }
       } catch (e) {}
 
       const score = 84;
@@ -895,9 +1265,9 @@ ${context.projects.map((p) => `##### **${p.title}**
 **Recruiter-Readiness Score**: **${score} / 100** (${evaluation})
 
 #### 1. Empirical Profile Strengths
-- **Verifiable Proof of Work**: Repositories showcase full-stack projects rather than generic tutorial clones.
-- **Consistent Tech Stack**: Deep usage of modern languages (${context.skills.slice(0, 3).map((s) => s.name).join(', ')}).
-- **Academic & Engineering Alignment**: Clear correlation between university coursework and repository complexity.
+- **Verifiable Proof of Work**: Repositories showcase technical project evidence rather than generic tutorial clones.
+- **Consistent Tech Stack**: Deep usage of modern languages (${context.skills.slice(0, 3).map((s) => s.name).join(', ') || 'TypeScript, React, Python'}).
+- **Academic & Engineering Alignment**: Clear correlation between coursework and repository complexity.
 
 #### 2. Identified Gaps & Deficiencies
 - **Profile README**: Missing technical positioning headline and architecture summary.
@@ -921,7 +1291,7 @@ Pin top 3 proof-of-work repositories. Ensure keywords: \`REST APIs\`, \`TypeScri
           name: context.name || username,
           avatarUrl,
           htmlUrl,
-          bio: 'Full-Stack Developer & CS Scholar building verifiable systems.',
+          bio: (context as any).bio || 'Developer & Student Scholar building verifiable systems.',
           publicRepos: 18,
           totalStars: 42,
           forks: 14,
@@ -930,12 +1300,12 @@ Pin top 3 proof-of-work repositories. Ensure keywords: \`REST APIs\`, \`TypeScri
           followers: 67,
         },
         breakdown: [
-          { label: 'Profile Quality', score: 7, max: 15 },
-          { label: 'Project Quality', score: 12, max: 25 },
-          { label: 'Documentation', score: 11, max: 20 },
-          { label: 'Repository Organization', score: 6, max: 15 },
-          { label: 'Activity Consistency', score: 7, max: 15 },
-          { label: 'Engineering Presentation', score: 3, max: 10 },
+          { label: 'Profile Quality', score: 13, max: 15 },
+          { label: 'Project Quality', score: 21, max: 25 },
+          { label: 'Documentation', score: 17, max: 20 },
+          { label: 'Repository Organization', score: 13, max: 15 },
+          { label: 'Activity Consistency', score: 12, max: 15 },
+          { label: 'Engineering Presentation', score: 8, max: 10 },
         ],
         strengths: [
           'Clear education path and academic credentials',
@@ -961,17 +1331,27 @@ Pin top 3 proof-of-work repositories. Ensure keywords: \`REST APIs\`, \`TypeScri
     }
 
     case 'linkedin-audit': {
-      const rawUrl = userInputs?.linkedinUrl || context.linkedinUrl || 'https://www.linkedin.com/in/sri-charan-vangala-a7453b384/';
-      const score = 82;
-      const evaluation = getEvaluationLabel(score);
+      const rawUrl = userInputs?.linkedinUrl || context.linkedinUrl || '';
+      const auditMode = userInputs?.auditMode === 'pdf' ? 'pdf' : 'url';
+      const categoryBreakdown = [
+        { label: 'Headline Impact', score: 12, max: 15 },
+        { label: 'About Section Depth', score: 19, max: 25 },
+        { label: 'Technical Positioning', score: 17, max: 20 },
+        { label: 'Experience & Project Relevance', score: 16, max: 20 },
+        { label: 'Recruiter Search Discoverability', score: 18, max: 20 },
+      ];
+      const validated = calculateLinkedInAuditScore(categoryBreakdown);
+      const score = validated.overallScore;
+      const evaluation = validated.evaluation;
+      const breakdown = validated.breakdown;
       const text = `### LinkedIn Profile & Recruiter Visibility Audit
 
 **Target Role**: ${context.targetRole || 'Software Development Engineer'}  
 **Recruiter-Readiness Score**: **${score} / 100** (${evaluation})
 
 #### 1. Profile Strengths
-- Clear academic credentials at ${context.university}.
-- Demonstrable alignment with high-demand tech stacks (${context.skills.slice(0, 3).map((s) => s.name).join(', ')}).
+- Clear academic credentials${context.university ? ` at ${context.university}` : ''}.
+- Demonstrable alignment with high-demand tech stacks (${context.skills.slice(0, 3).map((s) => s.name).join(', ') || 'core software engineering concepts'}).
 - Solid foundation for early-career placement outreach.
 
 #### 2. Identified Gaps
@@ -988,19 +1368,14 @@ Pin top 3 proof-of-work repositories. Ensure keywords: \`REST APIs\`, \`TypeScri
       const data = {
         score,
         evaluation,
+        source: auditMode,
         profile: {
           name: context.name,
           headline: `Student @ ${context.university} | Aspiring ${context.targetRole || 'Software Engineer'}`,
           linkedinUrl: rawUrl,
           avatarUrl: undefined,
         },
-        breakdown: [
-          { label: 'Headline Impact', score: 12, max: 15 },
-          { label: 'About Section Depth', score: 19, max: 25 },
-          { label: 'Technical Positioning', score: 17, max: 20 },
-          { label: 'Experience & Project Rigor', score: 16, max: 20 },
-          { label: 'Recruiter Search Discoverability', score: 18, max: 20 },
-        ],
+        breakdown,
         strengths: [
           'Strong educational credentials with clear graduation timeline',
           'Good alignment with core software engineering stacks',

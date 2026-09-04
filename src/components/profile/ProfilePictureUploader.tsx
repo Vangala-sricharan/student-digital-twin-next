@@ -227,7 +227,7 @@ export const ProfilePictureUploader: React.FC<ProfilePictureUploaderProps> = ({
             type="button"
             onClick={() => fileInputRef.current?.click()}
             disabled={isProcessing}
-            className="px-3.5 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold font-mono flex items-center gap-1.5 shadow-sm transition-all cursor-pointer disabled:opacity-50"
+            className="px-4 py-2 rounded-full bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold font-mono flex items-center gap-1.5 shadow-md shadow-blue-600/20 transition-all cursor-pointer disabled:opacity-50"
           >
             <Upload className="w-3.5 h-3.5" />
             <span>{activeUrl ? 'Replace Photo' : 'Upload Photo'}</span>
@@ -238,7 +238,7 @@ export const ProfilePictureUploader: React.FC<ProfilePictureUploaderProps> = ({
               type="button"
               onClick={handleRemove}
               disabled={isProcessing}
-              className="px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-white/5 hover:bg-red-50 dark:hover:bg-red-950/30 text-slate-700 dark:text-slate-300 hover:text-red-600 dark:hover:text-red-400 text-xs font-mono font-medium border border-slate-200 dark:border-white/10 transition-colors cursor-pointer flex items-center gap-1.5"
+              className="px-4 py-2 rounded-full bg-slate-100 dark:bg-white/5 hover:bg-red-50 dark:hover:bg-red-950/30 text-slate-700 dark:text-slate-300 hover:text-red-600 dark:hover:text-red-400 text-xs font-mono font-medium border border-slate-200 dark:border-white/10 transition-colors cursor-pointer flex items-center gap-1.5"
             >
               <Trash2 className="w-3.5 h-3.5" />
               <span>Remove</span>

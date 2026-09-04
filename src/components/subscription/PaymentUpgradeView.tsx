@@ -142,10 +142,10 @@ export const PaymentUpgradeView: React.FC<PaymentUpgradeViewProps> = ({
   return (
     <div className="space-y-10 max-w-6xl mx-auto pb-16">
       {/* Top Banner */}
-      <div className="p-8 rounded-[2.5rem] bg-white dark:bg-[#0d1117] border border-slate-200 dark:border-white/10 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-6 transition-colors">
+      <div className="p-8 rounded-[2.5rem] bg-white dark:bg-[#0d1117] border border-slate-200/90 dark:border-white/10 shadow-sm dark:shadow-xl flex flex-col md:flex-row md:items-center justify-between gap-6 transition-colors">
         <div>
           <div className="flex items-center gap-2.5">
-            <span className="px-3 py-1 rounded-full bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-cyan-400 font-mono text-[10px] font-bold border border-blue-200 dark:border-blue-800 flex items-center gap-1.5">
+            <span className="px-3.5 py-1 rounded-full bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-cyan-400 font-mono text-[10px] font-bold border border-blue-200 dark:border-blue-800 flex items-center gap-1.5">
               <Sparkles className="w-3 h-3" />
               <span>TRANSPARENT VALUE • NO HIDDEN FEES</span>
             </span>
@@ -163,7 +163,7 @@ export const PaymentUpgradeView: React.FC<PaymentUpgradeViewProps> = ({
           {onBackToDashboard && (
             <button
               onClick={onBackToDashboard}
-              className="px-4 py-2 rounded-xl bg-slate-100 dark:bg-white/5 hover:bg-slate-200 dark:hover:bg-white/10 text-slate-700 dark:text-slate-300 text-xs font-mono font-medium transition-colors cursor-pointer"
+              className="px-5 py-2.5 rounded-full bg-slate-100 dark:bg-white/5 hover:bg-slate-200 dark:hover:bg-white/10 text-slate-700 dark:text-slate-300 text-xs font-mono font-medium transition-colors cursor-pointer"
             >
               Back to Dashboard
             </button>
@@ -171,7 +171,7 @@ export const PaymentUpgradeView: React.FC<PaymentUpgradeViewProps> = ({
           {onNavigateToSettings && (
             <button
               onClick={onNavigateToSettings}
-              className="px-4 py-2 rounded-xl bg-slate-100 dark:bg-white/5 hover:bg-slate-200 dark:hover:bg-white/10 text-slate-700 dark:text-slate-300 text-xs font-mono font-medium transition-colors cursor-pointer"
+              className="px-5 py-2.5 rounded-full bg-slate-100 dark:bg-white/5 hover:bg-slate-200 dark:hover:bg-white/10 text-slate-700 dark:text-slate-300 text-xs font-mono font-medium transition-colors cursor-pointer"
             >
               Settings
             </button>
@@ -180,9 +180,9 @@ export const PaymentUpgradeView: React.FC<PaymentUpgradeViewProps> = ({
       </div>
 
       {/* Current Plan Indicator Strip */}
-      <div className="p-4 rounded-2xl bg-slate-50 dark:bg-white/5 border border-slate-200/80 dark:border-white/5 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-blue-600/10 text-blue-600 dark:text-cyan-400 flex items-center justify-center font-bold font-mono text-sm">
+      <div className="p-6 rounded-[2.5rem] bg-slate-50 dark:bg-white/5 border border-slate-200/80 dark:border-white/5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div className="flex items-center gap-4">
+          <div className="w-12 h-12 rounded-2xl bg-blue-600/10 text-blue-600 dark:text-cyan-400 flex items-center justify-center font-bold font-mono text-base">
             ₹
           </div>
           <div>
@@ -192,7 +192,7 @@ export const PaymentUpgradeView: React.FC<PaymentUpgradeViewProps> = ({
                 {subscription.planName} ({subscription.price})
               </span>
             </div>
-            <p className="text-[11px] text-slate-500 dark:text-slate-400">
+            <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
               {subscription.tier === 'free'
                 ? 'You are on the Free Foundation tier. Upgrade anytime to unlock all AI engines.'
                 : `Active subscription renewed in Sandbox mode • ${subscription.billingPeriod}`}
@@ -201,7 +201,7 @@ export const PaymentUpgradeView: React.FC<PaymentUpgradeViewProps> = ({
         </div>
 
         {subscription.tier !== 'free' && (
-          <span className="px-3 py-1 rounded-full bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 font-mono text-xs font-bold border border-emerald-200 dark:border-emerald-800 self-start sm:self-auto flex items-center gap-1.5">
+          <span className="px-3.5 py-1.5 rounded-full bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 font-mono text-xs font-bold border border-emerald-200 dark:border-emerald-800 self-start sm:self-auto flex items-center gap-1.5">
             <CheckCircle2 className="w-3.5 h-3.5" />
             <span>ACTIVE STATUS</span>
           </span>
@@ -217,15 +217,15 @@ export const PaymentUpgradeView: React.FC<PaymentUpgradeViewProps> = ({
           return (
             <div
               key={p.tier}
-              className={`relative rounded-[2rem] p-6 flex flex-col justify-between transition-all duration-300 ${
+              className={`relative rounded-[2.5rem] p-7 flex flex-col justify-between transition-all duration-300 ${
                 p.popular
                   ? 'bg-white dark:bg-[#0d1117] border-2 border-blue-500 shadow-xl shadow-blue-500/10 ring-4 ring-blue-500/10'
-                  : 'bg-white dark:bg-[#0d1117] border border-slate-200 dark:border-white/10 shadow-sm'
+                  : 'bg-white dark:bg-[#0d1117] border border-slate-200/90 dark:border-white/10 shadow-sm dark:shadow-xl'
               }`}
             >
               {/* Popular Badge */}
               {p.popular && (
-                <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 px-3.5 py-0.5 rounded-full bg-blue-600 text-white font-mono text-[10px] font-extrabold uppercase tracking-wider shadow-md">
+                <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 px-4 py-1 rounded-full bg-blue-600 text-white font-mono text-[10px] font-extrabold uppercase tracking-wider shadow-md">
                   MOST POPULAR
                 </div>
               )}
@@ -273,16 +273,16 @@ export const PaymentUpgradeView: React.FC<PaymentUpgradeViewProps> = ({
                 {isCurrent ? (
                   <button
                     disabled
-                    className="w-full py-2.5 rounded-xl bg-slate-100 dark:bg-white/10 text-slate-500 dark:text-slate-400 text-xs font-bold font-mono text-center cursor-default"
+                    className="w-full py-3 rounded-full bg-slate-100 dark:bg-white/10 text-slate-500 dark:text-slate-400 text-xs font-bold font-mono text-center cursor-default"
                   >
                     Current Active Plan
                   </button>
                 ) : (
                   <button
                     onClick={() => handleOpenUpgrade(p.tier)}
-                    className={`w-full py-2.5 rounded-xl text-xs font-bold font-mono transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-sm ${
+                    className={`w-full py-3 rounded-full text-xs font-bold font-mono transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-md ${
                       p.popular
-                        ? 'bg-blue-600 hover:bg-blue-500 text-white'
+                        ? 'bg-blue-600 hover:bg-blue-500 text-white shadow-blue-600/25'
                         : 'bg-slate-900 hover:bg-slate-800 text-white dark:bg-white/10 dark:hover:bg-white/20 dark:text-white'
                     }`}
                   >
@@ -296,9 +296,9 @@ export const PaymentUpgradeView: React.FC<PaymentUpgradeViewProps> = ({
         })}
 
         {/* 4th Card: Institutional / Campus (Strictly NO pricing amount, NO ₹12,999, NO UPI/QR payment) */}
-        <div className="relative rounded-[2rem] p-6 flex flex-col justify-between bg-white dark:bg-[#0d1117] border border-slate-200 dark:border-white/10 shadow-sm transition-all duration-300 hover:border-blue-500/40">
+        <div className="relative rounded-[2.5rem] p-7 flex flex-col justify-between bg-white dark:bg-[#0d1117] border border-slate-200/90 dark:border-white/10 shadow-sm dark:shadow-xl transition-all duration-300 hover:border-blue-500/40">
           <div>
-            <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-purple-50 dark:bg-purple-950/40 text-purple-600 dark:text-purple-400 font-mono text-[10px] font-bold border border-purple-200 dark:border-purple-800 mb-2">
+            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-purple-50 dark:bg-purple-950/40 text-purple-600 dark:text-purple-400 font-mono text-[10px] font-bold border border-purple-200 dark:border-purple-800 mb-2">
               <Building2 className="w-3 h-3" />
               <span>ACADEMIC INSTITUTIONS</span>
             </div>
@@ -361,7 +361,7 @@ export const PaymentUpgradeView: React.FC<PaymentUpgradeViewProps> = ({
                 setEnquirySubmitted(false);
                 setIsEnquiryOpen(true);
               }}
-              className="w-full py-2.5 rounded-xl text-xs font-bold font-mono transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-sm bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white"
+              className="w-full py-3 rounded-full text-xs font-bold font-mono transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-md shadow-blue-600/20 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white"
             >
               <span>ENQUIRE NOW</span>
               <ArrowRight className="w-3.5 h-3.5" />
@@ -371,9 +371,11 @@ export const PaymentUpgradeView: React.FC<PaymentUpgradeViewProps> = ({
       </div>
 
       {/* Trust & Guarantee Badges */}
-      <div className="p-6 rounded-3xl bg-slate-50 dark:bg-white/5 border border-slate-200/80 dark:border-white/5 grid grid-cols-1 md:grid-cols-3 gap-4 text-center md:text-left">
-        <div className="flex items-center gap-3">
-          <ShieldCheck className="w-8 h-8 text-blue-600 dark:text-cyan-400 shrink-0" />
+      <div className="p-8 rounded-[2.5rem] bg-slate-50 dark:bg-white/5 border border-slate-200/80 dark:border-white/5 grid grid-cols-1 md:grid-cols-3 gap-6 text-center md:text-left">
+        <div className="flex items-center gap-4">
+          <div className="w-12 h-12 rounded-2xl bg-blue-600/10 dark:bg-cyan-400/10 flex items-center justify-center shrink-0">
+            <ShieldCheck className="w-6 h-6 text-blue-600 dark:text-cyan-400" />
+          </div>
           <div>
             <h4 className="text-xs font-bold text-slate-900 dark:text-white">Encrypted & Isolated</h4>
             <p className="text-[11px] text-slate-500 dark:text-slate-400">
@@ -382,8 +384,10 @@ export const PaymentUpgradeView: React.FC<PaymentUpgradeViewProps> = ({
           </div>
         </div>
 
-        <div className="flex items-center gap-3">
-          <Zap className="w-8 h-8 text-blue-600 dark:text-cyan-400 shrink-0" />
+        <div className="flex items-center gap-4">
+          <div className="w-12 h-12 rounded-2xl bg-blue-600/10 dark:bg-cyan-400/10 flex items-center justify-center shrink-0">
+            <Zap className="w-6 h-6 text-blue-600 dark:text-cyan-400" />
+          </div>
           <div>
             <h4 className="text-xs font-bold text-slate-900 dark:text-white">Instant Engine Unlock</h4>
             <p className="text-[11px] text-slate-500 dark:text-slate-400">
@@ -392,8 +396,10 @@ export const PaymentUpgradeView: React.FC<PaymentUpgradeViewProps> = ({
           </div>
         </div>
 
-        <div className="flex items-center gap-3">
-          <Building2 className="w-8 h-8 text-blue-600 dark:text-cyan-400 shrink-0" />
+        <div className="flex items-center gap-4">
+          <div className="w-12 h-12 rounded-2xl bg-blue-600/10 dark:bg-cyan-400/10 flex items-center justify-center shrink-0">
+            <Building2 className="w-6 h-6 text-blue-600 dark:text-cyan-400" />
+          </div>
           <div>
             <h4 className="text-xs font-bold text-slate-900 dark:text-white">University Alignment</h4>
             <p className="text-[11px] text-slate-500 dark:text-slate-400">
@@ -406,10 +412,10 @@ export const PaymentUpgradeView: React.FC<PaymentUpgradeViewProps> = ({
       {/* INSTITUTIONAL ENQUIRY MODAL */}
       {isEnquiryOpen && (
         <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white dark:bg-[#0d1117] border border-slate-200 dark:border-white/10 rounded-[2rem] max-w-lg w-full p-6 sm:p-8 shadow-2xl relative space-y-6">
+          <div className="bg-white dark:bg-[#0d1117] border border-slate-200/90 dark:border-white/10 rounded-[2.5rem] max-w-lg w-full p-6 sm:p-8 shadow-2xl relative space-y-6">
             <button
               onClick={() => setIsEnquiryOpen(false)}
-              className="absolute top-6 right-6 p-2 rounded-xl text-slate-400 hover:text-slate-600 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/5 transition-colors cursor-pointer"
+              className="absolute top-6 right-6 p-2 rounded-full text-slate-400 hover:text-slate-600 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/5 transition-colors cursor-pointer"
             >
               <X className="w-5 h-5" />
             </button>
@@ -430,7 +436,7 @@ export const PaymentUpgradeView: React.FC<PaymentUpgradeViewProps> = ({
 
                 <button
                   onClick={() => setIsEnquiryOpen(false)}
-                  className="w-full py-3 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold font-mono transition-all cursor-pointer shadow-md"
+                  className="w-full py-3 rounded-full bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold font-mono transition-all cursor-pointer shadow-md shadow-blue-600/25"
                 >
                   Close
                 </button>
@@ -439,7 +445,7 @@ export const PaymentUpgradeView: React.FC<PaymentUpgradeViewProps> = ({
               <>
                 <div>
                   <div className="flex items-center gap-2">
-                    <span className="px-2.5 py-0.5 rounded-full bg-purple-50 dark:bg-purple-950/40 text-purple-600 dark:text-purple-400 font-mono text-[10px] font-bold border border-purple-200 dark:border-purple-800">
+                    <span className="px-3 py-1 rounded-full bg-purple-50 dark:bg-purple-950/40 text-purple-600 dark:text-purple-400 font-mono text-[10px] font-bold border border-purple-200 dark:border-purple-800">
                       INSTITUTIONAL PARTNERSHIPS
                     </span>
                   </div>
@@ -462,7 +468,7 @@ export const PaymentUpgradeView: React.FC<PaymentUpgradeViewProps> = ({
                       placeholder="e.g. National Institute of Technology"
                       value={enquiryForm.collegeName}
                       onChange={(e) => setEnquiryForm({ ...enquiryForm, collegeName: e.target.value })}
-                      className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 dark:bg-[#161b22] border border-slate-200 dark:border-white/10 text-xs text-slate-900 dark:text-white focus:outline-none focus:border-blue-500"
+                      className="w-full px-4 py-2.5 rounded-2xl bg-slate-50 dark:bg-[#161b22] border border-slate-200/90 dark:border-white/10 text-xs text-slate-900 dark:text-white focus:outline-none focus:border-blue-500 transition-colors"
                     />
                   </div>
 
@@ -477,7 +483,7 @@ export const PaymentUpgradeView: React.FC<PaymentUpgradeViewProps> = ({
                         placeholder="e.g. Dr. Rajesh Kumar"
                         value={enquiryForm.contactPerson}
                         onChange={(e) => setEnquiryForm({ ...enquiryForm, contactPerson: e.target.value })}
-                        className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 dark:bg-[#161b22] border border-slate-200 dark:border-white/10 text-xs text-slate-900 dark:text-white focus:outline-none focus:border-blue-500"
+                        className="w-full px-4 py-2.5 rounded-2xl bg-slate-50 dark:bg-[#161b22] border border-slate-200/90 dark:border-white/10 text-xs text-slate-900 dark:text-white focus:outline-none focus:border-blue-500 transition-colors"
                       />
                     </div>
                     <div>
@@ -490,7 +496,7 @@ export const PaymentUpgradeView: React.FC<PaymentUpgradeViewProps> = ({
                         placeholder="placement@university.edu"
                         value={enquiryForm.email}
                         onChange={(e) => setEnquiryForm({ ...enquiryForm, email: e.target.value })}
-                        className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 dark:bg-[#161b22] border border-slate-200 dark:border-white/10 text-xs text-slate-900 dark:text-white focus:outline-none focus:border-blue-500"
+                        className="w-full px-4 py-2.5 rounded-2xl bg-slate-50 dark:bg-[#161b22] border border-slate-200/90 dark:border-white/10 text-xs text-slate-900 dark:text-white focus:outline-none focus:border-blue-500 transition-colors"
                       />
                     </div>
                   </div>
@@ -505,7 +511,7 @@ export const PaymentUpgradeView: React.FC<PaymentUpgradeViewProps> = ({
                         placeholder="+91 98765 43210"
                         value={enquiryForm.phone}
                         onChange={(e) => setEnquiryForm({ ...enquiryForm, phone: e.target.value })}
-                        className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 dark:bg-[#161b22] border border-slate-200 dark:border-white/10 text-xs text-slate-900 dark:text-white focus:outline-none focus:border-blue-500"
+                        className="w-full px-4 py-2.5 rounded-2xl bg-slate-50 dark:bg-[#161b22] border border-slate-200/90 dark:border-white/10 text-xs text-slate-900 dark:text-white focus:outline-none focus:border-blue-500 transition-colors"
                       />
                     </div>
                     <div>
@@ -515,7 +521,7 @@ export const PaymentUpgradeView: React.FC<PaymentUpgradeViewProps> = ({
                       <select
                         value={enquiryForm.studentCount}
                         onChange={(e) => setEnquiryForm({ ...enquiryForm, studentCount: e.target.value })}
-                        className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 dark:bg-[#161b22] border border-slate-200 dark:border-white/10 text-xs text-slate-900 dark:text-white focus:outline-none focus:border-blue-500 font-mono"
+                        className="w-full px-4 py-2.5 rounded-2xl bg-slate-50 dark:bg-[#161b22] border border-slate-200/90 dark:border-white/10 text-xs text-slate-900 dark:text-white focus:outline-none focus:border-blue-500 font-mono transition-colors"
                       >
                         <option>100 - 300 students</option>
                         <option>300 - 1,000 students</option>
@@ -534,13 +540,13 @@ export const PaymentUpgradeView: React.FC<PaymentUpgradeViewProps> = ({
                       placeholder="Specify departments, placement goals, or preferred demo timeline..."
                       value={enquiryForm.requirements}
                       onChange={(e) => setEnquiryForm({ ...enquiryForm, requirements: e.target.value })}
-                      className="w-full px-3.5 py-2 rounded-xl bg-slate-50 dark:bg-[#161b22] border border-slate-200 dark:border-white/10 text-xs text-slate-900 dark:text-white focus:outline-none focus:border-blue-500 resize-none"
+                      className="w-full px-4 py-2.5 rounded-2xl bg-slate-50 dark:bg-[#161b22] border border-slate-200/90 dark:border-white/10 text-xs text-slate-900 dark:text-white focus:outline-none focus:border-blue-500 resize-none transition-colors"
                     />
                   </div>
 
                   <button
                     type="submit"
-                    className="w-full py-3 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold font-mono transition-all flex items-center justify-center gap-2 shadow-md cursor-pointer"
+                    className="w-full py-3 rounded-full bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold font-mono transition-all flex items-center justify-center gap-2 shadow-md shadow-blue-600/25 cursor-pointer"
                   >
                     <Send className="w-3.5 h-3.5" />
                     <span>Submit Institutional Enquiry</span>
@@ -555,11 +561,11 @@ export const PaymentUpgradeView: React.FC<PaymentUpgradeViewProps> = ({
       {/* SIMULATED PAYMENT MODAL FOR INDIVIDUAL PRO PLANS */}
       {isModalOpen && selectedTier && (
         <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white dark:bg-[#0d1117] border border-slate-200 dark:border-white/10 rounded-[2rem] max-w-lg w-full p-6 sm:p-8 shadow-2xl relative space-y-6">
+          <div className="bg-white dark:bg-[#0d1117] border border-slate-200/90 dark:border-white/10 rounded-[2.5rem] max-w-lg w-full p-6 sm:p-8 shadow-2xl relative space-y-6">
             {/* Close Button */}
             <button
               onClick={() => setIsModalOpen(false)}
-              className="absolute top-6 right-6 p-2 rounded-xl text-slate-400 hover:text-slate-600 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/5 transition-colors cursor-pointer"
+              className="absolute top-6 right-6 p-2 rounded-full text-slate-400 hover:text-slate-600 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/5 transition-colors cursor-pointer"
             >
               <X className="w-5 h-5" />
             </button>
@@ -578,7 +584,7 @@ export const PaymentUpgradeView: React.FC<PaymentUpgradeViewProps> = ({
                   </p>
                 </div>
 
-                <div className="p-3.5 rounded-xl bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 text-[11px] font-mono text-blue-700 dark:text-cyan-300 text-left space-y-1">
+                <div className="p-4 rounded-2xl bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 text-[11px] font-mono text-blue-700 dark:text-cyan-300 text-left space-y-1">
                   <div>✓ Plan: {activePlanData.name}</div>
                   <div>✓ Transaction Status: SIMULATED PAYMENT COMPLETE</div>
                   <div>✓ Engine Access: Unrestricted (11/11 Active)</div>
@@ -586,7 +592,7 @@ export const PaymentUpgradeView: React.FC<PaymentUpgradeViewProps> = ({
 
                 <button
                   onClick={() => setIsModalOpen(false)}
-                  className="w-full py-3 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold font-mono transition-all cursor-pointer shadow-md"
+                  className="w-full py-3 rounded-full bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold font-mono transition-all cursor-pointer shadow-md shadow-blue-600/25"
                 >
                   Continue to Workspace
                 </button>
@@ -596,7 +602,7 @@ export const PaymentUpgradeView: React.FC<PaymentUpgradeViewProps> = ({
                 {/* Modal Header */}
                 <div>
                   <div className="flex items-center gap-2">
-                    <span className="px-2.5 py-0.5 rounded-full bg-amber-50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-400 font-mono text-[10px] font-bold border border-amber-200 dark:border-amber-800">
+                    <span className="px-3 py-1 rounded-full bg-amber-50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-400 font-mono text-[10px] font-bold border border-amber-200 dark:border-amber-800">
                       SIMULATED PAYMENT (SANDBOX MODE)
                     </span>
                   </div>
@@ -609,7 +615,7 @@ export const PaymentUpgradeView: React.FC<PaymentUpgradeViewProps> = ({
                 </div>
 
                 {/* Simulated Payment Notice */}
-                <div className="p-3 rounded-xl bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800/60 flex items-start gap-2.5 text-[11px] text-amber-800 dark:text-amber-300">
+                <div className="p-4 rounded-2xl bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800/60 flex items-start gap-3 text-[11px] text-amber-800 dark:text-amber-300">
                   <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
                   <span className="leading-snug">
                     <strong>Notice:</strong> This is a <strong>SIMULATED PAYMENT</strong> for demonstration purposes. No real money or bank account will be charged.
@@ -625,10 +631,10 @@ export const PaymentUpgradeView: React.FC<PaymentUpgradeViewProps> = ({
                     <button
                       type="button"
                       onClick={() => setPaymentMethod('upi')}
-                      className={`p-3 rounded-xl border text-xs font-mono font-bold flex flex-col items-center gap-1 transition-all cursor-pointer ${
+                      className={`p-3 rounded-2xl border text-xs font-mono font-bold flex flex-col items-center gap-1 transition-all cursor-pointer ${
                         paymentMethod === 'upi'
-                          ? 'border-blue-500 bg-blue-50/50 dark:bg-blue-950/30 text-blue-600 dark:text-cyan-400'
-                          : 'border-slate-200 dark:border-white/10 text-slate-700 dark:text-slate-300'
+                          ? 'border-blue-500 bg-blue-50/50 dark:bg-blue-950/30 text-blue-600 dark:text-cyan-400 shadow-sm'
+                          : 'border-slate-200/90 dark:border-white/10 text-slate-700 dark:text-slate-300 hover:border-slate-300'
                       }`}
                     >
                       <Smartphone className="w-4 h-4" />
@@ -638,10 +644,10 @@ export const PaymentUpgradeView: React.FC<PaymentUpgradeViewProps> = ({
                     <button
                       type="button"
                       onClick={() => setPaymentMethod('card')}
-                      className={`p-3 rounded-xl border text-xs font-mono font-bold flex flex-col items-center gap-1 transition-all cursor-pointer ${
+                      className={`p-3 rounded-2xl border text-xs font-mono font-bold flex flex-col items-center gap-1 transition-all cursor-pointer ${
                         paymentMethod === 'card'
-                          ? 'border-blue-500 bg-blue-50/50 dark:bg-blue-950/30 text-blue-600 dark:text-cyan-400'
-                          : 'border-slate-200 dark:border-white/10 text-slate-700 dark:text-slate-300'
+                          ? 'border-blue-500 bg-blue-50/50 dark:bg-blue-950/30 text-blue-600 dark:text-cyan-400 shadow-sm'
+                          : 'border-slate-200/90 dark:border-white/10 text-slate-700 dark:text-slate-300 hover:border-slate-300'
                       }`}
                     >
                       <CreditCard className="w-4 h-4" />
@@ -651,10 +657,10 @@ export const PaymentUpgradeView: React.FC<PaymentUpgradeViewProps> = ({
                     <button
                       type="button"
                       onClick={() => setPaymentMethod('netbanking')}
-                      className={`p-3 rounded-xl border text-xs font-mono font-bold flex flex-col items-center gap-1 transition-all cursor-pointer ${
+                      className={`p-3 rounded-2xl border text-xs font-mono font-bold flex flex-col items-center gap-1 transition-all cursor-pointer ${
                         paymentMethod === 'netbanking'
-                          ? 'border-blue-500 bg-blue-50/50 dark:bg-blue-950/30 text-blue-600 dark:text-cyan-400'
-                          : 'border-slate-200 dark:border-white/10 text-slate-700 dark:text-slate-300'
+                          ? 'border-blue-500 bg-blue-50/50 dark:bg-blue-950/30 text-blue-600 dark:text-cyan-400 shadow-sm'
+                          : 'border-slate-200/90 dark:border-white/10 text-slate-700 dark:text-slate-300 hover:border-slate-300'
                       }`}
                     >
                       <Building2 className="w-4 h-4" />
@@ -665,16 +671,16 @@ export const PaymentUpgradeView: React.FC<PaymentUpgradeViewProps> = ({
 
                 {/* Method Details (Simulation Inputs) */}
                 {paymentMethod === 'upi' && (
-                  <div className="space-y-3 p-4 rounded-2xl bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10">
+                  <div className="space-y-3 p-5 rounded-[2rem] bg-slate-50 dark:bg-white/5 border border-slate-200/80 dark:border-white/10">
                     {/* QR Code Container */}
-                    <div className="flex flex-col items-center text-center space-y-2.5">
-                      <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-cyan-400 font-mono text-[10px] font-bold border border-blue-200 dark:border-blue-800">
+                    <div className="flex flex-col items-center text-center space-y-3">
+                      <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-cyan-400 font-mono text-[10px] font-bold border border-blue-200 dark:border-blue-800">
                         <QrCode className="w-3 h-3" />
                         <span>Scan to Pay</span>
                       </div>
 
                       {/* Pure white background card for QR so scanner contrast is crisp in light & dark modes */}
-                      <div className="p-3 bg-white rounded-2xl shadow-md border border-slate-200 dark:border-white/10 inline-block">
+                      <div className="p-3.5 bg-white rounded-3xl shadow-md border border-slate-200 dark:border-white/10 inline-block">
                         <QRCodeSVG
                           value={`upi://pay?pa=${OFFICIAL_UPI_ID}&pn=Student%20Digital%20Twin&am=${activePlanData.price.replace(/[^0-9]/g, '')}&cu=INR&tn=${encodeURIComponent(activePlanData.name + ' Plan')}`}
                           size={150}
@@ -691,13 +697,13 @@ export const PaymentUpgradeView: React.FC<PaymentUpgradeViewProps> = ({
                           UPI ID
                         </div>
                         <div className="flex flex-wrap items-center justify-center gap-2">
-                          <span className="text-xs sm:text-sm font-mono font-bold text-slate-900 dark:text-white bg-slate-100 dark:bg-[#0d1117] px-3 py-1.5 rounded-lg border border-slate-200 dark:border-white/10 select-all">
+                          <span className="text-xs sm:text-sm font-mono font-bold text-slate-900 dark:text-white bg-slate-100 dark:bg-[#0d1117] px-3.5 py-1.5 rounded-full border border-slate-200/80 dark:border-white/10 select-all">
                             {OFFICIAL_UPI_ID}
                           </span>
                           <button
                             type="button"
                             onClick={handleCopyUpiId}
-                            className={`px-2.5 py-1.5 rounded-lg text-xs font-mono font-semibold transition-all flex items-center gap-1 cursor-pointer ${
+                            className={`px-3.5 py-1.5 rounded-full text-xs font-mono font-semibold transition-all flex items-center gap-1 cursor-pointer shadow-sm ${
                               copiedUpi
                                 ? 'bg-emerald-600 text-white'
                                 : 'bg-blue-600 hover:bg-blue-500 text-white'
@@ -733,7 +739,7 @@ export const PaymentUpgradeView: React.FC<PaymentUpgradeViewProps> = ({
                 )}
 
                 {paymentMethod === 'card' && (
-                  <div className="space-y-2 p-3.5 rounded-xl bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10">
+                  <div className="space-y-2.5 p-4 rounded-2xl bg-slate-50 dark:bg-white/5 border border-slate-200/80 dark:border-white/10">
                     <label className="text-[11px] font-mono text-slate-500 dark:text-slate-400">
                       Simulated Card Number
                     </label>
@@ -741,19 +747,19 @@ export const PaymentUpgradeView: React.FC<PaymentUpgradeViewProps> = ({
                       type="text"
                       value={cardNumber}
                       onChange={(e) => setCardNumber(e.target.value)}
-                      className="w-full px-3 py-2 rounded-lg bg-white dark:bg-[#0d1117] border border-slate-200 dark:border-white/10 text-xs font-mono text-slate-900 dark:text-white focus:outline-none"
+                      className="w-full px-3.5 py-2.5 rounded-2xl bg-white dark:bg-[#0d1117] border border-slate-200/90 dark:border-white/10 text-xs font-mono text-slate-900 dark:text-white focus:outline-none transition-colors"
                     />
                     <div className="grid grid-cols-2 gap-2">
                       <input
                         type="text"
                         defaultValue="12 / 28"
-                        className="px-3 py-2 rounded-lg bg-white dark:bg-[#0d1117] border border-slate-200 dark:border-white/10 text-xs font-mono text-slate-900 dark:text-white focus:outline-none"
+                        className="px-3.5 py-2.5 rounded-2xl bg-white dark:bg-[#0d1117] border border-slate-200/90 dark:border-white/10 text-xs font-mono text-slate-900 dark:text-white focus:outline-none transition-colors"
                         placeholder="MM / YY"
                       />
                       <input
                         type="password"
                         defaultValue="•••"
-                        className="px-3 py-2 rounded-lg bg-white dark:bg-[#0d1117] border border-slate-200 dark:border-white/10 text-xs font-mono text-slate-900 dark:text-white focus:outline-none"
+                        className="px-3.5 py-2.5 rounded-2xl bg-white dark:bg-[#0d1117] border border-slate-200/90 dark:border-white/10 text-xs font-mono text-slate-900 dark:text-white focus:outline-none transition-colors"
                         placeholder="CVV"
                       />
                     </div>
@@ -761,11 +767,11 @@ export const PaymentUpgradeView: React.FC<PaymentUpgradeViewProps> = ({
                 )}
 
                 {paymentMethod === 'netbanking' && (
-                  <div className="space-y-1.5 p-3.5 rounded-xl bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10">
+                  <div className="space-y-1.5 p-4 rounded-2xl bg-slate-50 dark:bg-white/5 border border-slate-200/80 dark:border-white/10">
                     <label className="text-[11px] font-mono text-slate-500 dark:text-slate-400">
                       Select Bank (Simulation)
                     </label>
-                    <select className="w-full px-3 py-2 rounded-lg bg-white dark:bg-[#0d1117] border border-slate-200 dark:border-white/10 text-xs text-slate-900 dark:text-white focus:outline-none font-mono">
+                    <select className="w-full px-3.5 py-2.5 rounded-2xl bg-white dark:bg-[#0d1117] border border-slate-200/90 dark:border-white/10 text-xs text-slate-900 dark:text-white focus:outline-none font-mono transition-colors">
                       <option>HDFC Bank</option>
                       <option>State Bank of India (SBI)</option>
                       <option>ICICI Bank</option>
@@ -779,7 +785,7 @@ export const PaymentUpgradeView: React.FC<PaymentUpgradeViewProps> = ({
                 <button
                   onClick={handleSimulatePayment}
                   disabled={isProcessing}
-                  className="w-full py-3 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold font-mono transition-all flex items-center justify-center gap-2 shadow-md cursor-pointer disabled:opacity-50"
+                  className="w-full py-3.5 rounded-full bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold font-mono transition-all flex items-center justify-center gap-2 shadow-md shadow-blue-600/25 cursor-pointer disabled:opacity-50"
                 >
                   <Lock className="w-3.5 h-3.5" />
                   <span>

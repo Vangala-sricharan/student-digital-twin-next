@@ -30,6 +30,8 @@ import { CareerSimulatorView } from './components/engines/CareerSimulatorView';
 import { MyProfileView } from './components/profile/MyProfileView';
 import { SettingsView } from './components/settings/SettingsView';
 import { PaymentUpgradeView } from './components/subscription/PaymentUpgradeView';
+import { StudentOnboardingModal } from './components/onboarding/StudentOnboardingModal';
+import { CircularEngineLoading } from './components/common/CircularEngineLoading';
 
 function DashboardTabContent({ activeTab, setActiveTab }: { activeTab: string; setActiveTab: (tab: string) => void }) {
   switch (activeTab) {
@@ -60,7 +62,7 @@ function DashboardTabContent({ activeTab, setActiveTab }: { activeTab: string; s
     case 'engine-career-assistant':
       return <CareerAssistantView onBackToHub={() => setActiveTab('engines')} />;
     case 'engine-ai-portfolio':
-      return <AIPortfolioView onBackToHub={() => setActiveTab('engines')} />;
+      return <AIPortfolioView onBackToHub={() => setActiveTab('engines')} onNavigateTab={setActiveTab} />;
     case 'engine-project-auditor':
       return <ProjectAuditorView onBackToHub={() => setActiveTab('engines')} />;
     case 'engine-github-audit':
@@ -124,8 +126,16 @@ function getTabFromPath(pathname: string): string | null {
 }
 
 function MainRouter() {
-  const { user, loading: authLoading } = useAuth();
-  const { isDemoMode, enterDemoMode, exitDemoMode } = useStudentTwin();
+  const { user, isAuthChecking, isProfileHydrating } = useAuth();
+  const {
+    isDemoMode,
+    enterDemoMode,
+    exitDemoMode,
+    activeProfile,
+    allProfiles,
+    isTwinHydrating,
+    isTwinReady,
+  } = useStudentTwin();
 
   // Route state
   const [currentRoute, setCurrentRoute] = useState<string>(() => {
@@ -201,19 +211,45 @@ function MainRouter() {
     }
   }, [isDemoMode, enterDemoMode]);
 
-  // Loading state
-  if (authLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-[#02040a] text-slate-800 dark:text-white font-mono text-sm transition-colors">
-        <div className="flex flex-col items-center gap-3">
-          <div className="w-8 h-8 rounded-full border-2 border-blue-500 border-t-transparent animate-spin" />
-          <span className="text-xs text-slate-500 dark:text-slate-400">Loading Student Digital Twin OS...</span>
-        </div>
-      </div>
-    );
+  // Session hydration latch: ensures the full circular AI Career OS loading animation
+  // appears ONLY for genuine initial application startup / authentication hydration.
+  // Once the session has initialized, it NEVER re-triggers during active session navigation,
+  // tab changes, profile edits, project saves, or background cloud synchronization.
+  const [hasSessionHydrated, setHasSessionHydrated] = useState<boolean>(() => {
+    return window.location.pathname === '/demo';
+  });
+
+  useEffect(() => {
+    if (isDemoMode) {
+      setHasSessionHydrated(true);
+      return;
+    }
+
+    // Only set ready based on REAL application state (no artificial delays/timers)
+    if (!isAuthChecking) {
+      if (!user) {
+        // Visitor/guest authentication check complete
+        setHasSessionHydrated(true);
+      } else if (isTwinReady) {
+        // Authenticated user's Student Twin is initialized & ready
+        setHasSessionHydrated(true);
+      }
+    }
+  }, [isAuthChecking, user, isTwinReady, isDemoMode]);
+
+  // 1. Initial Application Startup & Authentication Hydration Guard
+  // Real-state controlled: hides immediately as soon as essential state is ready.
+  // Never shown on navigation, route changes, sidebar clicks, component re-renders,
+  // engine switches, profile updates, or background data refreshes.
+  const isInitialStartupLoading =
+    !hasSessionHydrated &&
+    (isAuthChecking || (Boolean(user) && !isTwinReady));
+
+  if (isInitialStartupLoading) {
+    return <CircularEngineLoading />;
   }
 
-  // 1. Demo Mode Route
+  // 2. Demo Mode Route
   if (currentRoute === '/demo' || isDemoMode) {
     return (
       <AppShell
@@ -226,28 +262,28 @@ function MainRouter() {
     );
   }
 
-  // 2. Authenticated User Route (matches /app, /app/*, /dashboard, or direct tab routes)
+  // 3. Authenticated User Route (matches /app, /app/*, /dashboard, or direct tab routes)
   const isAuthDashboardRoute =
     currentRoute.startsWith('/app') ||
     currentRoute === '/dashboard' ||
     getTabFromPath(currentRoute) !== null;
 
+  // Determine if authenticated user genuinely needs first-time student twin calibration
+  // Only evaluated AFTER twin hydration has fully resolved!
+  const hasAcademicCredentials =
+    Boolean(activeProfile.university && (activeProfile.degree || activeProfile.targetRole)) ||
+    activeProfile.isOnboarded === true ||
+    (allProfiles.length > 0 && allProfiles.some((p) => Boolean(p.university && (p.degree || p.targetRole))));
+
+  const needsOnboarding =
+    !isDemoMode &&
+    user !== null &&
+    isTwinReady &&
+    !hasAcademicCredentials;
+
   if (user && isAuthDashboardRoute) {
     return (
-      <AppShell
-        currentTab={activeTab}
-        onTabChange={setActiveTab}
-        onNavigate={navigateTo}
-      >
-        <DashboardTabContent activeTab={activeTab} setActiveTab={setActiveTab} />
-      </AppShell>
-    );
-  }
-
-  // 3. Login Route
-  if (currentRoute === '/login') {
-    if (user) {
-      return (
+      <>
         <AppShell
           currentTab={activeTab}
           onTabChange={setActiveTab}
@@ -255,6 +291,25 @@ function MainRouter() {
         >
           <DashboardTabContent activeTab={activeTab} setActiveTab={setActiveTab} />
         </AppShell>
+        {needsOnboarding && <StudentOnboardingModal />}
+      </>
+    );
+  }
+
+  // 3. Login Route
+  if (currentRoute === '/login') {
+    if (user) {
+      return (
+        <>
+          <AppShell
+            currentTab={activeTab}
+            onTabChange={setActiveTab}
+            onNavigate={navigateTo}
+          >
+            <DashboardTabContent activeTab={activeTab} setActiveTab={setActiveTab} />
+          </AppShell>
+          {needsOnboarding && <StudentOnboardingModal />}
+        </>
       );
     }
     return (
@@ -271,13 +326,16 @@ function MainRouter() {
   if (currentRoute === '/signup') {
     if (user) {
       return (
-        <AppShell
-          currentTab={activeTab}
-          onTabChange={setActiveTab}
-          onNavigate={navigateTo}
-        >
-          <DashboardTabContent activeTab={activeTab} setActiveTab={setActiveTab} />
-        </AppShell>
+        <>
+          <AppShell
+            currentTab={activeTab}
+            onTabChange={setActiveTab}
+            onNavigate={navigateTo}
+          >
+            <DashboardTabContent activeTab={activeTab} setActiveTab={setActiveTab} />
+          </AppShell>
+          {needsOnboarding && <StudentOnboardingModal />}
+        </>
       );
     }
     return (
