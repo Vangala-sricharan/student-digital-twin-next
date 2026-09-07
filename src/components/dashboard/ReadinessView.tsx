@@ -13,88 +13,140 @@ import {
 } from 'lucide-react';
 
 export const ReadinessView: React.FC = () => {
-  const { profile, digitalTwinReport, skills, projects, achievements, isDemoMode } = useStudentTwin();
+  const { profile, digitalTwinReport, readinessBreakdown, skills, projects, achievements, isDemoMode } = useStudentTwin();
 
-  const currentScore = isDemoMode ? 94 : (profile?.readinessScore || digitalTwinReport.overallScore || 0);
+  const currentScore = isDemoMode
+    ? 94
+    : Math.min(100, Math.max(0, readinessBreakdown?.overallScore ?? profile?.readinessScore ?? digitalTwinReport?.overallScore ?? 0));
 
   const diagnosticVectors = isDemoMode ? [
     {
-      title: 'Role Alignment Vector',
+      title: 'Skills Coverage',
+      pillarTag: 'Pillar A • 25% Weight',
       score: 95,
-      benchmark: 82,
+      benchmark: 80,
       icon: Target,
       status: 'Exceptional',
-      desc: 'Matches student skill ontologies against active Tier-1 AI/ML and Systems Engineering roles.',
+      desc: 'Evaluates breadth, depth, and verification of student technical competencies.',
       details: [
-        { label: 'PyTorch / Distributed AI Training', match: '98% match' },
-        { label: 'Agentic Consensus & LLM Orchestration', match: '96% match' },
-        { label: 'Systems Programming (Rust / C++)', match: '92% match' },
+        { label: 'PyTorch / Distributed AI', match: '98% coverage' },
+        { label: 'LLM Orchestration', match: '96% coverage' },
+        { label: 'Systems Programming (Rust)', match: '92% coverage' },
       ],
     },
     {
-      title: 'Code & Proof Health Vector',
+      title: 'Project Portfolio',
+      pillarTag: 'Pillar B • 30% Weight',
       score: 96,
       benchmark: 75,
       icon: Code2,
       status: 'Exceptional',
-      desc: 'Evaluates codebase authenticity, multi-file architectural modularity, and organic commit frequency.',
+      desc: 'Evaluates codebase authenticity, multi-file modularity, tech stack breadth, and live links.',
       details: [
-        { label: 'Abstract Syntax Tree (AST) Depth', match: 'Level 4 (High)' },
-        { label: 'Organic Commit Graph Entropy', match: '96% Organic' },
-        { label: 'Architectural Hygiene & Typings', match: '99% Clean' },
+        { label: 'Repositories Indexed', match: '3 production repos' },
+        { label: 'Live Proof URLs', match: 'All verified' },
+        { label: 'Code Architecture', match: '99% Clean' },
       ],
     },
     {
-      title: 'Adaptive Milestones Vector',
-      score: 93,
-      benchmark: 70,
-      icon: Milestone,
-      status: 'Ahead of Track',
-      desc: 'Tracks progress across competitive hackathons, research fellowships, and pre-placement velocity.',
+      title: 'Industry Alignment',
+      pillarTag: 'Pillar C • 25% Weight',
+      score: 94,
+      benchmark: 82,
+      icon: TrendingUp,
+      status: 'Exceptional',
+      desc: 'Evaluates targeted career role, industry company tiers, and role-specific skill alignment.',
       details: [
-        { label: 'Competitive Hackathon Index', match: 'Top 1% Tier' },
-        { label: 'Open-Source Pull Request Activity', match: 'High Velocity' },
-        { label: 'Academic Standing (CGPA: 9.15)', match: 'Top 5% Cohort' },
+        { label: 'Target Career Role', match: 'AI Systems Engineer' },
+        { label: 'Company Tier Target', match: 'Tier-1 Tech Giants' },
+        { label: 'Role Fit Probability', match: 'Top 1% Tier' },
+      ],
+    },
+    {
+      title: 'Verifications',
+      pillarTag: 'Pillar D • 20% Weight',
+      score: 92,
+      benchmark: 70,
+      icon: ShieldCheck,
+      status: 'Ahead of Track',
+      desc: 'Evaluates verified external profiles (GitHub, LinkedIn), distinctions, and academic standing.',
+      details: [
+        { label: 'External Presence', match: 'GitHub & LinkedIn verified' },
+        { label: 'Logged Distinctions', match: 'Top 1% Hackathon Win' },
+        { label: 'Academic Standing', match: 'CGPA 9.15 (Verified)' },
       ],
     },
   ] : [
     {
-      title: 'Role Alignment Vector',
-      score: skills.length > 0 ? Math.min(100, skills.length * 15) : 0,
-      benchmark: 75,
+      title: 'Skills Coverage',
+      pillarTag: 'Pillar A • 25% Weight',
+      score: Math.min(100, Math.max(0, readinessBreakdown?.skillsCoverage ?? 0)),
+      benchmark: 80,
       icon: Target,
-      status: skills.length >= 5 ? 'Calibrated' : 'Needs Attention',
-      desc: 'Matches student skill ontologies against active industry role benchmarks.',
+      status: (readinessBreakdown?.skillsCoverage ?? 0) >= 75
+        ? 'Optimal'
+        : (readinessBreakdown?.skillsCoverage ?? 0) > 0
+        ? 'Calibrated'
+        : 'Needs Evidence',
+      desc: 'Evaluates breadth, depth, and verification of student technical competencies.',
       details: [
         { label: 'Skills Indexed', match: `${skills.length} skills recorded` },
         { label: 'Verified Skills', match: `${skills.filter((s) => s.verified).length} verified` },
-        { label: 'Target Career Role', match: profile?.targetRole || 'Not configured' },
+        { label: 'Pillar Weight', match: '25% of Readiness' },
       ],
     },
     {
-      title: 'Code & Proof Health Vector',
-      score: projects.length > 0 ? Math.min(100, projects.length * 25) : 0,
-      benchmark: 70,
+      title: 'Project Portfolio',
+      pillarTag: 'Pillar B • 30% Weight',
+      score: Math.min(100, Math.max(0, readinessBreakdown?.projectPortfolio ?? 0)),
+      benchmark: 75,
       icon: Code2,
-      status: projects.length >= 3 ? 'Calibrated' : 'Needs Attention',
-      desc: 'Evaluates codebase authenticity, multi-file architectural modularity, and organic commit frequency.',
+      status: (readinessBreakdown?.projectPortfolio ?? 0) >= 75
+        ? 'Optimal'
+        : (readinessBreakdown?.projectPortfolio ?? 0) > 0
+        ? 'Calibrated'
+        : 'Needs Evidence',
+      desc: 'Evaluates codebase authenticity, multi-file modularity, tech stack breadth, and live links.',
       details: [
-        { label: 'Proof Repositories', match: `${projects.length} repositories` },
-        { label: 'AST Depth Audit', match: projects.length > 0 ? 'Audited' : 'Pending Upload' },
-        { label: 'Entropy Verification', match: projects.length > 0 ? 'Verified' : 'Pending Upload' },
+        { label: 'Proof Repositories', match: `${projects.length} recorded` },
+        { label: 'Live Proof URLs', match: `${projects.filter((p) => p.githubUrl || p.liveUrl).length} active links` },
+        { label: 'Pillar Weight', match: '30% of Readiness' },
       ],
     },
     {
-      title: 'Adaptive Milestones Vector',
-      score: achievements.length > 0 ? Math.min(100, achievements.length * 30) : 0,
-      benchmark: 65,
-      icon: Milestone,
-      status: achievements.length >= 2 ? 'Calibrated' : 'Needs Attention',
-      desc: 'Tracks progress across competitive hackathons, distinctions, and academic standing.',
+      title: 'Industry Alignment',
+      pillarTag: 'Pillar C • 25% Weight',
+      score: Math.min(100, Math.max(0, readinessBreakdown?.industryAlignment ?? 0)),
+      benchmark: 82,
+      icon: TrendingUp,
+      status: (readinessBreakdown?.industryAlignment ?? 0) >= 75
+        ? 'Optimal'
+        : (readinessBreakdown?.industryAlignment ?? 0) > 0
+        ? 'Calibrated'
+        : 'Needs Evidence',
+      desc: 'Evaluates targeted career role, industry company tiers, and role-specific skill alignment.',
       details: [
-        { label: 'Logged Distinctions', match: `${achievements.length} recorded` },
-        { label: 'Academic Standing', match: profile?.cgpa ? `CGPA ${profile.cgpa}` : 'Not recorded' },
-        { label: 'Placement Velocity', match: currentScore > 0 ? `${currentScore}%` : 'Uncalibrated' },
+        { label: 'Target Career Role', match: profile?.targetRole || 'Not configured' },
+        { label: 'Target Company Tier', match: profile?.targetCompanyTier || 'Unspecified' },
+        { label: 'Pillar Weight', match: '25% of Readiness' },
+      ],
+    },
+    {
+      title: 'Verifications',
+      pillarTag: 'Pillar D • 20% Weight',
+      score: Math.min(100, Math.max(0, readinessBreakdown?.verifications ?? 0)),
+      benchmark: 70,
+      icon: ShieldCheck,
+      status: (readinessBreakdown?.verifications ?? 0) >= 75
+        ? 'Optimal'
+        : (readinessBreakdown?.verifications ?? 0) > 0
+        ? 'Calibrated'
+        : 'Needs Evidence',
+      desc: 'Evaluates verified external profiles (GitHub, LinkedIn), distinctions, and academic standing.',
+      details: [
+        { label: 'Profiles Connected', match: `${profile?.githubUrl ? 'GitHub' : 'No GitHub'} • ${profile?.linkedinUrl ? 'LinkedIn' : 'No LinkedIn'}` },
+        { label: 'Distinctions Logged', match: `${achievements.length} recorded` },
+        { label: 'Pillar Weight', match: '20% of Readiness' },
       ],
     },
   ];
@@ -143,14 +195,14 @@ export const ReadinessView: React.FC = () => {
         </div>
       </div>
 
-      {/* 3 Detailed Vector Cards */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      {/* 4 Detailed Vector Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-5 sm:gap-6">
         {diagnosticVectors.map((vec, i) => {
           const Icon = vec.icon;
           return (
             <div
               key={i}
-              className="p-6 rounded-2xl bg-white dark:bg-[#0d1117] border border-slate-200 dark:border-white/10 shadow-sm space-y-4 flex flex-col justify-between hover:border-blue-500/40 dark:hover:border-cyan-500/40 transition-colors"
+              className="p-5 sm:p-6 rounded-2xl bg-white dark:bg-[#0d1117] border border-slate-200 dark:border-white/10 shadow-sm space-y-4 flex flex-col justify-between hover:border-blue-500/40 dark:hover:border-cyan-500/40 transition-colors"
             >
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
@@ -168,9 +220,14 @@ export const ReadinessView: React.FC = () => {
                   </div>
                 </div>
 
-                <h3 className="text-base font-bold text-slate-900 dark:text-white">
-                  {vec.title}
-                </h3>
+                <div>
+                  <div className="inline-block px-2 py-0.5 rounded text-[10px] font-mono font-bold uppercase bg-slate-100 dark:bg-white/5 text-blue-600 dark:text-cyan-400 border border-slate-200 dark:border-white/10 mb-1">
+                    {vec.pillarTag}
+                  </div>
+                  <h3 className="text-base font-bold text-slate-900 dark:text-white">
+                    {vec.title}
+                  </h3>
+                </div>
 
                 <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
                   {vec.desc}

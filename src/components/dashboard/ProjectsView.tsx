@@ -5,12 +5,24 @@ import { ProjectItem } from '../../types';
 import { FolderGit2, Github, ExternalLink, Code2, Plus, Edit2, Trash2 } from 'lucide-react';
 
 export const ProjectsView: React.FC = () => {
-  const { projects, addProject, updateProject, removeProject, profile } = useStudentTwin();
+  const {
+    projects,
+    addProject,
+    updateProject,
+    removeProject,
+    profile,
+    isDemoMode,
+    openDemoLockModal,
+  } = useStudentTwin();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingProject, setEditingProject] = useState<ProjectItem | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<{ id: string; title: string } | null>(null);
 
   const handleSaveProject = (projectData: Omit<ProjectItem, 'id'>, existingId?: string) => {
+    if (isDemoMode) {
+      openDemoLockModal();
+      return;
+    }
     if (existingId) {
       updateProject(existingId, projectData);
     } else {
@@ -20,6 +32,10 @@ export const ProjectsView: React.FC = () => {
   };
 
   const handleConfirmDelete = () => {
+    if (isDemoMode) {
+      openDemoLockModal();
+      return;
+    }
     if (deleteConfirm) {
       removeProject(deleteConfirm.id);
       setDeleteConfirm(null);
@@ -46,6 +62,10 @@ export const ProjectsView: React.FC = () => {
         <button
           type="button"
           onClick={() => {
+            if (isDemoMode) {
+              openDemoLockModal();
+              return;
+            }
             setEditingProject(null);
             setIsModalOpen(true);
           }}
@@ -78,6 +98,11 @@ export const ProjectsView: React.FC = () => {
                         {proj.role && (
                           <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-cyan-400 border border-blue-200 dark:border-blue-900/50 font-semibold">
                             {proj.role}
+                          </span>
+                        )}
+                        {proj.difficulty && (
+                          <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-900/50 font-semibold">
+                            {proj.difficulty}
                           </span>
                         )}
                         {(proj as any).category && (
@@ -115,6 +140,10 @@ export const ProjectsView: React.FC = () => {
                     <button
                       type="button"
                       onClick={() => {
+                        if (isDemoMode) {
+                          openDemoLockModal();
+                          return;
+                        }
                         setEditingProject(proj);
                         setIsModalOpen(true);
                       }}
@@ -125,7 +154,13 @@ export const ProjectsView: React.FC = () => {
                     </button>
                     <button
                       type="button"
-                      onClick={() => setDeleteConfirm({ id: proj.id, title: proj.title })}
+                      onClick={() => {
+                        if (isDemoMode) {
+                          openDemoLockModal();
+                          return;
+                        }
+                        setDeleteConfirm({ id: proj.id, title: proj.title });
+                      }}
                       className="p-1.5 rounded-lg text-slate-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/30 transition-colors cursor-pointer"
                       title="Delete project"
                     >
@@ -137,6 +172,13 @@ export const ProjectsView: React.FC = () => {
                 <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
                   {proj.description}
                 </p>
+
+                {proj.systemArchitecture && (
+                  <div className="text-[11px] font-mono text-slate-600 dark:text-slate-400 bg-slate-50 dark:bg-[#050811] p-2.5 rounded-lg border border-slate-200 dark:border-slate-800/80">
+                    <span className="text-[10px] font-bold text-slate-400 uppercase block mb-1">Architecture Flow</span>
+                    <span className="leading-relaxed">{proj.systemArchitecture}</span>
+                  </div>
+                )}
 
                 {/* Tech Stack Chips */}
                 {proj.techStack && proj.techStack.length > 0 && (
@@ -190,6 +232,10 @@ export const ProjectsView: React.FC = () => {
             <button
               type="button"
               onClick={() => {
+                if (isDemoMode) {
+                  openDemoLockModal();
+                  return;
+                }
                 setEditingProject(null);
                 setIsModalOpen(true);
               }}

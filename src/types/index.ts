@@ -83,7 +83,9 @@ export interface ProjectItem {
   role?: string;
   description: string;
   techStack: string[];
+  difficulty?: 'Advanced' | 'Intermediate' | 'Beginner' | string;
   status?: 'Completed' | 'In Progress' | 'Production Live' | 'Architecture Verified';
+  systemArchitecture?: string;
   githubUrl?: string;
   liveUrl?: string;
   proofHealthScore?: number; // 0-100
@@ -91,6 +93,28 @@ export interface ProjectItem {
   highlights?: string[];
   astDepth?: string;
   entropyScore?: number;
+}
+
+export interface CertificationItem {
+  id: string;
+  title: string;
+  issuer: string;
+  issueDate: string;
+  credentialId?: string;
+  credentialUrl?: string;
+  skills?: string[];
+  verified?: boolean;
+}
+
+export interface ParticipationItem {
+  id: string;
+  title: string;
+  event?: string;
+  category: string; // 'Participations & Events'
+  date?: string;
+  organizer?: string;
+  description?: string;
+  verified?: boolean;
 }
 
 export interface AchievementItem {

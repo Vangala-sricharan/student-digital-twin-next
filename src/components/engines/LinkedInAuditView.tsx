@@ -24,7 +24,7 @@ import {
   User,
   Download,
   FileText,
-  UploadCloud,
+  Upload,
   Trash2,
   FileCheck2,
   AlertCircle,
@@ -327,7 +327,7 @@ export const LinkedInAuditView: React.FC<LinkedInAuditViewProps> = ({ onBackToHu
                     onChange={handleFileInputChange}
                   />
                   <div className="w-12 h-12 rounded-xl bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-cyan-400 flex items-center justify-center mx-auto mb-3">
-                    <UploadCloud className="w-6 h-6" />
+                    <Upload className="w-6 h-6" />
                   </div>
                   <h4 className="text-sm font-bold text-slate-900 dark:text-white mb-1">
                     Upload LinkedIn Profile Export (PDF)

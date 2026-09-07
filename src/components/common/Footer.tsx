@@ -135,7 +135,7 @@ export const Footer: React.FC<FooterProps> = ({ onNavigate }) => {
         <div className="flex flex-col sm:flex-row items-center justify-between py-6 text-[10px] font-medium text-slate-500 uppercase tracking-widest gap-4">
           <div className="flex flex-wrap items-center gap-6">
             <span>System Telemetry: <span className="text-emerald-600 dark:text-emerald-400 font-bold">Optimal</span></span>
-            <span>Engine Build: <span className="text-slate-700 dark:text-slate-400">Phase 1 v4.0</span></span>
+            <span>Engine Build: <span className="text-slate-700 dark:text-slate-400">v4.0</span></span>
             <span>Marwadi University Affiliate</span>
           </div>
           <div className="flex flex-wrap items-center gap-6">

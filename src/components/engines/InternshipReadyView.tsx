@@ -57,7 +57,7 @@ export const InternshipReadyView: React.FC<InternshipReadyViewProps> = ({ onBack
 
   const diagnosticData = job?.result?.data || structuredData;
   const candidateName = profile?.fullName || profile?.name || 'Student Candidate';
-  const readinessScore = diagnosticData?.readinessScore ?? profile?.readinessScore ?? 84;
+  const readinessScore = diagnosticData?.readinessScore ?? profile?.readinessScore ?? 0;
   const verdict = diagnosticData?.verdict ?? (readinessScore >= 80 ? 'Competitive for Tier-1 Internships' : 'Approaching Readiness with Minor Gaps');
 
   const pillars = diagnosticData?.breakdown ?? [

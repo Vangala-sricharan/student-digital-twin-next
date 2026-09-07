@@ -40,7 +40,7 @@ export const PricingSection: React.FC<PricingSectionProps> = ({ onNavigate }) =>
         'Tier-1 Job Spec ontology calibration',
         'Predictive skill gap remediation plans',
         'Multi-vector readiness telemetry reports',
-        'Early access to Phase 2 AI engine suite',
+        'Full access to all 11 AI engines',
         'Priority verification badge',
       ],
     },

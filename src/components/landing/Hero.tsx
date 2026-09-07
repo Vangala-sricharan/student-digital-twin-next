@@ -18,14 +18,6 @@ export const Hero: React.FC<HeroProps> = ({ onNavigate }) => {
           
           {/* Left Hero Content */}
           <div className="lg:col-span-7 space-y-6 text-center lg:text-left">
-            
-            {/* Version & Readiness Pill */}
-            <div className="inline-flex items-center gap-2 bg-blue-500/10 border border-blue-500/20 px-3 py-1 rounded-full w-fit mx-auto lg:mx-0 shadow-sm">
-              <span className="w-1.5 h-1.5 rounded-full bg-blue-500 dark:bg-blue-400 animate-pulse" />
-              <span className="text-[10px] uppercase tracking-widest text-blue-600 dark:text-blue-400 font-bold">
-                Phase 1 — Master Build
-              </span>
-            </div>
 
             {/* Main Headline */}
             <h1 className="text-4xl sm:text-5xl lg:text-6xl font-extrabold leading-[0.98] tracking-tighter text-slate-900 dark:text-white">

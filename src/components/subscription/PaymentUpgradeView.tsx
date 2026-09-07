@@ -411,8 +411,8 @@ export const PaymentUpgradeView: React.FC<PaymentUpgradeViewProps> = ({
 
       {/* INSTITUTIONAL ENQUIRY MODAL */}
       {isEnquiryOpen && (
-        <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white dark:bg-[#0d1117] border border-slate-200/90 dark:border-white/10 rounded-[2.5rem] max-w-lg w-full p-6 sm:p-8 shadow-2xl relative space-y-6">
+        <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 md:p-6 overflow-y-auto">
+          <div className="bg-white dark:bg-[#0d1117] border border-slate-200/90 dark:border-white/10 rounded-2xl sm:rounded-[2.5rem] max-w-lg w-full p-5 sm:p-8 shadow-2xl relative space-y-5 my-auto max-h-[92vh] overflow-y-auto">
             <button
               onClick={() => setIsEnquiryOpen(false)}
               className="absolute top-6 right-6 p-2 rounded-full text-slate-400 hover:text-slate-600 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/5 transition-colors cursor-pointer"
@@ -560,12 +560,12 @@ export const PaymentUpgradeView: React.FC<PaymentUpgradeViewProps> = ({
 
       {/* SIMULATED PAYMENT MODAL FOR INDIVIDUAL PRO PLANS */}
       {isModalOpen && selectedTier && (
-        <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white dark:bg-[#0d1117] border border-slate-200/90 dark:border-white/10 rounded-[2.5rem] max-w-lg w-full p-6 sm:p-8 shadow-2xl relative space-y-6">
+        <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 md:p-6 overflow-y-auto">
+          <div className="bg-white dark:bg-[#0d1117] border border-slate-200/90 dark:border-white/10 rounded-2xl sm:rounded-[2rem] max-w-lg w-full p-5 sm:p-7 shadow-2xl relative space-y-4 my-auto max-h-[92vh] overflow-y-auto">
             {/* Close Button */}
             <button
               onClick={() => setIsModalOpen(false)}
-              className="absolute top-6 right-6 p-2 rounded-full text-slate-400 hover:text-slate-600 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/5 transition-colors cursor-pointer"
+              className="absolute top-5 right-5 p-2 rounded-full text-slate-400 hover:text-slate-600 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/5 transition-colors cursor-pointer"
             >
               <X className="w-5 h-5" />
             </button>
@@ -615,7 +615,7 @@ export const PaymentUpgradeView: React.FC<PaymentUpgradeViewProps> = ({
                 </div>
 
                 {/* Simulated Payment Notice */}
-                <div className="p-4 rounded-2xl bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800/60 flex items-start gap-3 text-[11px] text-amber-800 dark:text-amber-300">
+                <div className="p-3 sm:p-3.5 rounded-2xl bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800/60 flex items-start gap-2.5 text-[11px] text-amber-800 dark:text-amber-300">
                   <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
                   <span className="leading-snug">
                     <strong>Notice:</strong> This is a <strong>SIMULATED PAYMENT</strong> for demonstration purposes. No real money or bank account will be charged.
@@ -623,7 +623,7 @@ export const PaymentUpgradeView: React.FC<PaymentUpgradeViewProps> = ({
                 </div>
 
                 {/* Payment Method Selector */}
-                <div className="space-y-3">
+                <div className="space-y-2">
                   <label className="text-[11px] font-mono text-slate-500 dark:text-slate-400">
                     Select Payment Method (Simulation)
                   </label>
@@ -671,19 +671,19 @@ export const PaymentUpgradeView: React.FC<PaymentUpgradeViewProps> = ({
 
                 {/* Method Details (Simulation Inputs) */}
                 {paymentMethod === 'upi' && (
-                  <div className="space-y-3 p-5 rounded-[2rem] bg-slate-50 dark:bg-white/5 border border-slate-200/80 dark:border-white/10">
+                  <div className="space-y-2.5 p-4 sm:p-5 rounded-2xl bg-slate-50 dark:bg-white/5 border border-slate-200/80 dark:border-white/10">
                     {/* QR Code Container */}
-                    <div className="flex flex-col items-center text-center space-y-3">
+                    <div className="flex flex-col items-center text-center space-y-2.5">
                       <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-cyan-400 font-mono text-[10px] font-bold border border-blue-200 dark:border-blue-800">
                         <QrCode className="w-3 h-3" />
                         <span>Scan to Pay</span>
                       </div>
 
                       {/* Pure white background card for QR so scanner contrast is crisp in light & dark modes */}
-                      <div className="p-3.5 bg-white rounded-3xl shadow-md border border-slate-200 dark:border-white/10 inline-block">
+                      <div className="p-3 bg-white rounded-2xl shadow-md border border-slate-200 dark:border-white/10 inline-block">
                         <QRCodeSVG
                           value={`upi://pay?pa=${OFFICIAL_UPI_ID}&pn=Student%20Digital%20Twin&am=${activePlanData.price.replace(/[^0-9]/g, '')}&cu=INR&tn=${encodeURIComponent(activePlanData.name + ' Plan')}`}
-                          size={150}
+                          size={135}
                           level="M"
                           bgColor="#FFFFFF"
                           fgColor="#000000"
@@ -692,7 +692,7 @@ export const PaymentUpgradeView: React.FC<PaymentUpgradeViewProps> = ({
                       </div>
 
                       {/* UPI ID Details */}
-                      <div className="space-y-1 w-full pt-1">
+                      <div className="space-y-1 w-full pt-0.5">
                         <div className="text-[10px] font-mono uppercase tracking-wider text-slate-400 dark:text-slate-500 font-bold">
                           UPI ID
                         </div>
@@ -725,7 +725,7 @@ export const PaymentUpgradeView: React.FC<PaymentUpgradeViewProps> = ({
                         </div>
                       </div>
 
-                      <div className="text-[10px] font-mono text-slate-500 dark:text-slate-400 flex items-center justify-center gap-2 pt-1">
+                      <div className="text-[10px] font-mono text-slate-500 dark:text-slate-400 flex items-center justify-center gap-2 pt-0.5">
                         <span>Google Pay</span>
                         <span>•</span>
                         <span>PhonePe</span>
@@ -783,15 +783,16 @@ export const PaymentUpgradeView: React.FC<PaymentUpgradeViewProps> = ({
 
                 {/* Confirm Button */}
                 <button
+                  type="button"
                   onClick={handleSimulatePayment}
                   disabled={isProcessing}
-                  className="w-full py-3.5 rounded-full bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold font-mono transition-all flex items-center justify-center gap-2 shadow-md shadow-blue-600/25 cursor-pointer disabled:opacity-50"
+                  className="w-full py-3.5 px-4 rounded-xl sm:rounded-full bg-blue-600 hover:bg-blue-500 text-white text-xs sm:text-sm font-bold font-mono transition-all flex items-center justify-center gap-2 shadow-md shadow-blue-600/25 cursor-pointer disabled:opacity-50 shrink-0 mt-2"
                 >
-                  <Lock className="w-3.5 h-3.5" />
+                  <Lock className="w-4 h-4 shrink-0" />
                   <span>
                     {isProcessing
                       ? 'Simulating Transaction...'
-                      : `Confirm SIMULATED PAYMENT (${activePlanData.price})`}
+                      : `Confirm Payment (${activePlanData.price})`}
                   </span>
                 </button>
               </>

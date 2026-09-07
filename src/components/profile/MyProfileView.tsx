@@ -25,7 +25,6 @@ import {
   Target,
   FileCheck,
   Camera,
-  UploadCloud,
   CheckCircle2,
   AlertCircle,
   ExternalLink,
@@ -68,6 +67,7 @@ export const MyProfileView: React.FC<MyProfileViewProps> = ({
     removeAchievement,
     subscription,
     isDemoMode,
+    openDemoLockModal,
   } = useStudentTwin();
 
   // Core Form State
@@ -118,17 +118,22 @@ export const MyProfileView: React.FC<MyProfileViewProps> = ({
     title: string;
   } | null>(null);
 
-  // Save / Sync State
+  // Save State
   const [saving, setSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
-  const [cloudSyncSuccess, setCloudSyncSuccess] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   // Handle Profile Save
   const handleSaveProfile = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
+    if (isDemoMode) {
+      openDemoLockModal();
+      return;
+    }
     setSaving(true);
+    setSaveError(null);
     try {
-      await updateProfile({
+      const res = await updateProfile({
         name: formData.fullName,
         fullName: formData.fullName,
         displayName: formData.fullName,
@@ -152,24 +157,15 @@ export const MyProfileView: React.FC<MyProfileViewProps> = ({
         portfolioUrl: formData.portfolioUrl,
       });
 
-      setSaveSuccess(true);
-      setTimeout(() => setSaveSuccess(false), 3000);
+      if (res && (res as any).error) {
+        setSaveError('Unable to save changes. Please try again.');
+      } else {
+        setSaveSuccess(true);
+        setTimeout(() => setSaveSuccess(false), 3000);
+      }
     } catch (err) {
       console.error('Error saving profile:', err);
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  // Handle Cloud Sync Trigger
-  const handleCloudUpload = async () => {
-    setSaving(true);
-    try {
-      await handleSaveProfile();
-      setCloudSyncSuccess(true);
-      setTimeout(() => setCloudSyncSuccess(false), 3000);
-    } catch (err) {
-      console.error('Cloud sync error:', err);
+      setSaveError('Unable to save changes. Please try again.');
     } finally {
       setSaving(false);
     }
@@ -177,6 +173,10 @@ export const MyProfileView: React.FC<MyProfileViewProps> = ({
 
   // Avatar Photo Handler
   const handlePhotoSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (isDemoMode) {
+      openDemoLockModal();
+      return;
+    }
     const file = e.target.files?.[0];
     if (!file) return;
 
@@ -230,6 +230,10 @@ export const MyProfileView: React.FC<MyProfileViewProps> = ({
   };
 
   const handleRemovePhoto = async () => {
+    if (isDemoMode) {
+      openDemoLockModal();
+      return;
+    }
     setIsUploadingPhoto(true);
     try {
       await removeAvatar();
@@ -244,6 +248,10 @@ export const MyProfileView: React.FC<MyProfileViewProps> = ({
 
   // Skill Handlers
   const handleAddSkill = () => {
+    if (isDemoMode) {
+      openDemoLockModal();
+      return;
+    }
     if (!newSkillName.trim()) return;
     addSkill({
       name: newSkillName.trim(),
@@ -258,6 +266,10 @@ export const MyProfileView: React.FC<MyProfileViewProps> = ({
 
   // Project Save Handler (Add or Edit)
   const handleSaveProject = (projectData: Omit<ProjectItem, 'id'>, existingId?: string) => {
+    if (isDemoMode) {
+      openDemoLockModal();
+      return;
+    }
     if (existingId) {
       updateProject(existingId, projectData);
     } else {
@@ -268,6 +280,10 @@ export const MyProfileView: React.FC<MyProfileViewProps> = ({
 
   // Achievement Save Handler (Add or Edit)
   const handleSaveAchievement = (achData: Omit<AchievementItem, 'id'>, existingId?: string) => {
+    if (isDemoMode) {
+      openDemoLockModal();
+      return;
+    }
     if (existingId) {
       updateAchievement(existingId, achData);
     } else {
@@ -278,6 +294,10 @@ export const MyProfileView: React.FC<MyProfileViewProps> = ({
 
   // Confirm Delete Handler
   const executeDelete = () => {
+    if (isDemoMode) {
+      openDemoLockModal();
+      return;
+    }
     if (!itemToDelete) return;
     if (itemToDelete.type === 'project') {
       removeProject(itemToDelete.id);
@@ -325,18 +345,23 @@ export const MyProfileView: React.FC<MyProfileViewProps> = ({
           </p>
         </div>
 
-        {/* Top Right Actions */}
+        {/* Top Right Status & Mode Indicator */}
         <div className="flex items-center gap-2.5 flex-wrap">
-          <button
-            type="button"
-            onClick={handleCloudUpload}
-            disabled={saving}
-            className="px-3.5 py-2 rounded-lg bg-slate-100 dark:bg-slate-800/80 hover:bg-slate-200 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 text-xs font-mono font-semibold border border-slate-300 dark:border-slate-700 flex items-center gap-1.5 transition-colors cursor-pointer disabled:opacity-50"
-            title="Synchronize profile record to Supabase cloud storage"
-          >
-            <UploadCloud className="w-3.5 h-3.5 text-blue-500 dark:text-cyan-400" />
-            <span>{cloudSyncSuccess ? 'Cloud Synced' : 'Upload to Cloud'}</span>
-          </button>
+          {saving && (
+            <span className="text-xs font-mono text-slate-500 dark:text-slate-400 animate-pulse">
+              Saving…
+            </span>
+          )}
+          {saveSuccess && (
+            <span className="text-xs font-mono text-emerald-600 dark:text-emerald-400 font-medium">
+              Saved
+            </span>
+          )}
+          {saveError && (
+            <span className="text-xs font-mono text-rose-500 font-medium">
+              {saveError}
+            </span>
+          )}
 
           <div className="px-3 py-1.5 rounded-lg bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-900/60 text-blue-600 dark:text-cyan-400 text-xs font-mono font-bold tracking-wider">
             {isDemoMode ? 'DEMO SCHOLAR' : 'AUTHENTICATED TWIN'}
@@ -483,8 +508,8 @@ export const MyProfileView: React.FC<MyProfileViewProps> = ({
                 <div className="text-[10px] text-slate-500 dark:text-slate-400 uppercase">Skills</div>
               </div>
               <div className="p-2.5 rounded-lg bg-slate-50 dark:bg-[#050811] border border-slate-200 dark:border-slate-800">
-                <div className="text-lg font-bold text-purple-500 dark:text-purple-400">{profile.readinessScore || 78}%</div>
-                <div className="text-[10px] text-slate-500 dark:text-slate-400 uppercase">AST Score</div>
+                <div className="text-lg font-bold text-purple-500 dark:text-purple-400">{profile.readinessScore ?? 0}%</div>
+                <div className="text-[10px] text-slate-500 dark:text-slate-400 uppercase">Readiness</div>
               </div>
             </div>
           </div>

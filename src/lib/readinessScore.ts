@@ -1,18 +1,31 @@
-import { StudentProfile, SkillItem, ProjectItem, AchievementItem } from '../types';
+import { StudentProfile, SkillItem, ProjectItem, AchievementItem, CareerGoal } from '../types';
 
 export interface ReadinessBreakdown {
   overallScore: number;
-  foundationScore: number;   // Max 15 pts
-  skillsScore: number;       // Max 25 pts
-  projectsScore: number;     // Max 30 pts
-  achievementsScore: number; // Max 15 pts
-  profilesScore: number;     // Max 15 pts (GitHub, LinkedIn, Portfolio)
 
-  // Standardized vector telemetry (0 - 100)
-  skillsCoverage: number;
-  codeProofHealth: number;
-  marketAlignment: number;
-  verificationIndex: number;
+  // The Four Pillars (0 - 100)
+  skillsCoverage: number;       // Pillar A: Skills Coverage (Weight: 25%)
+  projectPortfolio: number;     // Pillar B: Project Portfolio (Weight: 30%)
+  industryAlignment: number;    // Pillar C: Industry Alignment (Weight: 25%)
+  verifications: number;        // Pillar D: Verifications (Weight: 20%)
+
+  // Four-Pillar Weights
+  pillarWeights: {
+    skillsCoverage: number;
+    projectPortfolio: number;
+    industryAlignment: number;
+    verifications: number;
+  };
+
+  // Telemetry & Legacy Field Aliases for backward compatibility
+  codeProofHealth: number;      // alias to projectPortfolio
+  marketAlignment: number;      // alias to industryAlignment
+  verificationIndex: number;    // alias to verifications
+  foundationScore: number;
+  skillsScore: number;
+  projectsScore: number;
+  achievementsScore: number;
+  profilesScore: number;
 
   hasEvidence: boolean;
   evidenceCounts: {
@@ -24,32 +37,51 @@ export interface ReadinessBreakdown {
     hasLinkedin: boolean;
     hasPortfolio: boolean;
     hasTargetRole: boolean;
+    hasCareerGoal: boolean;
   };
 }
 
+export const PILLAR_WEIGHTS = {
+  skillsCoverage: 0.25,     // 25%
+  projectPortfolio: 0.30,   // 30%
+  industryAlignment: 0.25,  // 25%
+  verifications: 0.20,      // 20%
+} as const;
+
 /**
  * Deterministically calculates the student placement readiness score
- * derived strictly from real, verifiable user-provided evidence.
+ * derived strictly from real, verifiable user-provided evidence across four pillars:
  * 
- * Empty accounts return strictly 0% across all vectors.
+ * Pillar A: SKILLS COVERAGE (25% Weight)
+ * Pillar B: PROJECT PORTFOLIO (30% Weight)
+ * Pillar C: INDUSTRY ALIGNMENT (25% Weight)
+ * Pillar D: VERIFICATIONS (20% Weight)
+ * 
+ * Empty accounts return strictly 0% across all pillars and overall score.
+ * Never uses placeholder, demo, or fallback values for authenticated users.
  */
 export function calculateRealReadiness(
   profile: Partial<StudentProfile> | null | undefined,
   skills: SkillItem[] = [],
   projects: ProjectItem[] = [],
-  achievements: AchievementItem[] = []
+  achievements: AchievementItem[] = [],
+  careerGoals: CareerGoal[] = []
 ): ReadinessBreakdown {
   const emptyResult: ReadinessBreakdown = {
     overallScore: 0,
+    skillsCoverage: 0,
+    projectPortfolio: 0,
+    industryAlignment: 0,
+    verifications: 0,
+    pillarWeights: { ...PILLAR_WEIGHTS },
+    codeProofHealth: 0,
+    marketAlignment: 0,
+    verificationIndex: 0,
     foundationScore: 0,
     skillsScore: 0,
     projectsScore: 0,
     achievementsScore: 0,
     profilesScore: 0,
-    skillsCoverage: 0,
-    codeProofHealth: 0,
-    marketAlignment: 0,
-    verificationIndex: 0,
     hasEvidence: false,
     evidenceCounts: {
       skills: 0,
@@ -60,6 +92,7 @@ export function calculateRealReadiness(
       hasLinkedin: false,
       hasPortfolio: false,
       hasTargetRole: false,
+      hasCareerGoal: false,
     },
   };
 
@@ -67,99 +100,206 @@ export function calculateRealReadiness(
     return emptyResult;
   }
 
-  // 1. Profile / Foundation Evidence (Max 15 pts) - strictly real fields
-  let foundationScore = 0;
+  // ---------------------------------------------------------------------------
+  // PILLAR A: SKILLS COVERAGE (0 - 100) — Weight: 25%
+  // Evaluates actual saved skills, proficiency calibration, and verification.
+  // ---------------------------------------------------------------------------
+  const validSkills = (skills || []).filter(
+    (s) => s && typeof s.name === 'string' && s.name.trim().length > 0
+  );
+  const verifiedSkills = validSkills.filter((s) => Boolean(s.verified));
+
+  let skillsCoverage = 0;
+  if (validSkills.length > 0) {
+    // 1. Skill Volume: calibrated to 6 diverse core competencies (up to 60 pts)
+    const volumeScore = Math.min(60, Math.round((validSkills.length / 6) * 60));
+
+    // 2. Proficiency Depth: average recorded proficiency (up to 20 pts)
+    const avgProficiency =
+      validSkills.reduce((acc, s) => {
+        const p = typeof s.proficiency === 'number' && !isNaN(s.proficiency) ? s.proficiency : 60;
+        return acc + Math.min(100, Math.max(0, p));
+      }, 0) / validSkills.length;
+    const proficiencyScore = Math.min(20, Math.round((avgProficiency / 100) * 20));
+
+    // 3. Verification & Proof: verified skills or proof attachments (up to 20 pts)
+    const verifiedOrProven = validSkills.filter(
+      (s) => Boolean(s.verified) || (typeof s.proofCount === 'number' && s.proofCount > 0)
+    );
+    const proofScore = Math.min(20, verifiedOrProven.length * 7);
+
+    skillsCoverage = Math.min(100, Math.max(0, volumeScore + proficiencyScore + proofScore));
+  }
+
+  // ---------------------------------------------------------------------------
+  // PILLAR B: PROJECT PORTFOLIO (0 - 100) — Weight: 30%
+  // Evaluates actual saved projects, architectural descriptions, tech stacks, and links.
+  // ---------------------------------------------------------------------------
+  const validProjects = (projects || []).filter(
+    (p) => p && typeof p.title === 'string' && p.title.trim().length > 0
+  );
+
+  let projectPortfolio = 0;
+  if (validProjects.length > 0) {
+    // Each project contributes up to 30 points (calibrated so ~3-4 projects reach full maturity)
+    let projectPoints = 0;
+    let projectsWithLinks = 0;
+
+    for (const p of validProjects) {
+      let pts = 12; // Base existence of verified project
+      if (p.description && p.description.trim().length >= 15) {
+        pts += 6; // Detailed architectural description
+      }
+      if (Array.isArray(p.techStack) && p.techStack.length > 0) {
+        pts += 6; // Mapped tech stack
+      }
+      const hasLink = Boolean(
+        (p.githubUrl && p.githubUrl.trim().length > 5) ||
+        (p.liveUrl && p.liveUrl.trim().length > 5)
+      );
+      if (hasLink) {
+        pts += 6; // Verifiable repository or live demonstration link
+        projectsWithLinks++;
+      }
+      projectPoints += pts;
+    }
+
+    // Portfolio depth bonus: having multiple projects with verifiable links
+    const bonus = projectsWithLinks >= 2 ? 10 : 0;
+    projectPortfolio = Math.min(100, Math.max(0, projectPoints + bonus));
+  }
+
+  // ---------------------------------------------------------------------------
+  // PILLAR C: INDUSTRY ALIGNMENT (0 - 100) — Weight: 25%
+  // Evaluates career target, goal formulation, company tier, and domain relevance.
+  // ---------------------------------------------------------------------------
   const hasTargetRole = Boolean(profile.targetRole && profile.targetRole.trim().length > 1);
-  const hasUniversity = Boolean(profile.university && profile.university.trim().length > 1);
-  const hasDegree = Boolean(profile.degree && profile.degree.trim().length > 1);
-  const hasBio = Boolean(profile.bio && profile.bio.trim().length > 20);
+  const hasCareerGoal = Boolean(
+    (profile.careerFocus && profile.careerFocus.trim().length > 1) ||
+    (careerGoals && careerGoals.some((g) => g.title && g.title.trim().length > 1))
+  );
+  const hasCompanyTier = Boolean(
+    profile.targetCompanyTier && profile.targetCompanyTier.trim().length > 1
+  );
+
+  let industryAlignment = 0;
+  // Industry alignment strictly requires a defined career target or goal
+  if (hasTargetRole || hasCareerGoal || hasCompanyTier) {
+    let alignmentScore = 0;
+    if (hasTargetRole) alignmentScore += 30;
+    if (hasCareerGoal) alignmentScore += 25;
+    if (hasCompanyTier) alignmentScore += 15;
+
+    // Alignment proof: skills supporting the designated target role
+    if (validSkills.length >= 4) {
+      alignmentScore += 20;
+    } else if (validSkills.length >= 2) {
+      alignmentScore += 15;
+    }
+
+    // Alignment proof: at least 1 project demonstrating target fit
+    if (validProjects.length >= 1) {
+      alignmentScore += 10;
+    }
+
+    industryAlignment = Math.min(100, Math.max(0, alignmentScore));
+  }
+
+  // ---------------------------------------------------------------------------
+  // PILLAR D: VERIFICATIONS (0 - 100) — Weight: 20%
+  // Evaluates connected proof profiles (GitHub/LinkedIn/Portfolio), distinctions, and GPA.
+  // ---------------------------------------------------------------------------
+  const hasGithub = Boolean(
+    profile.githubUrl &&
+    profile.githubUrl.includes('github.com') &&
+    profile.githubUrl.trim().length > 12 &&
+    !profile.githubUrl.includes('username')
+  );
+  const hasLinkedin = Boolean(
+    profile.linkedinUrl &&
+    profile.linkedinUrl.includes('linkedin.com') &&
+    profile.linkedinUrl.trim().length > 12 &&
+    !profile.linkedinUrl.includes('username')
+  );
+  const hasPortfolio = Boolean(
+    profile.portfolioUrl &&
+    profile.portfolioUrl.trim().length > 8 &&
+    !profile.portfolioUrl.includes('placeholder')
+  );
+
+  const validAchievements = (achievements || []).filter(
+    (a) => a && typeof a.title === 'string' && a.title.trim().length > 0
+  );
   const hasCgpa = Boolean(profile.cgpa && Number(profile.cgpa) > 0);
 
-  if (hasTargetRole) foundationScore += 4;
-  if (hasUniversity) foundationScore += 3;
-  if (hasDegree) foundationScore += 3;
-  if (hasBio) foundationScore += 3;
-  if (hasCgpa) foundationScore += 2;
-  foundationScore = Math.min(15, foundationScore);
+  let verifications = 0;
+  const anyVerificationEvidence =
+    hasGithub ||
+    hasLinkedin ||
+    hasPortfolio ||
+    validAchievements.length > 0 ||
+    verifiedSkills.length > 0 ||
+    hasCgpa;
 
-  // 2. Skills Evidence (Max 25 pts)
-  // 4 pts per skill (up to 20 pts), plus 2 pts per verified skill (up to 5 pts)
-  let skillsScore = 0;
-  const validSkills = skills.filter((s) => s.name && s.name.trim().length > 0);
-  const verifiedSkills = validSkills.filter((s) => Boolean(s.verified));
-  
-  if (validSkills.length > 0) {
-    skillsScore = Math.min(20, validSkills.length * 4) + Math.min(5, verifiedSkills.length * 2);
-  }
-  skillsScore = Math.min(25, skillsScore);
+  if (anyVerificationEvidence) {
+    let verifScore = 0;
+    if (hasGithub) verifScore += 25;
+    if (hasLinkedin) verifScore += 25;
+    if (hasPortfolio) verifScore += 15;
+    if (validAchievements.length > 0) {
+      verifScore += Math.min(25, validAchievements.length * 15);
+    }
+    if (verifiedSkills.length > 0) {
+      verifScore += Math.min(15, verifiedSkills.length * 5);
+    }
+    if (hasCgpa) {
+      verifScore += 10;
+    }
 
-  // 3. Projects Proof-of-Work (Max 30 pts)
-  // 8 pts per project + 2 pts bonus for repository URL / live demo (up to 30 pts)
-  let projectsScore = 0;
-  const validProjects = projects.filter((p) => p.title && p.title.trim().length > 0);
-  if (validProjects.length > 0) {
-    projectsScore = validProjects.reduce((acc, p) => {
-      let pts = 8;
-      if ((p.githubUrl && p.githubUrl.trim().length > 5) || (p.liveUrl && p.liveUrl.trim().length > 5)) {
-        pts += 2;
-      }
-      return acc + pts;
-    }, 0);
-  }
-  projectsScore = Math.min(30, projectsScore);
-
-  // 4. Achievements / Distinctions (Max 15 pts)
-  // 5 pts per recorded achievement (up to 15 pts)
-  let achievementsScore = 0;
-  const validAchievements = achievements.filter((a) => a.title && a.title.trim().length > 0);
-  if (validAchievements.length > 0) {
-    achievementsScore = Math.min(15, validAchievements.length * 5);
+    verifications = Math.min(100, Math.max(0, verifScore));
   }
 
-  // 5. External Verified Presence (Max 15 pts)
-  let profilesScore = 0;
-  const hasGithub = Boolean(profile.githubUrl && profile.githubUrl.trim().length > 10 && profile.githubUrl.includes('github.com'));
-  const hasLinkedin = Boolean(profile.linkedinUrl && profile.linkedinUrl.trim().length > 10 && profile.linkedinUrl.includes('linkedin.com'));
-  const hasPortfolio = Boolean(profile.portfolioUrl && profile.portfolioUrl.trim().length > 8);
-
-  if (hasGithub) profilesScore += 5;
-  if (hasLinkedin) profilesScore += 5;
-  if (hasPortfolio) profilesScore += 5;
-  profilesScore = Math.min(15, profilesScore);
-
-  const rawTotal = foundationScore + skillsScore + projectsScore + achievementsScore + profilesScore;
-  const overallScore = Math.min(100, Math.max(0, rawTotal));
-
-  // Determine whether any meaningful career evidence exists
+  // ---------------------------------------------------------------------------
+  // OVERALL READINESS INDEX DERIVATION (0 - 100)
+  // Derived strictly from the four pillars using standard V4 weighting.
+  // ---------------------------------------------------------------------------
   const hasEvidence =
     validSkills.length > 0 ||
     validProjects.length > 0 ||
     validAchievements.length > 0 ||
+    hasTargetRole ||
+    hasCareerGoal ||
     hasGithub ||
     hasLinkedin ||
     hasPortfolio;
 
-  // Normalized Sub-metrics (0 if no evidence)
-  const skillsCoverage = validSkills.length > 0 ? Math.min(100, Math.round((validSkills.length / 6) * 100)) : 0;
-  const codeProofHealth = validProjects.length > 0 ? Math.min(100, Math.round((projectsScore / 30) * 100)) : 0;
-  const marketAlignment = (validSkills.length > 0 || validProjects.length > 0)
-    ? Math.min(100, Math.round(((skillsScore + projectsScore) / 55) * 100))
-    : 0;
-  const verificationIndex = (verifiedSkills.length > 0 || validAchievements.length > 0)
-    ? Math.min(100, Math.round(((validAchievements.length * 25) + (verifiedSkills.length * 15))))
-    : 0;
+  let overallScore = 0;
+  if (hasEvidence) {
+    const rawWeighted =
+      skillsCoverage * PILLAR_WEIGHTS.skillsCoverage +
+      projectPortfolio * PILLAR_WEIGHTS.projectPortfolio +
+      industryAlignment * PILLAR_WEIGHTS.industryAlignment +
+      verifications * PILLAR_WEIGHTS.verifications;
+
+    overallScore = Math.min(100, Math.max(0, Math.round(rawWeighted)));
+  }
 
   return {
     overallScore,
-    foundationScore,
-    skillsScore,
-    projectsScore,
-    achievementsScore,
-    profilesScore,
     skillsCoverage,
-    codeProofHealth,
-    marketAlignment,
-    verificationIndex,
+    projectPortfolio,
+    industryAlignment,
+    verifications,
+    pillarWeights: { ...PILLAR_WEIGHTS },
+    // Backward-compatibility aliases
+    codeProofHealth: projectPortfolio,
+    marketAlignment: industryAlignment,
+    verificationIndex: verifications,
+    foundationScore: Math.round((industryAlignment / 100) * 15),
+    skillsScore: Math.round((skillsCoverage / 100) * 25),
+    projectsScore: Math.round((projectPortfolio / 100) * 30),
+    achievementsScore: Math.round((verifications / 100) * 15),
+    profilesScore: Math.round((verifications / 100) * 15),
     hasEvidence,
     evidenceCounts: {
       skills: validSkills.length,
@@ -170,6 +310,7 @@ export function calculateRealReadiness(
       hasLinkedin,
       hasPortfolio,
       hasTargetRole,
+      hasCareerGoal,
     },
   };
 }

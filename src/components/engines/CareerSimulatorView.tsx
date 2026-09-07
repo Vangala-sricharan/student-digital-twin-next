@@ -72,8 +72,8 @@ export const CareerSimulatorView: React.FC<CareerSimulatorViewProps> = ({ onBack
   const simulationData = job?.result?.data || structuredData;
   const candidateName = profile?.fullName || profile?.name || 'Student Candidate';
 
-  const baselineScore = profile?.readinessScore || 78;
-  const projectedScore = scenario === 'current' ? baselineScore + 4 : scenario === 'proof_of_work' ? 94 : scenario === 'aiml_specialization' ? 96 : 98;
+  const baselineScore = profile?.readinessScore ?? 0;
+  const projectedScore = scenario === 'current' ? (baselineScore > 0 ? baselineScore + 4 : 25) : scenario === 'proof_of_work' ? 94 : scenario === 'aiml_specialization' ? 96 : 98;
   const scoreDelta = projectedScore - baselineScore;
 
   const baselineCTC = '₹6.5L - ₹9.0L CTC';

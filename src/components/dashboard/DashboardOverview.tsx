@@ -1,5 +1,6 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useStudentTwin } from '../../context/StudentTwinContext';
+import { generateStudentTwinReportPDF } from '../../lib/pdfExportService';
 import {
   TrendingUp,
   Cpu,
@@ -14,6 +15,8 @@ import {
   Layers,
   ArrowUpRight,
   Code2,
+  FileDown,
+  Loader2,
 } from 'lucide-react';
 
 interface DashboardOverviewProps {
@@ -21,7 +24,39 @@ interface DashboardOverviewProps {
 }
 
 export const DashboardOverview: React.FC<DashboardOverviewProps> = ({ onNavigateTab }) => {
-  const { profile, skills, projects, achievements, careerGoals, isDemoMode } = useStudentTwin();
+  const { profile, skills, projects, achievements, certifications, participations, careerGoals, digitalTwinReport, isDemoMode } = useStudentTwin();
+  const [isDownloadingReport, setIsDownloadingReport] = useState(false);
+
+  const readinessScore = isDemoMode
+    ? (profile?.readinessScore ?? 94)
+    : (profile?.readinessScore ?? digitalTwinReport?.overallScore ?? 0);
+
+  const handleDownloadTwinReport = async () => {
+    setIsDownloadingReport(true);
+    try {
+      const score = readinessScore;
+      const vectors = isDemoMode
+        ? [
+            { title: 'Role Alignment Vector', score: 95, status: 'Exceptional', desc: 'Matches skill ontologies against active Tier-1 AI/ML roles.' },
+            { title: 'Code & Proof Health Vector', score: 96, status: 'Exceptional', desc: 'High AST depth and organic commit distribution.' },
+            { title: 'Adaptive Milestones Vector', score: 93, status: 'Ahead of Track', desc: 'Top tier hackathon and open source track record.' },
+          ]
+        : undefined;
+
+      await generateStudentTwinReportPDF({
+        profile,
+        score,
+        skills,
+        projects,
+        achievements,
+        vectors,
+      });
+    } catch (err) {
+      console.error('Failed to generate report PDF:', err);
+    } finally {
+      setIsDownloadingReport(false);
+    }
+  };
 
   return (
     <div className="space-y-8 animate-in fade-in duration-300">
@@ -96,33 +131,74 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({ onNavigate
             </div>
           </div>
 
-          {/* Prominent Readiness Score Surface */}
-          <div className="shrink-0 w-full lg:w-auto p-5 rounded-2xl bg-slate-50 dark:bg-white/[0.03] border border-slate-200/90 dark:border-white/10 flex items-center justify-between sm:justify-start gap-6 shadow-sm">
-            <div className="space-y-1">
-              <div className="text-[10px] font-mono uppercase tracking-wider text-slate-500 dark:text-slate-400 font-bold">
-                Twin Placement Readiness
+          {/* Prominent Readiness Score & Report Action Surface */}
+          <div className="shrink-0 w-full lg:w-96 p-5 sm:p-6 rounded-2xl bg-slate-50 dark:bg-white/[0.03] border border-slate-200/90 dark:border-white/10 flex flex-col justify-between gap-4 shadow-sm">
+            <div className="flex items-start justify-between gap-4">
+              <div className="space-y-1">
+                <div className="text-[10px] sm:text-[11px] font-mono uppercase tracking-wider text-slate-500 dark:text-slate-400 font-bold">
+                  Career / Twin Readiness Score
+                </div>
+                <div className="text-3xl sm:text-4xl font-black text-slate-900 dark:text-white font-mono flex items-center gap-2">
+                  <TrendingUp className="w-6 h-6 text-blue-600 dark:text-cyan-400" />
+                  <span>{readinessScore}%</span>
+                </div>
               </div>
-              <div className="text-3xl sm:text-4xl font-black text-slate-900 dark:text-white font-mono flex items-center gap-2">
-                <TrendingUp className="w-6 h-6 text-blue-600 dark:text-cyan-400" />
-                <span>{profile?.readinessScore ?? 0}%</span>
-              </div>
-              <div className="inline-flex items-center gap-1 text-[11px] font-mono font-semibold">
-                <span className={`w-2 h-2 rounded-full ${(profile?.readinessScore ?? 0) > 0 ? 'bg-emerald-500 animate-pulse' : 'bg-slate-400'}`} />
-                <span className={(profile?.readinessScore ?? 0) > 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-500 dark:text-slate-400'}>
-                  {(profile?.readinessScore ?? 0) > 0
-                    ? (profile!.readinessScore >= 80 ? 'Top Placement Readiness' : 'Calibration Active')
-                    : '0% • Awaiting Evidence'}
-                </span>
+
+              <div className="text-right">
+                <div className="inline-flex items-center gap-1.5 text-[11px] font-mono font-semibold px-2.5 py-1 rounded-md bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10">
+                  <span className={`w-2 h-2 rounded-full ${readinessScore > 0 ? 'bg-emerald-500 animate-pulse' : 'bg-slate-400'}`} />
+                  <span className={readinessScore > 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-500 dark:text-slate-400'}>
+                    {readinessScore > 0
+                      ? (readinessScore >= 80 ? 'Top Placement' : 'Calibration Active')
+                      : 'Awaiting Evidence'}
+                  </span>
+                </div>
               </div>
             </div>
 
-            <button
-              onClick={() => onNavigateTab('readiness')}
-              className="px-4 py-2.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold uppercase tracking-wider font-mono shadow-sm transition-all cursor-pointer flex items-center gap-1.5 shrink-0"
-            >
-              <span>Full Audit</span>
-              <ArrowUpRight className="w-3.5 h-3.5" />
-            </button>
+            {/* Readiness progress bar visualization */}
+            <div className="space-y-1.5">
+              <div className="w-full h-2 rounded-full bg-slate-200 dark:bg-white/10 overflow-hidden p-0.5">
+                <div
+                  className="h-full bg-gradient-to-r from-blue-600 to-cyan-400 rounded-full transition-all duration-500"
+                  style={{ width: `${Math.min(100, Math.max(0, readinessScore))}%` }}
+                />
+              </div>
+              <div className="flex items-center justify-between text-[10px] font-mono text-slate-400 dark:text-slate-500">
+                <span>0% Baseline</span>
+                <span>Evidence Calibrated</span>
+                <span>100% Target</span>
+              </div>
+            </div>
+
+            {/* Action Buttons: Download Student Twin Report + Full Audit */}
+            <div className="pt-1 flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5">
+              <button
+                id="btn-dashboard-download-twin-report"
+                type="button"
+                onClick={handleDownloadTwinReport}
+                disabled={isDownloadingReport}
+                className="flex-1 px-4 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white text-xs font-bold font-mono uppercase tracking-wider shadow-sm transition-all cursor-pointer flex items-center justify-center gap-2"
+                title="Download Official Student Twin Report PDF"
+              >
+                {isDownloadingReport ? (
+                  <Loader2 className="w-4 h-4 animate-spin text-white" />
+                ) : (
+                  <FileDown className="w-4 h-4 text-white" />
+                )}
+                <span>{isDownloadingReport ? 'Generating...' : 'Download Student Twin Report'}</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => onNavigateTab('readiness')}
+                className="px-3.5 py-2.5 rounded-xl bg-white dark:bg-white/5 hover:bg-slate-100 dark:hover:bg-white/10 border border-slate-200 dark:border-white/10 text-xs font-mono font-semibold text-slate-700 dark:text-slate-200 transition-colors cursor-pointer flex items-center justify-center gap-1 shrink-0"
+                title="View Full Multi-Vector Readiness Breakdown"
+              >
+                <span>Full Audit</span>
+                <ArrowUpRight className="w-3.5 h-3.5" />
+              </button>
+            </div>
           </div>
 
         </div>
@@ -195,17 +271,17 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({ onNavigate
         >
           <div className="flex items-center justify-between mb-3">
             <span className="text-[11px] font-mono uppercase tracking-wider text-slate-500 dark:text-slate-400 font-bold">
-              Honors & Certifications
+              Certifications & Events
             </span>
             <div className="p-2.5 rounded-xl bg-amber-50 dark:bg-white/5 border border-amber-100 dark:border-white/5 text-amber-600 dark:text-amber-400 group-hover:scale-105 transition-transform">
               <Award className="w-4 h-4" />
             </div>
           </div>
           <div className="text-3xl font-black text-slate-900 dark:text-white font-mono">
-            {achievements.length}
+            {certifications.length + participations.length + achievements.length}
           </div>
           <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-            Competitive distinctions and accredited credentials
+            {certifications.length} Certifications • {participations.length} Events{achievements.length > 0 ? ` • ${achievements.length} Honors` : ''}
           </p>
           <div className="mt-3 flex items-center gap-1 text-xs font-semibold text-amber-600 dark:text-amber-400 font-mono">
             <span>Inspect Proofs</span>

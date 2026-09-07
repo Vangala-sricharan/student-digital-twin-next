@@ -4,6 +4,8 @@ import { useStudentTwin } from '../../context/StudentTwinContext';
 import { SDTLogo } from '../common/SDTLogo';
 import { ThemeToggle } from '../common/ThemeToggle';
 import { DemoBanner } from '../common/DemoBanner';
+import { DemoLockModal } from '../common/DemoLockModal';
+import { PortfolioSetupModal } from './PortfolioSetupModal';
 import {
   LayoutDashboard,
   UserCheck,
@@ -19,6 +21,8 @@ import {
   Bot,
   Code2,
   Github,
+  Globe,
+  ExternalLink,
   Share2,
   FileText,
   FileSearch,
@@ -49,10 +53,34 @@ export const AppShell: React.FC<AppShellProps> = ({
   onNavigate,
   children,
 }) => {
-  const { user, signOut } = useAuth();
-  const { profile, isDemoMode, exitDemoMode, subscription } = useStudentTwin();
+  const { user, signOut, signInWithGoogle } = useAuth();
+  const {
+    profile,
+    isDemoMode,
+    exitDemoMode,
+    enterDemoMode,
+    subscription,
+    isDemoLockOpen,
+    closeDemoLockModal,
+    updateProfile,
+  } = useStudentTwin();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [enginesExpanded, setEnginesExpanded] = useState(true);
+  const [isPortfolioSetupOpen, setIsPortfolioSetupOpen] = useState(false);
+
+  // Check if authenticated user has configured a portfolio
+  const hasPortfolio = Boolean(profile?.portfolioUrl && profile.portfolioUrl.trim().length > 0) ||
+    Boolean((profile as any)?.hasAiPortfolio) ||
+    (typeof window !== 'undefined' && user?.id ? localStorage.getItem(`sdt_has_portfolio_${user.id}`) === 'true' : false);
+
+  const handleOpenMyPortfolio = () => {
+    if (profile?.portfolioUrl && profile.portfolioUrl.trim().length > 0) {
+      window.open(profile.portfolioUrl, '_blank', 'noopener,noreferrer');
+      return;
+    }
+    // If built with Student Digital Twin or standalone preview
+    window.open('/portfolio-preview', '_blank', 'noopener,noreferrer');
+  };
 
   // Desktop Collapsible Sidebar State
   const [isCollapsed, setIsCollapsed] = useState<boolean>(() => {
@@ -103,7 +131,8 @@ export const AppShell: React.FC<AppShellProps> = ({
       onNavigate('/');
     } else {
       await signOut();
-      onNavigate('/');
+      enterDemoMode();
+      onNavigate('/demo');
     }
   };
 
@@ -146,8 +175,17 @@ export const AppShell: React.FC<AppShellProps> = ({
               {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
             </button>
 
-            <div onClick={() => onNavigate('/')} className="cursor-pointer">
+            <div onClick={() => onNavigate('/')} className="cursor-pointer flex items-center gap-3">
               <SDTLogo size="sm" />
+              {isDemoMode && (
+                <div
+                  id="badge-demo-mode-view-only"
+                  className="hidden sm:inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border border-blue-500 bg-blue-500/10 text-blue-600 dark:text-cyan-400 font-mono text-[10px] font-bold tracking-wider uppercase shadow-xs select-none"
+                >
+                  <span className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse" />
+                  <span>DEMO MODE — VIEW ONLY</span>
+                </div>
+              )}
             </div>
           </div>
 
@@ -155,31 +193,55 @@ export const AppShell: React.FC<AppShellProps> = ({
           <div className="flex items-center gap-2 sm:gap-3">
             <ThemeToggle />
 
-            {/* Upgrade Button */}
-            <button
-              onClick={() => handleTabSelect('upgrade')}
-              className={`hidden md:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-mono font-bold transition-all cursor-pointer ${
-                subscription.tier === 'free'
-                  ? 'bg-gradient-to-r from-blue-600 to-cyan-600 text-white shadow-sm hover:opacity-90'
-                  : 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800'
-              }`}
-            >
-              <CreditCard className="w-3.5 h-3.5" />
-              <span>{subscription.tier === 'free' ? 'Upgrade (₹299)' : subscription.planName}</span>
-            </button>
-
-            {/* Settings Quick Icon */}
-            <button
-              onClick={() => handleTabSelect('settings')}
-              className={`p-2 rounded-lg border transition-colors cursor-pointer ${
-                currentTab === 'settings'
-                  ? 'bg-blue-600 text-white border-blue-600'
-                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/5 border-slate-200 dark:border-white/10'
-              }`}
-              title="Account & Workspace Settings"
-            >
-              <Settings className="w-4 h-4" />
-            </button>
+            {/* PORTFOLIO SHORTCUT BUTTON (AROUND DOWNLOAD REPORT AREA) */}
+            {isDemoMode ? (
+              <a
+                id="btn-demo-view-portfolio-topbar"
+                href="https://vangala-sricharan-portfolio.vercel.app/"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-700 dark:text-slate-200 hover:text-blue-600 dark:hover:text-cyan-400 bg-slate-100 dark:bg-white/5 hover:bg-slate-200 dark:hover:bg-white/10 border border-slate-200 dark:border-white/10 shadow-2xs transition-all cursor-pointer"
+                title="View Creator Live Portfolio in a new tab"
+              >
+                <Globe className="w-3.5 h-3.5 text-blue-600 dark:text-cyan-400 shrink-0" />
+                <span className="font-mono font-medium">View Portfolio</span>
+                <ExternalLink className="w-3 h-3 text-slate-400 shrink-0" />
+              </a>
+            ) : hasPortfolio ? (
+              <div className="flex items-center gap-1">
+                <button
+                  id="btn-my-portfolio-topbar"
+                  type="button"
+                  onClick={handleOpenMyPortfolio}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-700 dark:text-slate-200 hover:text-blue-600 dark:hover:text-cyan-400 bg-slate-100 dark:bg-white/5 hover:bg-slate-200 dark:hover:bg-white/10 border border-slate-200 dark:border-white/10 shadow-2xs transition-all cursor-pointer"
+                  title="Open My Portfolio in a new tab"
+                >
+                  <Globe className="w-3.5 h-3.5 text-blue-600 dark:text-cyan-400 shrink-0" />
+                  <span className="font-mono font-medium">My Portfolio</span>
+                  <ExternalLink className="w-3 h-3 text-slate-400 shrink-0" />
+                </button>
+                <button
+                  id="btn-edit-portfolio-config"
+                  type="button"
+                  onClick={() => setIsPortfolioSetupOpen(true)}
+                  className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/5 transition-colors cursor-pointer"
+                  title="Portfolio Settings / Connect Different URL"
+                >
+                  <Settings className="w-3 h-3" />
+                </button>
+              </div>
+            ) : (
+              <button
+                id="btn-setup-portfolio-topbar"
+                type="button"
+                onClick={() => setIsPortfolioSetupOpen(true)}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-blue-600 dark:text-cyan-400 hover:text-blue-700 dark:hover:text-cyan-300 bg-blue-50 dark:bg-blue-950/40 hover:bg-blue-100 dark:hover:bg-blue-900/40 border border-blue-200 dark:border-blue-900/50 shadow-2xs transition-all cursor-pointer"
+                title="Set Up Your Portfolio"
+              >
+                <Sparkles className="w-3.5 h-3.5 text-blue-600 dark:text-cyan-400 shrink-0" />
+                <span className="font-mono font-medium">Set Up Portfolio</span>
+              </button>
+            )}
 
             {/* Profile Avatar / Indicator (clickable to open My Profile) */}
             <div
@@ -209,15 +271,6 @@ export const AppShell: React.FC<AppShellProps> = ({
                 </div>
               </div>
             </div>
-
-            <button
-              onClick={handleSignOutOrExit}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-600 dark:text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-500/10 border border-slate-200 dark:border-white/10 transition-colors cursor-pointer"
-              title="Sign Out"
-            >
-              <LogOut className="w-3.5 h-3.5" />
-              <span className="hidden md:inline">{isDemoMode ? 'Exit Demo' : 'Sign Out'}</span>
-            </button>
           </div>
 
         </div>
@@ -255,9 +308,9 @@ export const AppShell: React.FC<AppShellProps> = ({
             isCollapsed ? 'p-3.5 text-center' : 'p-5 space-y-3.5'
           }`}>
             {isCollapsed ? (
-              <div className="flex flex-col items-center gap-1" title={`Readiness: ${profile?.readinessScore || 0}%`}>
+              <div className="flex flex-col items-center gap-1" title={`Readiness: ${profile?.readinessScore ?? 0}%`}>
                 <span className="font-bold text-blue-600 dark:text-cyan-400 font-mono text-xs">
-                  {profile?.readinessScore || 0}%
+                  {profile?.readinessScore ?? 0}%
                 </span>
                 <span className="text-[9px] font-mono text-slate-400 uppercase">Twin</span>
               </div>
@@ -266,7 +319,7 @@ export const AppShell: React.FC<AppShellProps> = ({
                 <div className="flex items-center justify-between text-xs">
                   <span className="font-mono text-slate-500 dark:text-slate-400 uppercase tracking-wider text-[10px] font-semibold">Readiness Index</span>
                   <span className="font-bold text-blue-600 dark:text-cyan-400 font-mono text-sm">
-                    {profile?.readinessScore || 0}%
+                    {profile?.readinessScore ?? 0}%
                   </span>
                 </div>
                 
@@ -274,7 +327,7 @@ export const AppShell: React.FC<AppShellProps> = ({
                 <div className="w-full h-2 rounded-full bg-slate-100 dark:bg-white/5 overflow-hidden p-0.5">
                   <div
                     className="h-full bg-gradient-to-r from-blue-600 to-cyan-400 rounded-full transition-all duration-500"
-                    style={{ width: `${profile?.readinessScore || 0}%` }}
+                    style={{ width: `${profile?.readinessScore ?? 0}%` }}
                   />
                 </div>
 
@@ -428,22 +481,24 @@ export const AppShell: React.FC<AppShellProps> = ({
                   </button>
                 );
               })}
+
+              {/* Sign Out Action in Sidebar */}
+              <button
+                type="button"
+                onClick={handleSignOutOrExit}
+                className={`w-full flex items-center ${
+                  isCollapsed ? 'justify-center px-2 py-2' : 'justify-start px-3 py-2'
+                } rounded-lg text-xs font-semibold transition-all cursor-pointer text-slate-600 dark:text-slate-400 hover:bg-rose-500/10 hover:text-rose-600 dark:hover:text-rose-400 group`}
+                title={isCollapsed ? (isDemoMode ? 'Exit Demo' : 'Sign Out') : undefined}
+              >
+                <div className="flex items-center gap-2.5">
+                  <LogOut className="w-4 h-4 shrink-0 text-slate-400 group-hover:text-rose-600 dark:group-hover:text-rose-400 transition-colors" />
+                  {!isCollapsed && <span>{isDemoMode ? 'Exit Demo' : 'Sign Out'}</span>}
+                </div>
+              </button>
             </div>
 
           </nav>
-
-          {/* Verification Badge in Sidebar (Expanded only) */}
-          {!isCollapsed && (
-            <div className="p-4 rounded-xl bg-white dark:bg-[#0d1117] border border-slate-200/90 dark:border-white/10 text-xs text-slate-700 dark:text-slate-300 space-y-1 transition-colors shadow-sm dark:shadow-xl">
-              <div className="flex items-center gap-1.5 font-bold text-blue-600 dark:text-cyan-400 text-[11px] font-mono">
-                <Sparkles className="w-3.5 h-3.5" />
-                <span>Phase 2 OS Active</span>
-              </div>
-              <p className="text-[11px] leading-relaxed text-slate-500 dark:text-slate-400">
-                11 AI engines executing deterministic Student Twin intelligence.
-              </p>
-            </div>
-          )}
 
         </aside>
 
@@ -523,10 +578,10 @@ export const AppShell: React.FC<AppShellProps> = ({
                 })}
               </div>
 
-              {/* Workspace & Settings */}
+              {/* Account & Settings */}
               <div className="space-y-1 pt-2 border-t border-slate-200 dark:border-white/10">
                 <div className="text-[10px] font-mono uppercase text-slate-400 px-2 py-1 font-bold">
-                  Account & Workspace
+                  Account & Settings
                 </div>
                 {accountNavItems.map((item) => {
                   const Icon = item.icon;
@@ -553,15 +608,16 @@ export const AppShell: React.FC<AppShellProps> = ({
                     </button>
                   );
                 })}
-              </div>
 
-              <div className="pt-4 border-t border-slate-200 dark:border-white/10">
                 <button
+                  type="button"
                   onClick={handleSignOutOrExit}
-                  className="w-full py-2.5 px-3 rounded-full text-xs font-semibold text-rose-600 dark:text-rose-400 bg-rose-500/10 border border-rose-500/20 flex items-center justify-center gap-2 hover:bg-rose-500/20 transition-colors"
+                  className="w-full flex items-center justify-start px-3.5 py-2.5 rounded-2xl text-xs font-semibold text-rose-600 dark:text-rose-400 hover:bg-rose-500/10 transition-colors cursor-pointer"
                 >
-                  <LogOut className="w-4 h-4" />
-                  <span>{isDemoMode ? 'Exit Demo' : 'Sign Out'}</span>
+                  <div className="flex items-center gap-2.5">
+                    <LogOut className="w-4 h-4 text-rose-500 shrink-0" />
+                    <span>{isDemoMode ? 'Exit Demo' : 'Sign Out'}</span>
+                  </div>
                 </button>
               </div>
             </div>
@@ -574,6 +630,53 @@ export const AppShell: React.FC<AppShellProps> = ({
         </main>
 
       </div>
+
+      {/* Global Demo Lock Overlay Modal */}
+      <DemoLockModal
+        isOpen={isDemoLockOpen}
+        onClose={closeDemoLockModal}
+        onContinueGoogle={async () => {
+          closeDemoLockModal();
+          await signInWithGoogle();
+        }}
+        onContinueEmail={() => {
+          closeDemoLockModal();
+          exitDemoMode();
+          onNavigate('/login');
+        }}
+        onSignUp={() => {
+          closeDemoLockModal();
+          exitDemoMode();
+          onNavigate('/signup');
+        }}
+        onLogIn={() => {
+          closeDemoLockModal();
+          exitDemoMode();
+          onNavigate('/login');
+        }}
+      />
+
+      {/* Portfolio Setup Modal */}
+      <PortfolioSetupModal
+        isOpen={isPortfolioSetupOpen}
+        onClose={() => setIsPortfolioSetupOpen(false)}
+        isPro={subscription.tier !== 'free'}
+        existingUrl={profile?.portfolioUrl || ''}
+        onBuildWithTwin={() => {
+          setIsPortfolioSetupOpen(false);
+          handleTabSelect('engine-ai-portfolio');
+        }}
+        onOpenUpgrade={() => {
+          setIsPortfolioSetupOpen(false);
+          handleTabSelect('upgrade');
+        }}
+        onConnectExisting={async (url) => {
+          await updateProfile({ portfolioUrl: url });
+          if (user?.id) {
+            localStorage.setItem(`sdt_has_portfolio_${user.id}`, 'true');
+          }
+        }}
+      />
 
     </div>
   );

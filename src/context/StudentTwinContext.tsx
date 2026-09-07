@@ -4,6 +4,8 @@ import {
   SkillItem,
   ProjectItem,
   AchievementItem,
+  CertificationItem,
+  ParticipationItem,
   CareerGoal,
   DigitalTwinReport,
   SubscriptionPlan,
@@ -13,6 +15,8 @@ import {
   DEMO_STUDENT_PROFILE,
   DEMO_SKILLS,
   DEMO_PROJECTS,
+  DEMO_CERTIFICATIONS,
+  DEMO_PARTICIPATIONS,
   DEMO_ACHIEVEMENTS,
   DEMO_CAREER_GOAL,
   DEMO_CAREER_GOALS,
@@ -20,7 +24,7 @@ import {
 } from '../data/demoData';
 import { useAuth } from './AuthContext';
 import { supabase, isSupabaseConfigured, withTimeout } from '../lib/supabase';
-import { calculateRealReadiness } from '../lib/readinessScore';
+import { calculateRealReadiness, ReadinessBreakdown, PILLAR_WEIGHTS } from '../lib/readinessScore';
 
 export const SUBSCRIPTION_PLANS: Record<SubscriptionTier, SubscriptionPlan> = {
   free: {
@@ -62,16 +66,24 @@ interface StudentTwinContextType {
   setIsDemoMode: (isDemo: boolean) => void;
   enterDemoMode: () => void;
   exitDemoMode: () => void;
+  isDemoLockOpen: boolean;
+  openDemoLockModal: () => void;
+  closeDemoLockModal: () => void;
+  requireAuthAction: (action: () => void) => void;
   profile: StudentProfile;
   activeProfile: StudentProfile;
   allProfiles: StudentProfile[];
   skills: SkillItem[];
   projects: ProjectItem[];
   achievements: AchievementItem[];
+  certifications: CertificationItem[];
+  participations: ParticipationItem[];
   careerGoal: CareerGoal;
   careerGoals: CareerGoal[];
   digitalTwinReport: DigitalTwinReport;
+  readinessBreakdown: ReadinessBreakdown;
   subscription: SubscriptionPlan;
+  isPro: boolean;
   isTwinHydrating: boolean;
   isTwinReady: boolean;
   isLoading: boolean;
@@ -91,6 +103,12 @@ interface StudentTwinContextType {
   addAchievement: (achievement: Omit<AchievementItem, 'id'>) => void;
   updateAchievement: (id: string, updates: Partial<AchievementItem>) => void;
   removeAchievement: (id: string) => void;
+  addCertification: (cert: Omit<CertificationItem, 'id'>) => void;
+  updateCertification: (id: string, updates: Partial<CertificationItem>) => void;
+  removeCertification: (id: string) => void;
+  addParticipation: (part: Omit<ParticipationItem, 'id'>) => void;
+  updateParticipation: (id: string, updates: Partial<ParticipationItem>) => void;
+  removeParticipation: (id: string) => void;
   updateCareerGoal: (goal: Partial<CareerGoal>) => void;
 }
 
@@ -101,6 +119,8 @@ const USER_SUBSCRIPTION_KEY = 'sdt_user_subscription_v4';
 const USER_SKILLS_KEY = 'sdt_user_skills_v4';
 const USER_PROJECTS_KEY = 'sdt_user_projects_v4';
 const USER_ACHIEVEMENTS_KEY = 'sdt_user_achievements_v4';
+const USER_CERTIFICATIONS_KEY = 'sdt_user_certifications_v4';
+const USER_PARTICIPATIONS_KEY = 'sdt_user_participations_v4';
 const USER_GOALS_KEY = 'sdt_user_goals_v4';
 
 export const StudentTwinProvider: React.FC<{
@@ -113,6 +133,19 @@ export const StudentTwinProvider: React.FC<{
   const enterDemoMode = () => setIsDemoMode(true);
   const exitDemoMode = () => setIsDemoMode(false);
 
+  // Demo Lock Modal trigger state
+  const [isDemoLockOpen, setIsDemoLockOpen] = useState<boolean>(false);
+  const openDemoLockModal = () => setIsDemoLockOpen(true);
+  const closeDemoLockModal = () => setIsDemoLockOpen(false);
+
+  const requireAuthAction = (action: () => void) => {
+    if (isDemoMode) {
+      setIsDemoLockOpen(true);
+      return;
+    }
+    action();
+  };
+
   // Authenticated user's own profiles list
   const [userProfiles, setUserProfiles] = useState<StudentProfile[]>([]);
   const [activeProfileId, setActiveProfileId] = useState<string>('');
@@ -124,6 +157,8 @@ export const StudentTwinProvider: React.FC<{
   const [userSkills, setUserSkills] = useState<SkillItem[]>([]);
   const [userProjects, setUserProjects] = useState<ProjectItem[]>([]);
   const [userAchievements, setUserAchievements] = useState<AchievementItem[]>([]);
+  const [userCertifications, setUserCertifications] = useState<CertificationItem[]>([]);
+  const [userParticipations, setUserParticipations] = useState<ParticipationItem[]>([]);
   const [userCareerGoals, setUserCareerGoals] = useState<CareerGoal[]>([]);
 
   const [isTwinHydrating, setIsTwinHydrating] = useState<boolean>(false);
@@ -137,6 +172,8 @@ export const StudentTwinProvider: React.FC<{
       setUserSkills([]);
       setUserProjects([]);
       setUserAchievements([]);
+      setUserCertifications([]);
+      setUserParticipations([]);
       setUserCareerGoals([]);
       setSubscription(SUBSCRIPTION_PLANS.free);
       setIsTwinHydrating(false);
@@ -185,15 +222,19 @@ export const StudentTwinProvider: React.FC<{
         setSubscription(SUBSCRIPTION_PLANS.free);
       }
 
-      // Load User Skills, Projects, Achievements, Goals from user-scoped storage immediately
+      // Load User Skills, Projects, Achievements, Certifications, Participations, Goals from user-scoped storage immediately
       const skillsStorageKey = `${USER_SKILLS_KEY}_${userId}`;
       const projectsStorageKey = `${USER_PROJECTS_KEY}_${userId}`;
       const achStorageKey = `${USER_ACHIEVEMENTS_KEY}_${userId}`;
+      const certStorageKey = `${USER_CERTIFICATIONS_KEY}_${userId}`;
+      const partStorageKey = `${USER_PARTICIPATIONS_KEY}_${userId}`;
       const goalsStorageKey = `${USER_GOALS_KEY}_${userId}`;
 
       const savedSkills = localStorage.getItem(skillsStorageKey);
       const savedProjects = localStorage.getItem(projectsStorageKey);
       const savedAch = localStorage.getItem(achStorageKey);
+      const savedCerts = localStorage.getItem(certStorageKey);
+      const savedParts = localStorage.getItem(partStorageKey);
       const savedGoals = localStorage.getItem(goalsStorageKey);
 
       if (savedSkills) {
@@ -221,6 +262,24 @@ export const StudentTwinProvider: React.FC<{
         } catch (e) {}
       } else {
         setUserAchievements([]);
+      }
+
+      if (savedCerts) {
+        try {
+          const parsed = JSON.parse(savedCerts);
+          if (Array.isArray(parsed)) setUserCertifications(parsed);
+        } catch (e) {}
+      } else {
+        setUserCertifications([]);
+      }
+
+      if (savedParts) {
+        try {
+          const parsed = JSON.parse(savedParts);
+          if (Array.isArray(parsed)) setUserParticipations(parsed);
+        } catch (e) {}
+      } else {
+        setUserParticipations([]);
       }
 
       if (savedGoals) {
@@ -289,6 +348,12 @@ export const StudentTwinProvider: React.FC<{
             setUserProfiles(mappedProfiles);
             setActiveProfileId(mappedProfiles[0].id);
             localStorage.setItem(profileStorageKey, JSON.stringify(mappedProfiles));
+
+            if (mappedProfiles[0]?.subscriptionTier && SUBSCRIPTION_PLANS[mappedProfiles[0].subscriptionTier as SubscriptionTier]) {
+              const cloudPlan = SUBSCRIPTION_PLANS[mappedProfiles[0].subscriptionTier as SubscriptionTier];
+              setSubscription(cloudPlan);
+              localStorage.setItem(`${USER_SUBSCRIPTION_KEY}_${userId}`, JSON.stringify(cloudPlan));
+            }
             return;
           }
         }
@@ -400,26 +465,30 @@ export const StudentTwinProvider: React.FC<{
         createdAt: new Date().toISOString(),
       };
 
-  const allProfiles: StudentProfile[] = isDemoMode ? [DEMO_STUDENT_PROFILE] : userProfiles;
-
   const skills: SkillItem[] = isDemoMode ? DEMO_SKILLS : userSkills;
   const projects: ProjectItem[] = isDemoMode ? DEMO_PROJECTS : userProjects;
   const achievements: AchievementItem[] = isDemoMode ? DEMO_ACHIEVEMENTS : userAchievements;
+  const certifications: CertificationItem[] = isDemoMode ? DEMO_CERTIFICATIONS : userCertifications;
+  const participations: ParticipationItem[] = isDemoMode ? DEMO_PARTICIPATIONS : userParticipations;
   const careerGoals: CareerGoal[] = isDemoMode ? DEMO_CAREER_GOALS : userCareerGoals;
 
-  // Deterministically compute dynamic readiness breakdown purely from verified user evidence
-  const dynamicReadiness = isDemoMode
+  // Deterministically compute dynamic readiness breakdown purely from verified user evidence across the 4 pillars
+  const dynamicReadiness: ReadinessBreakdown = isDemoMode
     ? {
         overallScore: 94,
+        skillsCoverage: 95,
+        projectPortfolio: 96,
+        industryAlignment: 94,
+        verifications: 92,
+        pillarWeights: { ...PILLAR_WEIGHTS },
+        codeProofHealth: 96,
+        marketAlignment: 94,
+        verificationIndex: 92,
         foundationScore: 15,
         skillsScore: 25,
         projectsScore: 30,
         achievementsScore: 15,
         profilesScore: 15,
-        skillsCoverage: 95,
-        codeProofHealth: 96,
-        marketAlignment: 94,
-        verificationIndex: 92,
         hasEvidence: true,
         evidenceCounts: {
           skills: DEMO_SKILLS.length,
@@ -430,9 +499,10 @@ export const StudentTwinProvider: React.FC<{
           hasLinkedin: true,
           hasPortfolio: true,
           hasTargetRole: true,
+          hasCareerGoal: true,
         },
       }
-    : calculateRealReadiness(rawActiveProfile, userSkills, userProjects, userAchievements);
+    : calculateRealReadiness(rawActiveProfile, userSkills, userProjects, userAchievements, userCareerGoals);
 
   // Authenticated activeProfile always adopts the calculated evidence score
   const activeProfile: StudentProfile = isDemoMode
@@ -444,6 +514,14 @@ export const StudentTwinProvider: React.FC<{
         projectIndexCount: userProjects.length,
         milestonesCount: userAchievements.length,
       };
+
+  const allProfiles: StudentProfile[] = isDemoMode
+    ? [DEMO_STUDENT_PROFILE]
+    : userProfiles.map((p) =>
+        p.id === activeProfileId
+          ? { ...p, readinessScore: dynamicReadiness.overallScore }
+          : p
+      );
 
   const careerGoal: CareerGoal = isDemoMode ? DEMO_CAREER_GOAL : (userCareerGoals[0] || {
     id: 'user-goal-empty',
@@ -481,18 +559,32 @@ export const StudentTwinProvider: React.FC<{
           : 'Run an AI Career Engine like Project Auditor or Resume ATS Analyzer to evaluate placement readiness.',
         vectors: [
           {
-            dimension: 'Role Alignment Score',
-            score: dynamicReadiness.marketAlignment,
-            benchmark: 75,
-            status: skills.length >= 4 ? 'Optimal' : skills.length > 0 ? 'On Track' : 'Needs Attention',
-            insight: skills.length > 0 ? `${skills.length} competencies recorded.` : 'Add technical skills to calibrate alignment.',
+            dimension: 'Skills Coverage',
+            score: dynamicReadiness.skillsCoverage,
+            benchmark: 80,
+            status: dynamicReadiness.skillsCoverage >= 75 ? 'Optimal' : dynamicReadiness.skillsCoverage > 0 ? 'On Track' : 'Needs Attention',
+            insight: skills.length > 0 ? `${skills.length} competencies indexed.` : 'Add technical skills to calibrate coverage.',
           },
           {
-            dimension: 'Code & Proof Health',
-            score: dynamicReadiness.codeProofHealth,
+            dimension: 'Project Portfolio',
+            score: dynamicReadiness.projectPortfolio,
+            benchmark: 75,
+            status: dynamicReadiness.projectPortfolio >= 75 ? 'Optimal' : dynamicReadiness.projectPortfolio > 0 ? 'On Track' : 'Needs Attention',
+            insight: projects.length > 0 ? `${projects.length} repository projects indexed.` : 'Add GitHub projects to evaluate code authenticity.',
+          },
+          {
+            dimension: 'Industry Alignment',
+            score: dynamicReadiness.industryAlignment,
+            benchmark: 80,
+            status: dynamicReadiness.industryAlignment >= 75 ? 'Optimal' : dynamicReadiness.industryAlignment > 0 ? 'On Track' : 'Needs Attention',
+            insight: activeProfile.targetRole ? `Targeting ${activeProfile.targetRole}.` : 'Specify target role to align skills.',
+          },
+          {
+            dimension: 'Verifications',
+            score: dynamicReadiness.verifications,
             benchmark: 70,
-            status: projects.length >= 2 ? 'Optimal' : projects.length > 0 ? 'On Track' : 'Needs Attention',
-            insight: projects.length > 0 ? `${projects.length} project repositories indexed.` : 'Add GitHub projects to evaluate code authenticity.',
+            status: dynamicReadiness.verifications >= 75 ? 'Optimal' : dynamicReadiness.verifications > 0 ? 'On Track' : 'Needs Attention',
+            insight: (achievements.length > 0 || activeProfile.githubUrl) ? 'Verifications recorded.' : 'Connect GitHub, LinkedIn, or add distinctions.',
           },
           {
             dimension: 'Academic Standing',
@@ -501,43 +593,36 @@ export const StudentTwinProvider: React.FC<{
             status: activeProfile.cgpa && Number(activeProfile.cgpa) >= 8 ? 'Optimal' : activeProfile.cgpa ? 'On Track' : 'Needs Attention',
             insight: activeProfile.cgpa ? `CGPA of ${activeProfile.cgpa} recorded.` : 'Add academic GPA in profile.',
           },
-          {
-            dimension: 'DSA & Algorithmic Rigor',
-            score: skills.some((s) => s.category?.toLowerCase().includes('algorithm') || s.name.toLowerCase().includes('dsa')) ? 75 : 0,
-            benchmark: 80,
-            status: skills.some((s) => s.category?.toLowerCase().includes('algorithm') || s.name.toLowerCase().includes('dsa')) ? 'Optimal' : 'Needs Attention',
-            insight: skills.some((s) => s.category?.toLowerCase().includes('algorithm') || s.name.toLowerCase().includes('dsa')) ? 'DSA competencies mapped.' : 'Log algorithmic problem-solving competencies.',
-          },
-          {
-            dimension: 'Adaptive Milestones',
-            score: dynamicReadiness.verificationIndex,
-            benchmark: 65,
-            status: achievements.length >= 2 ? 'Optimal' : achievements.length > 0 ? 'On Track' : 'Needs Attention',
-            insight: achievements.length > 0 ? `${achievements.length} verified achievements logged.` : 'Log hackathons, honors, or certifications.',
-          },
         ],
       };
 
   const switchProfile = (profileId: string) => {
-    if (isDemoMode) return;
+    if (isDemoMode) {
+      setIsDemoLockOpen(true);
+      return;
+    }
     setActiveProfileId(profileId);
   };
 
   const updateStudentProfile = async (profileData: Partial<StudentProfile>) => {
-    if (isDemoMode) return;
-    
-    // Automatically recalculate readiness score dynamically if user adds data and score is 0
-    const updatedSkillsCount = profileData.skillsVerifiedCount !== undefined ? profileData.skillsVerifiedCount : activeProfile.skillsVerifiedCount;
-    const updatedProjectCount = profileData.projectIndexCount !== undefined ? profileData.projectIndexCount : activeProfile.projectIndexCount;
-    
-    let computedReadiness = profileData.readinessScore !== undefined ? profileData.readinessScore : activeProfile.readinessScore;
-    if (computedReadiness === 0 && (updatedSkillsCount > 0 || updatedProjectCount > 0)) {
-      computedReadiness = Math.min(95, Math.round((updatedSkillsCount * 8) + (updatedProjectCount * 15)));
+    if (isDemoMode) {
+      setIsDemoLockOpen(true);
+      return;
     }
+    
+    // Deterministically recompute readiness score strictly from verified user evidence
+    const candidateProfile = { ...activeProfile, ...profileData };
+    const realBreakdown = calculateRealReadiness(
+      candidateProfile,
+      userSkills,
+      userProjects,
+      userAchievements,
+      userCareerGoals
+    );
 
     const mergedData = {
       ...profileData,
-      ...(computedReadiness !== undefined ? { readinessScore: computedReadiness } : {}),
+      readinessScore: realBreakdown.overallScore,
     };
 
     setUserProfiles((prev) =>
@@ -554,7 +639,9 @@ export const StudentTwinProvider: React.FC<{
         withTimeout(
           supabase
             .from('student_profiles')
-            .update({
+            .upsert({
+              id: activeProfile.id,
+              user_id: user.id,
               name: mergedData.name || mergedData.fullName,
               display_name: mergedData.displayName || mergedData.fullName,
               role: mergedData.role,
@@ -581,10 +668,12 @@ export const StudentTwinProvider: React.FC<{
               target_role: mergedData.targetRole,
               target_company_tier: mergedData.targetCompanyTier,
               readiness_score: mergedData.readinessScore,
+              skills_verified_count: userSkills.filter((s) => Boolean(s.verified)).length,
+              project_index_count: userProjects.length,
+              milestones_count: userAchievements.length,
               status: mergedData.status,
-            })
-            .eq('id', activeProfile.id),
-          3000
+            }),
+          3500
         ).catch((err) => {
           console.warn('Student profile cloud update notice:', err);
         });
@@ -593,6 +682,10 @@ export const StudentTwinProvider: React.FC<{
   };
 
   const updateProfile = async (profileData: Partial<StudentProfile>) => {
+    if (isDemoMode) {
+      setIsDemoLockOpen(true);
+      return { error: new Error('Demo mode is read-only. Please create an account to customize your profile.'), success: false };
+    }
     try {
       await updateStudentProfile(profileData);
       return { success: true };
@@ -601,14 +694,13 @@ export const StudentTwinProvider: React.FC<{
     }
   };
 
-  // Upload or replace student profile picture
+  // Upload or replace student profile picture (Strictly read-only in demo mode)
   const uploadAvatar = async (avatarDataUrl: string): Promise<{ success: boolean; avatarUrl: string }> => {
+    if (isDemoMode) {
+      setIsDemoLockOpen(true);
+      return { success: false, avatarUrl: '' };
+    }
     try {
-      if (isDemoMode) {
-        DEMO_STUDENT_PROFILE.avatarUrl = avatarDataUrl;
-        return { success: true, avatarUrl: avatarDataUrl };
-      }
-
       await updateStudentProfile({ avatarUrl: avatarDataUrl });
       if (updateAuthProfile) {
         await updateAuthProfile({ avatarUrl: avatarDataUrl });
@@ -620,10 +712,10 @@ export const StudentTwinProvider: React.FC<{
     }
   };
 
-  // Remove student profile picture
+  // Remove student profile picture (Strictly read-only in demo mode)
   const removeAvatar = async (): Promise<void> => {
     if (isDemoMode) {
-      DEMO_STUDENT_PROFILE.avatarUrl = undefined;
+      setIsDemoLockOpen(true);
       return;
     }
     await updateStudentProfile({ avatarUrl: undefined });
@@ -655,7 +747,7 @@ export const StudentTwinProvider: React.FC<{
 
   const addNewStudentProfile = async (profileData: Partial<StudentProfile>) => {
     if (isDemoMode) {
-      alert('Cannot add student profile in Demo Mode. Please sign up or log in to create custom student profiles.');
+      setIsDemoLockOpen(true);
       return;
     }
 
@@ -736,8 +828,41 @@ export const StudentTwinProvider: React.FC<{
     }
   };
 
+  const syncEvidenceCountersToCloud = (
+    nextSkills: SkillItem[],
+    nextProjects: ProjectItem[],
+    nextAchievements: AchievementItem[],
+    nextGoals: CareerGoal[]
+  ) => {
+    if (!user || isDemoMode || !isSupabaseConfigured) return;
+    const computed = calculateRealReadiness(
+      rawActiveProfile,
+      nextSkills,
+      nextProjects,
+      nextAchievements,
+      nextGoals
+    );
+    withTimeout(
+      supabase
+        .from('student_profiles')
+        .update({
+          skills_verified_count: nextSkills.filter((s) => Boolean(s.verified)).length,
+          project_index_count: nextProjects.length,
+          milestones_count: nextAchievements.length,
+          readiness_score: computed.overallScore,
+        })
+        .eq('id', activeProfile.id),
+      3000
+    ).catch((err) => {
+      console.warn('Background metrics sync caught:', err);
+    });
+  };
+
   const addSkill = (skillData: Omit<SkillItem, 'id' | 'lastAssessed'>) => {
-    if (isDemoMode) return;
+    if (isDemoMode) {
+      setIsDemoLockOpen(true);
+      return;
+    }
     const newSkill: SkillItem = {
       ...skillData,
       id: `skill-${Date.now()}`,
@@ -747,29 +872,41 @@ export const StudentTwinProvider: React.FC<{
     setUserSkills(updated);
     if (user) {
       localStorage.setItem(`${USER_SKILLS_KEY}_${user.id}`, JSON.stringify(updated));
+      syncEvidenceCountersToCloud(updated, userProjects, userAchievements, userCareerGoals);
     }
   };
 
   const updateSkill = (id: string, updates: Partial<SkillItem>) => {
-    if (isDemoMode) return;
+    if (isDemoMode) {
+      setIsDemoLockOpen(true);
+      return;
+    }
     const updated = userSkills.map((s) => (s.id === id ? { ...s, ...updates } : s));
     setUserSkills(updated);
     if (user) {
       localStorage.setItem(`${USER_SKILLS_KEY}_${user.id}`, JSON.stringify(updated));
+      syncEvidenceCountersToCloud(updated, userProjects, userAchievements, userCareerGoals);
     }
   };
 
   const removeSkill = (id: string) => {
-    if (isDemoMode) return;
+    if (isDemoMode) {
+      setIsDemoLockOpen(true);
+      return;
+    }
     const updated = userSkills.filter((s) => s.id !== id);
     setUserSkills(updated);
     if (user) {
       localStorage.setItem(`${USER_SKILLS_KEY}_${user.id}`, JSON.stringify(updated));
+      syncEvidenceCountersToCloud(updated, userProjects, userAchievements, userCareerGoals);
     }
   };
 
   const addProject = (projectData: Omit<ProjectItem, 'id'>) => {
-    if (isDemoMode) return;
+    if (isDemoMode) {
+      setIsDemoLockOpen(true);
+      return;
+    }
     const newProject: ProjectItem = {
       ...projectData,
       id: `proj-${Date.now()}`,
@@ -778,29 +915,41 @@ export const StudentTwinProvider: React.FC<{
     setUserProjects(updated);
     if (user) {
       localStorage.setItem(`${USER_PROJECTS_KEY}_${user.id}`, JSON.stringify(updated));
+      syncEvidenceCountersToCloud(userSkills, updated, userAchievements, userCareerGoals);
     }
   };
 
   const updateProject = (id: string, updates: Partial<ProjectItem>) => {
-    if (isDemoMode) return;
+    if (isDemoMode) {
+      setIsDemoLockOpen(true);
+      return;
+    }
     const updated = userProjects.map((p) => (p.id === id ? { ...p, ...updates } : p));
     setUserProjects(updated);
     if (user) {
       localStorage.setItem(`${USER_PROJECTS_KEY}_${user.id}`, JSON.stringify(updated));
+      syncEvidenceCountersToCloud(userSkills, updated, userAchievements, userCareerGoals);
     }
   };
 
   const removeProject = (id: string) => {
-    if (isDemoMode) return;
+    if (isDemoMode) {
+      setIsDemoLockOpen(true);
+      return;
+    }
     const updated = userProjects.filter((p) => p.id !== id);
     setUserProjects(updated);
     if (user) {
       localStorage.setItem(`${USER_PROJECTS_KEY}_${user.id}`, JSON.stringify(updated));
+      syncEvidenceCountersToCloud(userSkills, updated, userAchievements, userCareerGoals);
     }
   };
 
   const addAchievement = (achievementData: Omit<AchievementItem, 'id'>) => {
-    if (isDemoMode) return;
+    if (isDemoMode) {
+      setIsDemoLockOpen(true);
+      return;
+    }
     const newAchievement: AchievementItem = {
       ...achievementData,
       id: `ach-${Date.now()}`,
@@ -809,29 +958,121 @@ export const StudentTwinProvider: React.FC<{
     setUserAchievements(updated);
     if (user) {
       localStorage.setItem(`${USER_ACHIEVEMENTS_KEY}_${user.id}`, JSON.stringify(updated));
+      syncEvidenceCountersToCloud(userSkills, userProjects, updated, userCareerGoals);
     }
   };
 
   const updateAchievement = (id: string, updates: Partial<AchievementItem>) => {
-    if (isDemoMode) return;
+    if (isDemoMode) {
+      setIsDemoLockOpen(true);
+      return;
+    }
     const updated = userAchievements.map((a) => (a.id === id ? { ...a, ...updates } : a));
     setUserAchievements(updated);
     if (user) {
       localStorage.setItem(`${USER_ACHIEVEMENTS_KEY}_${user.id}`, JSON.stringify(updated));
+      syncEvidenceCountersToCloud(userSkills, userProjects, updated, userCareerGoals);
     }
   };
 
   const removeAchievement = (id: string) => {
-    if (isDemoMode) return;
+    if (isDemoMode) {
+      setIsDemoLockOpen(true);
+      return;
+    }
     const updated = userAchievements.filter((a) => a.id !== id);
     setUserAchievements(updated);
     if (user) {
       localStorage.setItem(`${USER_ACHIEVEMENTS_KEY}_${user.id}`, JSON.stringify(updated));
+      syncEvidenceCountersToCloud(userSkills, userProjects, updated, userCareerGoals);
+    }
+  };
+
+  const addCertification = (certData: Omit<CertificationItem, 'id'>) => {
+    if (isDemoMode) {
+      setIsDemoLockOpen(true);
+      return;
+    }
+    const newCert: CertificationItem = {
+      ...certData,
+      id: `cert-${Date.now()}`,
+    };
+    const updated = [newCert, ...userCertifications];
+    setUserCertifications(updated);
+    if (user) {
+      localStorage.setItem(`${USER_CERTIFICATIONS_KEY}_${user.id}`, JSON.stringify(updated));
+    }
+  };
+
+  const updateCertification = (id: string, updates: Partial<CertificationItem>) => {
+    if (isDemoMode) {
+      setIsDemoLockOpen(true);
+      return;
+    }
+    const updated = userCertifications.map((c) => (c.id === id ? { ...c, ...updates } : c));
+    setUserCertifications(updated);
+    if (user) {
+      localStorage.setItem(`${USER_CERTIFICATIONS_KEY}_${user.id}`, JSON.stringify(updated));
+    }
+  };
+
+  const removeCertification = (id: string) => {
+    if (isDemoMode) {
+      setIsDemoLockOpen(true);
+      return;
+    }
+    const updated = userCertifications.filter((c) => c.id !== id);
+    setUserCertifications(updated);
+    if (user) {
+      localStorage.setItem(`${USER_CERTIFICATIONS_KEY}_${user.id}`, JSON.stringify(updated));
+    }
+  };
+
+  const addParticipation = (partData: Omit<ParticipationItem, 'id'>) => {
+    if (isDemoMode) {
+      setIsDemoLockOpen(true);
+      return;
+    }
+    const newPart: ParticipationItem = {
+      ...partData,
+      id: `part-${Date.now()}`,
+    };
+    const updated = [newPart, ...userParticipations];
+    setUserParticipations(updated);
+    if (user) {
+      localStorage.setItem(`${USER_PARTICIPATIONS_KEY}_${user.id}`, JSON.stringify(updated));
+    }
+  };
+
+  const updateParticipation = (id: string, updates: Partial<ParticipationItem>) => {
+    if (isDemoMode) {
+      setIsDemoLockOpen(true);
+      return;
+    }
+    const updated = userParticipations.map((p) => (p.id === id ? { ...p, ...updates } : p));
+    setUserParticipations(updated);
+    if (user) {
+      localStorage.setItem(`${USER_PARTICIPATIONS_KEY}_${user.id}`, JSON.stringify(updated));
+    }
+  };
+
+  const removeParticipation = (id: string) => {
+    if (isDemoMode) {
+      setIsDemoLockOpen(true);
+      return;
+    }
+    const updated = userParticipations.filter((p) => p.id !== id);
+    setUserParticipations(updated);
+    if (user) {
+      localStorage.setItem(`${USER_PARTICIPATIONS_KEY}_${user.id}`, JSON.stringify(updated));
     }
   };
 
   const updateCareerGoal = (goalUpdates: Partial<CareerGoal>) => {
-    if (isDemoMode) return;
+    if (isDemoMode) {
+      setIsDemoLockOpen(true);
+      return;
+    }
     const updated = userCareerGoals.length > 0
       ? userCareerGoals.map((g, i) => (i === 0 ? { ...g, ...goalUpdates } : g))
       : [
@@ -856,6 +1097,8 @@ export const StudentTwinProvider: React.FC<{
     }
   };
 
+  const isPro = !isDemoMode && Boolean(user) && subscription?.tier !== 'free' && (subscription?.tier === 'pro_monthly' || subscription?.tier === 'pro_annual' || subscription?.tier === 'campus');
+
   return (
     <StudentTwinContext.Provider
       value={{
@@ -863,16 +1106,24 @@ export const StudentTwinProvider: React.FC<{
         setIsDemoMode,
         enterDemoMode,
         exitDemoMode,
+        isDemoLockOpen,
+        openDemoLockModal,
+        closeDemoLockModal,
+        requireAuthAction,
         profile: activeProfile,
         activeProfile,
         allProfiles,
         skills,
         projects,
         achievements,
+        certifications,
+        participations,
         careerGoal,
         careerGoals,
         digitalTwinReport,
+        readinessBreakdown: dynamicReadiness,
         subscription,
+        isPro,
         isTwinHydrating,
         isTwinReady,
         isLoading: isTwinHydrating,
@@ -892,6 +1143,12 @@ export const StudentTwinProvider: React.FC<{
         addAchievement,
         updateAchievement,
         removeAchievement,
+        addCertification,
+        updateCertification,
+        removeCertification,
+        addParticipation,
+        updateParticipation,
+        removeParticipation,
         updateCareerGoal,
       }}
     >

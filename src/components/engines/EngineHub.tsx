@@ -68,7 +68,7 @@ export const EngineHub: React.FC<EngineHubProps> = ({ onSelectEngine }) => {
           <div className="flex items-center justify-between flex-wrap gap-2">
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-md bg-blue-500/10 dark:bg-white/5 border border-blue-500/20 dark:border-white/10 text-blue-600 dark:text-cyan-300 text-xs font-bold uppercase tracking-wider font-mono">
               <Sparkles className="w-3.5 h-3.5 text-blue-600 dark:text-cyan-400" />
-              <span>AI Career OS • Phase 2 Fully Active</span>
+              <span>AI Career OS</span>
             </div>
 
             <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-md bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 dark:text-emerald-400 text-xs font-mono font-semibold">

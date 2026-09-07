@@ -36,7 +36,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   onNavigateToProfile,
 }) => {
   const { user, userProfile, signOut } = useAuth();
-  const { profile, subscription, isDemoMode, updateProfile } = useStudentTwin();
+  const { profile, subscription, isDemoMode, updateProfile, enterDemoMode, openDemoLockModal } = useStudentTwin();
   const { theme, toggleTheme } = useTheme();
   const isDarkMode = theme === 'dark';
 
@@ -49,6 +49,10 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   const [saveSuccess, setSaveSuccess] = useState(false);
 
   const handleSaveAccount = async () => {
+    if (isDemoMode) {
+      openDemoLockModal();
+      return;
+    }
     await updateProfile({
       fullName: displayName,
       name: displayName,
@@ -227,6 +231,46 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
               >
                 {saveSuccess ? <CheckCircle2 className="w-3.5 h-3.5" /> : null}
                 <span>{saveSuccess ? 'Saved' : 'Update Account'}</span>
+              </button>
+            </div>
+          </div>
+
+          {/* Security & Account Management */}
+          <div className="p-6 md:p-8 rounded-[2.5rem] bg-white dark:bg-[#0d1117] border border-slate-200/90 dark:border-white/10 shadow-sm dark:shadow-xl space-y-4">
+            <h3 className="text-xs font-bold text-slate-900 dark:text-white uppercase tracking-wider font-mono">
+              Security & Credentials
+            </h3>
+            <p className="text-[11px] text-slate-500 dark:text-slate-400">
+              Manage your authentication tokens, encryption passwords, and account lifecycle.
+            </p>
+
+            <div className="flex flex-wrap gap-3 pt-2">
+              <button
+                onClick={() => {
+                  if (isDemoMode) {
+                    openDemoLockModal();
+                  } else {
+                    alert('Password reset link sent to your registered email address.');
+                  }
+                }}
+                className="px-4 py-2 rounded-2xl bg-slate-100 dark:bg-white/5 hover:bg-slate-200 dark:hover:bg-white/10 text-xs font-mono font-medium text-slate-700 dark:text-slate-200 transition-colors cursor-pointer flex items-center gap-2"
+              >
+                <Key className="w-3.5 h-3.5 text-blue-500" />
+                <span>Change Password</span>
+              </button>
+
+              <button
+                onClick={() => {
+                  if (isDemoMode) {
+                    openDemoLockModal();
+                  } else {
+                    alert('Please contact support or email compliance to request permanent account erasure.');
+                  }
+                }}
+                className="px-4 py-2 rounded-2xl bg-red-50 dark:bg-red-950/20 hover:bg-red-100 dark:hover:bg-red-900/30 text-xs font-mono font-medium text-red-600 dark:text-red-400 transition-colors cursor-pointer flex items-center gap-2"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                <span>Delete Account</span>
               </button>
             </div>
           </div>
@@ -504,6 +548,8 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                 onClick={async () => {
                   setShowLogoutConfirm(false);
                   await signOut();
+                  enterDemoMode();
+                  onBackToDashboard?.();
                 }}
                 className="flex-1 py-2.5 rounded-full bg-red-600 hover:bg-red-500 text-white text-xs font-mono font-bold transition-colors cursor-pointer shadow-md shadow-red-600/20"
               >

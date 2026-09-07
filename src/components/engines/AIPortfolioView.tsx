@@ -1,11 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import JSZip from 'jszip';
 import { useStudentTwin } from '../../context/StudentTwinContext';
+import { useAuth } from '../../context/AuthContext';
 import { useEngineJob } from '../../context/AIJobContext';
 import { AI_ENGINES } from '../../data/enginesData';
 import { EngineLayout } from './EngineLayout';
 import { buildStudentContext } from '../../lib/aiEngineService';
 import { AIProcessingCard } from './AIProcessingCard';
+import { UpgradeProModal } from '../subscription/UpgradeProModal';
 import {
   Sparkles,
   Layers,
@@ -35,6 +37,7 @@ import {
   MapPin,
   Github,
   Linkedin,
+  Lock,
 } from 'lucide-react';
 
 interface AIPortfolioViewProps {
@@ -44,7 +47,18 @@ interface AIPortfolioViewProps {
 
 export const AIPortfolioView: React.FC<AIPortfolioViewProps> = ({ onBackToHub, onNavigateTab }) => {
   const engine = AI_ENGINES.find((e) => e.id === 'ai-portfolio')!;
-  const { profile, skills, projects, achievements, careerGoals, isDemoMode } = useStudentTwin();
+  const {
+    profile,
+    skills,
+    projects,
+    achievements,
+    careerGoals,
+    isDemoMode,
+    subscription,
+    isPro,
+    openDemoLockModal,
+  } = useStudentTwin();
+  const { user } = useAuth();
   const { job, isRunning, isError, rawText, structuredData, execute, retry } = useEngineJob('ai-portfolio');
 
   const [activeTab, setActiveTab] = useState<'preview' | 'builder' | 'code'>('preview');
@@ -53,6 +67,7 @@ export const AIPortfolioView: React.FC<AIPortfolioViewProps> = ({ onBackToHub, o
   const [portfolioTheme, setPortfolioTheme] = useState<'slate' | 'light' | 'cyber'>('slate');
   const [copiedCode, setCopiedCode] = useState(false);
   const [isZipping, setIsZipping] = useState(false);
+  const [isUpgradeModalOpen, setIsUpgradeModalOpen] = useState(false);
 
   // Content state prefilled from Digital Twin
   const [headline, setHeadline] = useState(
@@ -73,6 +88,21 @@ export const AIPortfolioView: React.FC<AIPortfolioViewProps> = ({ onBackToHub, o
   }, [profile?.targetRole, profile?.bio]);
 
   const handleGeneratePortfolio = async () => {
+    // 1. DEMO MODE GATE: Showcase mode is strictly view-only
+    if (isDemoMode) {
+      openDemoLockModal();
+      return;
+    }
+
+    // 2. CRITICAL PRE-AI PRO GATE: Check authenticated user's current subscription FIRST
+    // Must be current user's active plan. ZERO AI/API calls or quota consumption if free.
+    const currentPlan = subscription?.tier || 'free';
+    if (!user || currentPlan === 'free' || !isPro) {
+      setIsUpgradeModalOpen(true);
+      return;
+    }
+
+    // 3. PRO USERS ONLY: proceed with AI engine execution
     if (!profile || isRunning) return;
 
     const studentContext = buildStudentContext(
@@ -92,6 +122,10 @@ export const AIPortfolioView: React.FC<AIPortfolioViewProps> = ({ onBackToHub, o
         theme: portfolioTheme,
       },
     });
+
+    if (user?.id) {
+      localStorage.setItem(`sdt_has_portfolio_${user.id}`, 'true');
+    }
   };
 
   const studentName = profile?.fullName || profile?.name || 'Student Candidate';
@@ -124,8 +158,14 @@ export const AIPortfolioView: React.FC<AIPortfolioViewProps> = ({ onBackToHub, o
     return acc;
   }, {});
 
-  // Generate responsive HTML/CSS/JS source code
-  const generatedHtml = `<!DOCTYPE html>
+  // Security & Subscription Plan Verification:
+  // Source code and personal portfolio synthesis must NEVER be generated or exposed to Free users
+  const currentPlan = subscription?.tier || 'free';
+  const isUserPro = Boolean(user && currentPlan !== 'free' && isPro);
+  const shouldBuildPortfolio = isUserPro || isDemoMode;
+
+  // Generate responsive HTML/CSS/JS source code (Pro & Demo showcase only)
+  const generatedHtml = shouldBuildPortfolio ? `<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
@@ -465,9 +505,9 @@ export const AIPortfolioView: React.FC<AIPortfolioViewProps> = ({ onBackToHub, o
 
   <script src="script.js"></script>
 </body>
-</html>`;
+</html>` : '';
 
-  const generatedCss = `/* ===================================================================
+  const generatedCss = shouldBuildPortfolio ? `/* ===================================================================
    STUDENT DIGITAL TWIN - VERIFIED PERSONAL PORTFOLIO
    Theme: ${portfolioTheme}
    =================================================================== */
@@ -1442,9 +1482,9 @@ body {
     display: flex;
   }
 }
-`;
+` : '';
 
-  const generatedJs = `// Student Digital Twin Verified Portfolio Script
+  const generatedJs = shouldBuildPortfolio ? `// Student Digital Twin Verified Portfolio Script
 document.addEventListener('DOMContentLoaded', () => {
   // Mobile Navigation Toggle
   const mobileToggle = document.getElementById('mobileToggle');
@@ -1506,22 +1546,55 @@ document.addEventListener('DOMContentLoaded', () => {
       }, 700);
     });
   }
-});`;
+});` : '';
 
-  const currentCode =
-    activeCodeFile === 'html'
-      ? generatedHtml
-      : activeCodeFile === 'css'
-      ? generatedCss
-      : generatedJs;
+  // Pro users get real code; Free users and unauthenticated users receive empty string
+  const currentCode = isUserPro
+    ? (activeCodeFile === 'html'
+        ? generatedHtml
+        : activeCodeFile === 'css'
+        ? generatedCss
+        : generatedJs)
+    : '';
 
   const handleCopyCode = () => {
+    // 1. DEMO MODE GATE: Block demo visitors from copying
+    if (isDemoMode) {
+      openDemoLockModal();
+      return;
+    }
+
+    // 2. CRITICAL PRE-COPY PRO GATE: Verify current authenticated user is Pro before clipboard operation
+    const plan = subscription?.tier || 'free';
+    if (!user || plan === 'free' || !isPro) {
+      setIsUpgradeModalOpen(true);
+      return;
+    }
+
+    // 3. PRO USERS ONLY: proceed with copying source code
+    if (!currentCode) return;
     navigator.clipboard.writeText(currentCode);
     setCopiedCode(true);
     setTimeout(() => setCopiedCode(false), 2000);
   };
 
   const handleDownloadZip = async () => {
+    // 1. DEMO MODE GATE: Block demo visitors from downloading
+    if (isDemoMode) {
+      openDemoLockModal();
+      return;
+    }
+
+    // 2. CRITICAL PRO GATE: Verify current authenticated user is Pro before zipping/downloading
+    const plan = subscription?.tier || 'free';
+    if (!user || plan === 'free' || !isPro) {
+      setIsUpgradeModalOpen(true);
+      return;
+    }
+
+    // 3. PRO USERS ONLY: proceed with zip generation
+    if (!isUserPro || !generatedHtml) return;
+
     try {
       setIsZipping(true);
       const zip = new JSZip();
@@ -1572,7 +1645,7 @@ This portfolio website was generated automatically using verified Student Digita
       onBackToHub={onBackToHub}
       isRunning={isRunning}
       onRunEngine={handleGeneratePortfolio}
-      resultText={rawText || undefined}
+      resultText={isUserPro ? (rawText || undefined) : undefined}
     >
       <div className="space-y-6">
         
@@ -1607,6 +1680,96 @@ This portfolio website was generated automatically using verified Student Digita
                 </>
               )}
             </div>
+          </div>
+        )}
+
+        {/* FREE USER PROFESSIONAL PREMIUM LOCK CARD */}
+        {!isPro && !isDemoMode && (
+          <div
+            id="ai-portfolio-pro-lock-banner"
+            className="p-5 sm:p-6 rounded-2xl bg-gradient-to-r from-blue-50 via-indigo-50/40 to-slate-50 dark:from-blue-950/40 dark:via-[#0d1117] dark:to-slate-900/40 border border-blue-200 dark:border-blue-500/30 shadow-sm transition-all"
+          >
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-5">
+              <div className="flex items-start gap-4">
+                <div className="w-12 h-12 rounded-2xl bg-blue-500/10 border border-blue-500/30 text-blue-600 dark:text-cyan-400 flex items-center justify-center shrink-0 shadow-sm">
+                  <Lock className="w-6 h-6" />
+                </div>
+                <div className="space-y-1.5">
+                  <div className="flex items-center gap-2">
+                    <span className="px-2.5 py-0.5 rounded-full bg-blue-500/20 text-blue-700 dark:text-cyan-300 text-[10px] font-mono font-bold tracking-wider uppercase border border-blue-500/30">
+                      🔒 PRO FEATURE
+                    </span>
+                    <span className="text-[11px] font-mono text-slate-500 dark:text-slate-400">
+                      ₹299/month or ₹1,499/year
+                    </span>
+                  </div>
+                  <h3 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white">
+                    AI Portfolio Builder is available with Pro.
+                  </h3>
+                  <div className="text-xs text-slate-600 dark:text-slate-300 pt-0.5">
+                    Unlock:
+                  </div>
+                  <ul className="text-xs text-slate-600 dark:text-slate-300 space-y-1 font-mono">
+                    <li className="flex items-center gap-2">
+                      <span className="text-blue-500 font-bold">•</span>
+                      <span>AI-powered portfolio generation</span>
+                    </li>
+                    <li className="flex items-center gap-2">
+                      <span className="text-blue-500 font-bold">•</span>
+                      <span>Personal portfolio preview</span>
+                    </li>
+                    <li className="flex items-center gap-2">
+                      <span className="text-blue-500 font-bold">•</span>
+                      <span>Downloadable portfolio ZIP</span>
+                    </li>
+                    <li className="flex items-center gap-2">
+                      <span className="text-blue-500 font-bold">•</span>
+                      <span>Advanced career presentation</span>
+                    </li>
+                  </ul>
+                </div>
+              </div>
+
+              <div className="shrink-0 flex flex-col sm:flex-row md:flex-col gap-2">
+                <button
+                  id="btn-portfolio-banner-upgrade"
+                  type="button"
+                  onClick={() => setIsUpgradeModalOpen(true)}
+                  className="px-6 py-3 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs sm:text-sm font-mono font-bold shadow-md shadow-blue-600/25 flex items-center justify-center gap-2 transition-all cursor-pointer"
+                >
+                  <Sparkles className="w-4 h-4" />
+                  <span>Upgrade to Pro</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Demo Mode Notice Banner with Live Portfolio Link */}
+        {isDemoMode && (
+          <div className="p-4 rounded-xl bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-900/50 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <div className="p-2 rounded-lg bg-blue-500/10 text-blue-600 dark:text-cyan-400">
+                <Globe className="w-5 h-5" />
+              </div>
+              <div>
+                <div className="text-xs font-bold text-slate-900 dark:text-white">
+                  Demo Showcase Portfolio — Vangala Sricharan
+                </div>
+                <p className="text-xs text-slate-600 dark:text-slate-400">
+                  This interactive preview is grounded in verified student twin credentials. You can also visit the live production portfolio at:
+                </p>
+              </div>
+            </div>
+            <a
+              href="https://vangala-sricharan-portfolio.vercel.app/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="px-3.5 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold inline-flex items-center gap-1.5 shadow-xs transition-all shrink-0"
+            >
+              <span>Open Live Portfolio</span>
+              <ExternalLink className="w-3.5 h-3.5" />
+            </a>
           </div>
         )}
 
@@ -1664,7 +1827,7 @@ This portfolio website was generated automatically using verified Student Digita
                     : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
                 }`}
               >
-                <Code2 className="w-3.5 h-3.5" />
+                {!isPro && !isDemoMode ? <Lock className="w-3.5 h-3.5 text-blue-500" /> : <Code2 className="w-3.5 h-3.5" />}
                 <span>Source Code</span>
               </button>
             </div>
@@ -1674,8 +1837,22 @@ This portfolio website was generated automatically using verified Student Digita
               disabled={isZipping}
               className="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white text-xs font-bold font-mono flex items-center gap-1.5 shadow-sm transition-all cursor-pointer"
             >
-              <Download className="w-3.5 h-3.5" />
-              <span>{isZipping ? 'Generating ZIP...' : 'Download Portfolio ZIP'}</span>
+              {!isPro && !isDemoMode ? (
+                <>
+                  <Lock className="w-3.5 h-3.5" />
+                  <span>Download ZIP (Pro)</span>
+                </>
+              ) : isDemoMode ? (
+                <>
+                  <Lock className="w-3.5 h-3.5" />
+                  <span>Download ZIP</span>
+                </>
+              ) : (
+                <>
+                  <Download className="w-3.5 h-3.5" />
+                  <span>{isZipping ? 'Generating ZIP...' : 'Download Portfolio ZIP'}</span>
+                </>
+              )}
             </button>
           </div>
         </div>
@@ -1746,10 +1923,10 @@ This portfolio website was generated automatically using verified Student Digita
               </div>
             </div>
 
-            {/* Embedded Live Iframe View */}
+            {/* Embedded Live Iframe View / Premium Preview Teaser */}
             <div className="flex justify-center p-4 bg-slate-100 dark:bg-[#070b14] rounded-xl border border-slate-200 dark:border-white/5 overflow-hidden transition-all">
               <div
-                className={`transition-all duration-300 shadow-lg rounded-lg overflow-hidden border border-slate-300 dark:border-white/10 bg-white ${
+                className={`transition-all duration-300 shadow-lg rounded-lg overflow-hidden border border-slate-300 dark:border-white/10 bg-white relative ${
                   deviceView === 'desktop'
                     ? 'w-full h-[720px]'
                     : deviceView === 'tablet'
@@ -1757,24 +1934,111 @@ This portfolio website was generated automatically using verified Student Digita
                     : 'w-[375px] h-[720px]'
                 }`}
               >
-                <iframe
-                  title="Portfolio Live Preview"
-                  srcDoc={`
-                    <html>
-                      <head>
-                        <meta charset="UTF-8">
-                        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-                        <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
-                        <style>${generatedCss}</style>
-                      </head>
-                      <body class="theme-${portfolioTheme}">
-                        ${generatedHtml.replace(/<!DOCTYPE html>[\s\S]*?<body[^>]*>/i, '').replace(/<\/body>[\s\S]*?<\/html>/i, '')}
-                        <script>${generatedJs}</script>
-                      </body>
-                    </html>
-                  `}
-                  className="w-full h-full border-none"
-                />
+                {isPro || isDemoMode ? (
+                  <iframe
+                    title="Portfolio Live Preview"
+                    srcDoc={`
+                      <html>
+                        <head>
+                          <meta charset="UTF-8">
+                          <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                          <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+                          <style>${generatedCss}</style>
+                        </head>
+                        <body class="theme-${portfolioTheme}">
+                          ${generatedHtml.replace(/<!DOCTYPE html>[\s\S]*?<body[^>]*>/i, '').replace(/<\/body>[\s\S]*?<\/html>/i, '')}
+                          <script>${generatedJs}</script>
+                        </body>
+                      </html>
+                    `}
+                    className="w-full h-full border-none"
+                  />
+                ) : (
+                  <div className="w-full h-full bg-slate-900 flex flex-col relative select-none overflow-hidden">
+                    {/* Background Visual Mockup Teaser */}
+                    <div className="opacity-20 filter blur-[1px] pointer-events-none p-6 space-y-6 text-slate-300 font-sans">
+                      <div className="flex items-center justify-between border-b border-white/10 pb-4">
+                        <div className="h-6 w-28 bg-blue-500/40 rounded"></div>
+                        <div className="flex gap-4">
+                          <div className="h-4 w-12 bg-white/20 rounded"></div>
+                          <div className="h-4 w-12 bg-white/20 rounded"></div>
+                          <div className="h-4 w-12 bg-white/20 rounded"></div>
+                        </div>
+                      </div>
+                      <div className="space-y-4 max-w-xl pt-8">
+                        <div className="h-5 w-44 bg-blue-400/40 rounded-full"></div>
+                        <div className="h-10 w-80 bg-white/30 rounded"></div>
+                        <div className="h-4 w-full bg-white/20 rounded"></div>
+                        <div className="h-4 w-3/4 bg-white/20 rounded"></div>
+                        <div className="flex gap-3 pt-2">
+                          <div className="h-9 w-28 bg-blue-600/60 rounded"></div>
+                          <div className="h-9 w-28 bg-white/10 rounded"></div>
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-3 gap-4 pt-8">
+                        <div className="h-28 bg-white/5 rounded-lg border border-white/10 p-3 space-y-2">
+                          <div className="h-4 w-20 bg-white/30 rounded"></div>
+                          <div className="h-3 w-full bg-white/15 rounded"></div>
+                        </div>
+                        <div className="h-28 bg-white/5 rounded-lg border border-white/10 p-3 space-y-2">
+                          <div className="h-4 w-20 bg-white/30 rounded"></div>
+                          <div className="h-3 w-full bg-white/15 rounded"></div>
+                        </div>
+                        <div className="h-28 bg-white/5 rounded-lg border border-white/10 p-3 space-y-2">
+                          <div className="h-4 w-20 bg-white/30 rounded"></div>
+                          <div className="h-3 w-full bg-white/15 rounded"></div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Centered Professional Premium Teaser Card */}
+                    <div className="absolute inset-0 bg-slate-950/75 backdrop-blur-sm flex items-center justify-center p-6">
+                      <div className="max-w-md w-full p-6 sm:p-8 rounded-2xl bg-white dark:bg-[#0d1117] border border-slate-200 dark:border-white/10 shadow-2xl text-center space-y-4">
+                        <div className="w-14 h-14 rounded-2xl bg-blue-500/10 border border-blue-500/30 text-blue-600 dark:text-cyan-400 flex items-center justify-center mx-auto shadow-sm">
+                          <Lock className="w-7 h-7" />
+                        </div>
+                        <div className="space-y-1.5">
+                          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-blue-500/15 border border-blue-500/30 text-blue-700 dark:text-cyan-300 text-xs font-mono font-bold tracking-wider uppercase">
+                            <Lock className="w-3 h-3" />
+                            <span>PRO PORTFOLIO PREVIEW</span>
+                          </div>
+                          <h3 className="text-lg font-bold text-slate-900 dark:text-white">
+                            Personal Portfolio Preview is Available with Pro
+                          </h3>
+                          <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
+                            Upgrade to Pro to synthesize, preview, and customize your personalized single-page portfolio website grounded strictly in your verified Student Digital Twin credentials.
+                          </p>
+                        </div>
+
+                        <div className="p-3 rounded-xl bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/5 text-left text-xs font-mono space-y-1.5 text-slate-700 dark:text-slate-300">
+                          <div className="flex items-center gap-2">
+                            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
+                            <span>Bespoke Responsive Layout & Dark/Light Themes</span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
+                            <span>Verified Competencies & GitHub Repositories</span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
+                            <span>Production-Ready Source Code & ZIP Export</span>
+                          </div>
+                        </div>
+
+                        <div className="pt-1">
+                          <button
+                            type="button"
+                            onClick={() => setIsUpgradeModalOpen(true)}
+                            className="w-full py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-mono font-bold shadow-md shadow-blue-600/25 flex items-center justify-center gap-2 transition-all cursor-pointer"
+                          >
+                            <Sparkles className="w-4 h-4" />
+                            <span>Upgrade to Pro</span>
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
 
@@ -1791,12 +2055,48 @@ This portfolio website was generated automatically using verified Student Digita
                   <span>Customize Portfolio Narrative</span>
                 </h3>
 
+                {!isPro && !isDemoMode && (
+                  <div className="p-3 rounded-lg bg-blue-500/10 border border-blue-500/20 text-xs text-blue-700 dark:text-cyan-300 flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-2">
+                      <Lock className="w-4 h-4 shrink-0 text-blue-600 dark:text-cyan-400" />
+                      <span>Personal narrative customization is available with Pro.</span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setIsUpgradeModalOpen(true)}
+                      className="px-2.5 py-1 rounded-md bg-blue-600 hover:bg-blue-500 text-white font-mono text-[11px] font-bold shrink-0 transition-colors cursor-pointer"
+                    >
+                      Upgrade
+                    </button>
+                  </div>
+                )}
+
                 <div className="space-y-1">
                   <label className="text-xs font-mono text-slate-500 dark:text-slate-400">Target Professional Role</label>
                   <input
                     type="text"
                     value={headline}
-                    onChange={(e) => setHeadline(e.target.value)}
+                    readOnly={!isPro}
+                    onClick={() => {
+                      if (isDemoMode) {
+                        openDemoLockModal();
+                        return;
+                      }
+                      if (!isPro) {
+                        setIsUpgradeModalOpen(true);
+                      }
+                    }}
+                    onChange={(e) => {
+                      if (isDemoMode) {
+                        openDemoLockModal();
+                        return;
+                      }
+                      if (!isPro) {
+                        setIsUpgradeModalOpen(true);
+                        return;
+                      }
+                      setHeadline(e.target.value);
+                    }}
                     className="w-full px-3 py-2 rounded-lg bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 text-xs text-slate-900 dark:text-white focus:outline-none focus:border-blue-500"
                     placeholder="e.g. Distributed Systems Engineer"
                   />
@@ -1806,7 +2106,27 @@ This portfolio website was generated automatically using verified Student Digita
                   <label className="text-xs font-mono text-slate-500 dark:text-slate-400">Biography / About Statement</label>
                   <textarea
                     value={bio}
-                    onChange={(e) => setBio(e.target.value)}
+                    readOnly={!isPro}
+                    onClick={() => {
+                      if (isDemoMode) {
+                        openDemoLockModal();
+                        return;
+                      }
+                      if (!isPro) {
+                        setIsUpgradeModalOpen(true);
+                      }
+                    }}
+                    onChange={(e) => {
+                      if (isDemoMode) {
+                        openDemoLockModal();
+                        return;
+                      }
+                      if (!isPro) {
+                        setIsUpgradeModalOpen(true);
+                        return;
+                      }
+                      setBio(e.target.value);
+                    }}
                     rows={4}
                     className="w-full px-3 py-2 rounded-lg bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 text-xs text-slate-900 dark:text-white focus:outline-none focus:border-blue-500 leading-relaxed"
                     placeholder="Describe your background and core technical capabilities..."
@@ -1818,8 +2138,17 @@ This portfolio website was generated automatically using verified Student Digita
                   disabled={isRunning}
                   className="w-full py-2.5 rounded-lg bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white text-xs font-bold font-mono uppercase tracking-wider shadow-sm transition-all flex items-center justify-center gap-2 cursor-pointer"
                 >
-                  <Sparkles className="w-4 h-4" />
-                  <span>{isRunning ? 'Synthesizing...' : 'Regenerate Narrative with AI'}</span>
+                  {!isPro && !isDemoMode ? (
+                    <>
+                      <Lock className="w-4 h-4" />
+                      <span>Regenerate Narrative with AI (Pro)</span>
+                    </>
+                  ) : (
+                    <>
+                      <Sparkles className="w-4 h-4" />
+                      <span>{isRunning ? 'Synthesizing...' : 'Regenerate Narrative with AI'}</span>
+                    </>
+                  )}
                 </button>
               </div>
             </div>
@@ -1873,19 +2202,36 @@ This portfolio website was generated automatically using verified Student Digita
         {/* TAB 3: SOURCE CODE & EXPORTS */}
         {activeTab === 'code' && (
           <div className="space-y-4">
-            <div className="flex items-center justify-between p-3.5 rounded-xl bg-white dark:bg-[#0d1117] border border-slate-200 dark:border-white/10 shadow-sm">
+            <div className="flex items-center justify-between p-3.5 rounded-xl bg-white dark:bg-[#0d1117] border border-slate-200 dark:border-white/10 shadow-sm flex-wrap gap-2">
               <div className="flex items-center gap-2">
                 {(['html', 'css', 'js'] as const).map((file) => (
                   <button
                     key={file}
-                    onClick={() => setActiveCodeFile(file)}
+                    onClick={() => {
+                      if (isDemoMode) {
+                        openDemoLockModal();
+                        return;
+                      }
+                      if (!isPro) {
+                        setIsUpgradeModalOpen(true);
+                        return;
+                      }
+                      setActiveCodeFile(file);
+                    }}
                     className={`px-3 py-1.5 rounded-md text-xs font-mono uppercase transition-all cursor-pointer ${
                       activeCodeFile === file
                         ? 'bg-blue-600 text-white font-bold'
                         : 'bg-slate-100 dark:bg-white/5 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-white/10'
                     }`}
                   >
-                    {file === 'html' ? 'index.html' : file === 'css' ? 'style.css' : 'script.js'}
+                    {!isPro ? (
+                      <span className="flex items-center gap-1.5">
+                        <Lock className="w-3 h-3 text-slate-400" />
+                        {file === 'html' ? 'INDEX.HTML' : file === 'css' ? 'STYLE.CSS' : 'SCRIPT.JS'}
+                      </span>
+                    ) : (
+                      file === 'html' ? 'index.html' : file === 'css' ? 'style.css' : 'script.js'
+                    )}
                   </button>
                 ))}
               </div>
@@ -1895,8 +2241,17 @@ This portfolio website was generated automatically using verified Student Digita
                   onClick={handleCopyCode}
                   className="px-3 py-1.5 rounded-lg bg-slate-100 dark:bg-white/5 hover:bg-slate-200 dark:hover:bg-white/10 text-xs font-mono font-bold flex items-center gap-1.5 text-slate-800 dark:text-slate-200 transition-colors cursor-pointer"
                 >
-                  {copiedCode ? <Check className="w-3.5 h-3.5 text-emerald-500" /> : <Copy className="w-3.5 h-3.5" />}
-                  <span>{copiedCode ? 'Copied!' : 'Copy Code'}</span>
+                  {!isPro ? (
+                    <>
+                      <Lock className="w-3.5 h-3.5 text-blue-500" />
+                      <span>Copy Code (Pro)</span>
+                    </>
+                  ) : (
+                    <>
+                      {copiedCode ? <Check className="w-3.5 h-3.5 text-emerald-500" /> : <Copy className="w-3.5 h-3.5" />}
+                      <span>{copiedCode ? 'Copied!' : 'Copy Code'}</span>
+                    </>
+                  )}
                 </button>
 
                 <button
@@ -1904,19 +2259,101 @@ This portfolio website was generated automatically using verified Student Digita
                   disabled={isZipping}
                   className="px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-xs font-mono font-bold flex items-center gap-1.5 transition-colors cursor-pointer"
                 >
-                  <Download className="w-3.5 h-3.5" />
-                  <span>Download ZIP</span>
+                  {!isPro && !isDemoMode ? (
+                    <>
+                      <Lock className="w-3.5 h-3.5" />
+                      <span>Download ZIP (Pro)</span>
+                    </>
+                  ) : isDemoMode ? (
+                    <>
+                      <Lock className="w-3.5 h-3.5" />
+                      <span>Download ZIP</span>
+                    </>
+                  ) : (
+                    <>
+                      <Download className="w-3.5 h-3.5" />
+                      <span>Download ZIP</span>
+                    </>
+                  )}
                 </button>
               </div>
             </div>
 
-            <div className="p-4 rounded-xl bg-[#090d16] border border-white/10 font-mono text-xs text-slate-300 overflow-x-auto max-h-[600px] leading-relaxed">
-              <pre>{currentCode}</pre>
-            </div>
+            {/* Pro: Render verified real source code */}
+            {isPro ? (
+              <div className="p-4 rounded-xl bg-[#090d16] border border-white/10 font-mono text-xs text-slate-300 overflow-x-auto max-h-[600px] leading-relaxed">
+                <pre>{currentCode}</pre>
+              </div>
+            ) : !isDemoMode ? (
+              /* Authenticated Free User: Render PRO SOURCE CODE locked state */
+              <div className="p-12 text-center rounded-2xl bg-white dark:bg-[#0d1117] border border-slate-200 dark:border-white/10 shadow-sm space-y-4">
+                <div className="w-14 h-14 rounded-2xl bg-blue-500/10 border border-blue-500/30 text-blue-600 dark:text-cyan-400 flex items-center justify-center mx-auto shadow-sm">
+                  <Lock className="w-7 h-7" />
+                </div>
+                <div className="space-y-1.5 max-w-md mx-auto">
+                  <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-blue-500/10 border border-blue-500/20 text-blue-600 dark:text-cyan-400 text-xs font-mono font-bold uppercase tracking-wider">
+                    <Lock className="w-3 h-3" />
+                    <span>PRO SOURCE CODE</span>
+                  </div>
+                  <h3 className="text-xl font-bold text-slate-900 dark:text-white">
+                    Source code access is available with Pro.
+                  </h3>
+                  <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
+                    Upgrade to Pro to inspect, copy, and export production-ready HTML5, modular CSS3, and JavaScript source code for your Student Digital Twin portfolio.
+                  </p>
+                </div>
+                <div className="pt-2">
+                  <button
+                    type="button"
+                    onClick={() => setIsUpgradeModalOpen(true)}
+                    className="px-6 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-mono font-bold shadow-md shadow-blue-600/25 inline-flex items-center gap-2 transition-all cursor-pointer"
+                  >
+                    <Sparkles className="w-4 h-4" />
+                    <span>Upgrade to Pro</span>
+                  </button>
+                </div>
+              </div>
+            ) : (
+              /* Demo Mode: Render SHOWCASE SOURCE CODE LOCKED */
+              <div className="p-12 text-center rounded-2xl bg-white dark:bg-[#0d1117] border border-slate-200 dark:border-white/10 shadow-sm space-y-4">
+                <div className="w-14 h-14 rounded-2xl bg-blue-500/10 border border-blue-500/30 text-blue-600 dark:text-cyan-400 flex items-center justify-center mx-auto shadow-sm">
+                  <Lock className="w-7 h-7" />
+                </div>
+                <div className="space-y-1.5 max-w-md mx-auto">
+                  <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-blue-500/10 border border-blue-500/20 text-blue-600 dark:text-cyan-400 text-xs font-mono font-bold uppercase tracking-wider">
+                    <Lock className="w-3 h-3" />
+                    <span>SHOWCASE SOURCE CODE LOCKED</span>
+                  </div>
+                  <h3 className="text-xl font-bold text-slate-900 dark:text-white">
+                    Showcase source code is locked for demonstration.
+                  </h3>
+                  <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
+                    Sign up or log in to generate and export your personal Student Digital Twin portfolio website.
+                  </p>
+                </div>
+                <div className="pt-2">
+                  <button
+                    type="button"
+                    onClick={openDemoLockModal}
+                    className="px-6 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-mono font-bold shadow-md shadow-blue-600/25 inline-flex items-center gap-2 transition-all cursor-pointer"
+                  >
+                    <Sparkles className="w-4 h-4" />
+                    <span>Sign Up / Log In to Unlock</span>
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         )}
 
       </div>
+
+      <UpgradeProModal
+        isOpen={isUpgradeModalOpen}
+        onClose={() => setIsUpgradeModalOpen(false)}
+        featureName="AI Portfolio Builder"
+        onNavigateToUpgrade={onNavigateTab ? () => onNavigateTab('upgrade') : undefined}
+      />
     </EngineLayout>
   );
 };
