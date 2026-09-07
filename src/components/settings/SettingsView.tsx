@@ -28,15 +28,17 @@ interface SettingsViewProps {
   onBackToDashboard?: () => void;
   onNavigateToUpgrade?: () => void;
   onNavigateToProfile?: () => void;
+  onNavigate?: (path: string) => void;
 }
 
 export const SettingsView: React.FC<SettingsViewProps> = ({
   onBackToDashboard,
   onNavigateToUpgrade,
   onNavigateToProfile,
+  onNavigate,
 }) => {
   const { user, userProfile, signOut } = useAuth();
-  const { profile, subscription, isDemoMode, updateProfile, enterDemoMode, openDemoLockModal } = useStudentTwin();
+  const { profile, subscription, isDemoMode, updateProfile, exitDemoMode, openDemoLockModal } = useStudentTwin();
   const { theme, toggleTheme } = useTheme();
   const isDarkMode = theme === 'dark';
 
@@ -548,8 +550,12 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                 onClick={async () => {
                   setShowLogoutConfirm(false);
                   await signOut();
-                  enterDemoMode();
-                  onBackToDashboard?.();
+                  exitDemoMode();
+                  if (onNavigate) {
+                    onNavigate('/');
+                  } else {
+                    window.location.href = '/';
+                  }
                 }}
                 className="flex-1 py-2.5 rounded-full bg-red-600 hover:bg-red-500 text-white text-xs font-mono font-bold transition-colors cursor-pointer shadow-md shadow-red-600/20"
               >

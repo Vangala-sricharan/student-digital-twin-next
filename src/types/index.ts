@@ -104,6 +104,8 @@ export interface CertificationItem {
   credentialUrl?: string;
   skills?: string[];
   verified?: boolean;
+  description?: string;
+  details?: string;
 }
 
 export interface ParticipationItem {
@@ -115,6 +117,8 @@ export interface ParticipationItem {
   organizer?: string;
   description?: string;
   verified?: boolean;
+  eventUrl?: string;
+  details?: string;
 }
 
 export interface AchievementItem {
@@ -126,6 +130,7 @@ export interface AchievementItem {
   verified: boolean;
   credentialUrl?: string;
   description: string;
+  details?: string;
 }
 
 export interface CareerGoal {

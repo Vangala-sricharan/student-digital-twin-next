@@ -5,34 +5,75 @@ import fs from 'fs';
 import path from 'path';
 import {defineConfig, Plugin} from 'vite';
 import { processEngineAiRequest } from './src/lib/serverAiHandler';
+import { handleAssistantRequest } from './api/_handlers/ai/assistant';
 
 function aiEngineApiPlugin(): Plugin {
+  const attachMiddleware = (server: any) => {
+    server.middlewares.use(async (req: any, res: any, next: any) => {
+      const url = req.url || '';
+
+      // CORS Preflight
+      if (req.method === 'OPTIONS' && (url.startsWith('/api/ai/assistant') || url.startsWith('/api/engine-ai'))) {
+        res.setHeader('Access-Control-Allow-Origin', '*');
+        res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+        res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Accept');
+        res.statusCode = 204;
+        res.end();
+        return;
+      }
+
+      // Career Assistant: POST /api/ai/assistant
+      if (url.startsWith('/api/ai/assistant') && req.method === 'POST') {
+        let body = '';
+        req.on('data', (chunk: any) => {
+          body += chunk;
+        });
+        req.on('end', async () => {
+          try {
+            req.body = JSON.parse(body || '{}');
+            await handleAssistantRequest(req, res);
+          } catch (err: any) {
+            res.statusCode = 500;
+            res.setHeader('Content-Type', 'application/json');
+            res.end(JSON.stringify({ error: err?.message || 'Server error' }));
+          }
+        });
+        return;
+      }
+
+      // Legacy/fallback engines: POST /api/engine-ai
+      if ((url === '/api/engine-ai' || url === '/api/generate-description') && req.method === 'POST') {
+        let body = '';
+        req.on('data', (chunk: any) => {
+          body += chunk;
+        });
+        req.on('end', async () => {
+          try {
+            const parsed = JSON.parse(body || '{}');
+            const result = await processEngineAiRequest(parsed);
+            res.setHeader('Content-Type', 'application/json');
+            res.statusCode = 200;
+            res.end(JSON.stringify(result));
+          } catch (err: any) {
+            res.setHeader('Content-Type', 'application/json');
+            res.statusCode = 500;
+            res.end(JSON.stringify({ status: 'error', error: err?.message || 'Server error' }));
+          }
+        });
+        return;
+      }
+
+      next();
+    });
+  };
+
   return {
     name: 'vite-plugin-ai-engine-api',
     configureServer(server) {
-      server.middlewares.use(async (req, res, next) => {
-        if ((req.url === '/api/engine-ai' || req.url === '/api/generate-description') && req.method === 'POST') {
-          let body = '';
-          req.on('data', (chunk) => {
-            body += chunk;
-          });
-          req.on('end', async () => {
-            try {
-              const parsed = JSON.parse(body || '{}');
-              const result = await processEngineAiRequest(parsed);
-              res.setHeader('Content-Type', 'application/json');
-              res.statusCode = 200;
-              res.end(JSON.stringify(result));
-            } catch (err: any) {
-              res.setHeader('Content-Type', 'application/json');
-              res.statusCode = 500;
-              res.end(JSON.stringify({ status: 'error', error: err?.message || 'Server error' }));
-            }
-          });
-          return;
-        }
-        next();
-      });
+      attachMiddleware(server);
+    },
+    configurePreviewServer(server) {
+      attachMiddleware(server);
     },
   };
 }

@@ -33,14 +33,14 @@ import { PaymentUpgradeView } from './components/subscription/PaymentUpgradeView
 import { StudentOnboardingModal } from './components/onboarding/StudentOnboardingModal';
 import { CircularEngineLoading } from './components/common/CircularEngineLoading';
 
-function DashboardTabContent({ activeTab, setActiveTab }: { activeTab: string; setActiveTab: (tab: string) => void }) {
+function DashboardTabContent({ activeTab, setActiveTab, onNavigate }: { activeTab: string; setActiveTab: (tab: string) => void; onNavigate?: (path: string) => void }) {
   switch (activeTab) {
     case 'dashboard':
       return <DashboardOverview onNavigateTab={setActiveTab} />;
     case 'my-profile':
       return <MyProfileView onBackToDashboard={() => setActiveTab('dashboard')} onNavigateToUpgrade={() => setActiveTab('upgrade')} />;
     case 'settings':
-      return <SettingsView onBackToDashboard={() => setActiveTab('dashboard')} onNavigateToUpgrade={() => setActiveTab('upgrade')} onNavigateToProfile={() => setActiveTab('my-profile')} />;
+      return <SettingsView onBackToDashboard={() => setActiveTab('dashboard')} onNavigateToUpgrade={() => setActiveTab('upgrade')} onNavigateToProfile={() => setActiveTab('my-profile')} onNavigate={onNavigate} />;
     case 'upgrade':
       return <PaymentUpgradeView onBackToDashboard={() => setActiveTab('dashboard')} onNavigateToSettings={() => setActiveTab('settings')} />;
     case 'profiles':
@@ -64,7 +64,7 @@ function DashboardTabContent({ activeTab, setActiveTab }: { activeTab: string; s
     case 'engine-ai-portfolio':
       return <AIPortfolioView onBackToHub={() => setActiveTab('engines')} onNavigateTab={setActiveTab} />;
     case 'engine-project-auditor':
-      return <ProjectAuditorView onBackToHub={() => setActiveTab('engines')} />;
+      return <ProjectAuditorView onBackToHub={() => setActiveTab('engines')} onNavigateTab={setActiveTab} />;
     case 'engine-github-audit':
       return <GitHubAuditView onBackToHub={() => setActiveTab('engines')} />;
     case 'engine-linkedin-audit':
@@ -237,6 +237,20 @@ function MainRouter() {
     }
   }, [isAuthChecking, user, isTwinReady, isDemoMode]);
 
+  // Synchronize unauthenticated state: if user signs out and not in demo mode, ensure route returns to '/'
+  useEffect(() => {
+    if (!user && !isAuthChecking && !isDemoMode) {
+      if (
+        currentRoute.startsWith('/app') ||
+        currentRoute === '/dashboard' ||
+        getTabFromPath(currentRoute) !== null
+      ) {
+        setCurrentRoute('/');
+        window.history.replaceState({}, '', '/');
+      }
+    }
+  }, [user, isAuthChecking, isDemoMode, currentRoute]);
+
   // 1. Initial Application Startup & Authentication Hydration Guard
   // Real-state controlled: hides immediately as soon as essential state is ready.
   // Never shown on navigation, route changes, sidebar clicks, component re-renders,
@@ -257,7 +271,7 @@ function MainRouter() {
         onTabChange={setActiveTab}
         onNavigate={navigateTo}
       >
-        <DashboardTabContent activeTab={activeTab} setActiveTab={setActiveTab} />
+        <DashboardTabContent activeTab={activeTab} setActiveTab={setActiveTab} onNavigate={navigateTo} />
       </AppShell>
     );
   }
@@ -289,7 +303,7 @@ function MainRouter() {
           onTabChange={setActiveTab}
           onNavigate={navigateTo}
         >
-          <DashboardTabContent activeTab={activeTab} setActiveTab={setActiveTab} />
+          <DashboardTabContent activeTab={activeTab} setActiveTab={setActiveTab} onNavigate={navigateTo} />
         </AppShell>
         {needsOnboarding && <StudentOnboardingModal />}
       </>

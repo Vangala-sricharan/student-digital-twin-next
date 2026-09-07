@@ -44,6 +44,7 @@ export interface EngineAiRequest {
     careerGoal?: { targetRole: string; targetDomain?: string; targetTimeline?: string };
     githubUrl?: string;
     linkedinUrl?: string;
+    portfolioUrl?: string;
   };
   userInputs?: Record<string, any>;
   documentText?: string;

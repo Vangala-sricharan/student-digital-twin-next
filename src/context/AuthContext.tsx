@@ -81,12 +81,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return;
       }
 
-      // 2. Query Supabase with a strict 3500ms timeout to prevent 30-second freezing
+      // 2. Query Supabase student_profiles (the genuine V4 profile table)
       try {
         const queryPromise = supabase
-          .from('user_profiles')
-          .select('*')
-          .eq('id', authUser.id)
+          .from('student_profiles')
+          .select('id, user_id, display_name, name, avatar_url, email')
+          .eq('user_id', authUser.id)
+          .limit(1)
           .maybeSingle();
 
         const { data, error } = await withTimeout(
@@ -97,29 +98,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
         if (data && !error) {
           const resolvedProfile: UserProfile = {
-            id: data.id,
-            email: data.email,
-            fullName: data.full_name || fallbackProfile.fullName,
+            id: authUser.id,
+            email: data.email || authUser.email || fallbackProfile.email,
+            fullName: data.display_name || data.name || fallbackProfile.fullName,
             avatarUrl: data.avatar_url || fallbackProfile.avatarUrl,
-            role: data.role || 'student',
-            createdAt: data.created_at,
+            role: 'student',
+            createdAt: new Date().toISOString(),
           };
           setUserProfile(resolvedProfile);
           localStorage.setItem(cacheKey, JSON.stringify(resolvedProfile));
           return;
         }
-
-        // Background non-blocking upsert if table exists
-        withTimeout(
-          supabase.from('user_profiles').upsert({
-            id: fallbackProfile.id,
-            email: fallbackProfile.email,
-            full_name: fallbackProfile.fullName,
-            avatar_url: fallbackProfile.avatarUrl,
-            role: fallbackProfile.role,
-          }),
-          2500
-        ).catch(() => {});
       } catch (err) {
         console.warn('Profile background sync noticed:', err);
       }
@@ -424,13 +413,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     if (isSupabaseConfigured) {
       withTimeout(
-        supabase.from('user_profiles').upsert({
-          id: user.id,
-          email: updated.email,
-          full_name: updated.fullName,
+        supabase.from('student_profiles').update({
+          display_name: updated.fullName,
           avatar_url: updated.avatarUrl,
-          role: updated.role,
-        }),
+        }).eq('user_id', user.id),
         3000
       ).catch(() => {});
     } else {

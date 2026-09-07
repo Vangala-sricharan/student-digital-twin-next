@@ -131,8 +131,8 @@ export const AppShell: React.FC<AppShellProps> = ({
       onNavigate('/');
     } else {
       await signOut();
-      enterDemoMode();
-      onNavigate('/demo');
+      exitDemoMode();
+      onNavigate('/');
     }
   };
 

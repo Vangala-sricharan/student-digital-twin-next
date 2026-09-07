@@ -448,45 +448,52 @@ export function normalizeStudentContext(
 ): Required<EngineAiRequest['studentContext']> {
   const safe = context || {};
   return {
-    name: safe.name || 'Student',
-    targetRole: safe.targetRole || 'Software Engineer',
-    degree: safe.degree || 'B.Tech',
-    branch: safe.branch || 'Computer Science',
-    university: safe.university || 'Engineering University',
-    year: safe.year || '3rd',
-    cgpa: safe.cgpa || '8.5',
+    name: safe.name || '',
+    targetRole: safe.targetRole || '',
+    degree: safe.degree || '',
+    branch: safe.branch || '',
+    university: safe.university || '',
+    year: safe.year || '',
+    cgpa: safe.cgpa || '',
     readinessScore: typeof safe.readinessScore === 'number' ? safe.readinessScore : 0,
     skills: Array.isArray(safe.skills)
-      ? safe.skills.map((s) => ({
-          name: s?.name || 'Technical Skill',
-          category: s?.category || 'Technical',
-          proficiency: typeof s?.proficiency === 'number' ? s.proficiency : 80,
-          verified: Boolean(s?.verified),
-        }))
+      ? safe.skills
+          .map((s) => ({
+            name: s?.name || '',
+            category: s?.category || '',
+            proficiency: typeof s?.proficiency === 'number' ? s.proficiency : 0,
+            verified: Boolean(s?.verified),
+          }))
+          .filter((s) => s.name.length > 0)
       : [],
     projects: Array.isArray(safe.projects)
-      ? safe.projects.map((p) => ({
-          title: p?.title || 'Engineering Project',
-          techStack: Array.isArray(p?.techStack)
-            ? p.techStack
-            : typeof p?.techStack === 'string'
-            ? (p.techStack as string).split(',').map((item) => item.trim())
-            : ['TypeScript', 'React'],
-          description: p?.description || 'Engineered modular software architecture.',
-          astDepth: p?.astDepth || 'Level 3',
-        }))
+      ? safe.projects
+          .map((p) => ({
+            title: p?.title || '',
+            techStack: Array.isArray(p?.techStack)
+              ? p.techStack
+              : typeof p?.techStack === 'string'
+              ? (p.techStack as string).split(',').map((item) => item.trim()).filter(Boolean)
+              : [],
+            description: p?.description || '',
+            astDepth: p?.astDepth || '',
+          }))
+          .filter((p) => p.title.length > 0)
       : [],
     achievements: Array.isArray(safe.achievements)
-      ? safe.achievements.map((a) => ({
-          title: a?.title || 'Achievement Milestone',
-          issuer: a?.issuer || 'Academic / Industry Partner',
-          date: a?.date || '2026',
-          category: a?.category || 'Academic',
-        }))
+      ? safe.achievements
+          .map((a) => ({
+            title: a?.title || '',
+            issuer: a?.issuer || '',
+            date: a?.date || '',
+            category: a?.category || '',
+          }))
+          .filter((a) => a.title.length > 0)
       : [],
     careerGoal: safe.careerGoal || null,
     githubUrl: safe.githubUrl || '',
     linkedinUrl: safe.linkedinUrl || '',
+    portfolioUrl: safe.portfolioUrl || '',
   };
 }
 
@@ -670,13 +677,15 @@ Format all pricing and CTC estimates strictly in Indian Rupees (₹) using the I
       }
     }
 
-    // Career Assistant MUST NOT return a fake static answer if AI execution fails
-    if (engineId === 'career-assistant') {
+    // Career Assistant & Project Auditor MUST NOT return a fake static answer if AI execution fails
+    if (engineId === 'career-assistant' || engineId === 'project-auditor') {
       return {
         engineId,
         timestamp: new Date().toISOString(),
         status: 'error',
-        error: 'Something went wrong. Please try again.',
+        error: engineId === 'project-auditor'
+          ? 'Project code audit could not be completed. Please ensure your project details are valid and try again.'
+          : 'Something went wrong. Please try again.',
         data: null,
       };
     }
@@ -818,18 +827,75 @@ Tone: ${userInputs?.tone || 'High-Impact Technical & Verifiable'}
 
 Generate professional, high-converting portfolio copy derived purely from the student's actual projects, skills, and academic standing.`;
 
-    case 'project-auditor':
+    case 'project-auditor': {
+      const pTitle = userInputs?.projectTitle || userInputs?.title || 'Selected Project';
+      const pDesc = userInputs?.description || userInputs?.projectDetails || '';
+      const pRole = userInputs?.role || '';
+      const pStack = Array.isArray(userInputs?.techStack)
+        ? userInputs.techStack.join(', ')
+        : (userInputs?.techStack || '');
+      const pDiff = userInputs?.difficulty || '';
+      const pStatus = userInputs?.status || '';
+      const pArch = userInputs?.systemArchitecture || '';
+      const pGit = userInputs?.githubUrl || '';
+      const pLive = userInputs?.liveUrl || '';
+      const pHighlights = Array.isArray(userInputs?.highlights) ? userInputs.highlights.join('; ') : '';
+      const pAst = userInputs?.astDepth || '';
+      const pNotes = userInputs?.customNotes || '';
+
       return `${baseContext}
 TARGET PROJECT TO AUDIT:
-${userInputs?.projectTitle ? `Project: ${userInputs.projectTitle}\nDetails: ${userInputs.projectDetails || ''}` : 'Audit all verified projects in the Student Twin.'}
+- Project Title: ${pTitle}
+${pRole ? `- Candidate Role: ${pRole}` : ''}
+${pDiff ? `- Difficulty Level: ${pDiff}` : ''}
+${pStatus ? `- Project Status: ${pStatus}` : ''}
+${pStack ? `- Technology Stack: ${pStack}` : '- Technology Stack: Not specified (Flag as missing technology specification)'}
+${pDesc ? `- Project Description: ${pDesc}` : '- Project Description: No description provided (Flag as missing project description)'}
+${pArch ? `- System Architecture / Workflow: ${pArch}` : ''}
+${pGit ? `- GitHub Repository URL: ${pGit}` : '- GitHub Repository URL: Not provided (MISSING EVIDENCE: Needs repository URL for code proof verification)'}
+${pLive ? `- Live Demo URL: ${pLive}` : '- Live Demo URL: Not provided (MISSING EVIDENCE: Needs live deployment URL for demonstration verification)'}
+${pHighlights ? `- Implementation Highlights: ${pHighlights}` : ''}
+${pAst ? `- AST Depth Rating: ${pAst}` : ''}
+${pNotes ? `- User Audit Focus Notes: ${pNotes}` : ''}
 
-Evaluate:
-1. Technical Depth & AST Complexity
-2. Problem Definition & Real-World Utility
-3. Technology Stack Modernity & Design Patterns
-4. Proof-of-Work Evidence (GitHub/Demo verification)
-5. Resume Impact Rating (1-100)
-6. Actionable Improvements & Next Refactoring Steps`;
+AUDIT INSTRUCTIONS:
+You are an expert Principal Engineer & Technical Hiring Bar Raiser conducting an objective Proof-of-Work Codebase Audit.
+You MUST evaluate ONLY this specific project based on the real information provided above.
+DO NOT invent technologies, metrics, performance statistics, production traffic, users, or benchmarks that are not in the provided evidence.
+If repository links, live demos, or tests are absent, clearly mark them as missing evidence and reflect that in the score.
+
+Provide a thorough, distinct analysis that directly addresses THIS project's unique technology stack, architectural requirements, and proof quality.
+Format all pricing and numbers strictly in Indian Rupees (₹). Never use dollar signs ($).
+
+You MUST format your output as a valid JSON object wrapped inside a \`\`\`json\`\`\` code block with the following schema:
+{
+  "overallScore": <integer 0-100 reflecting genuine technical depth, completeness, and verifiable proof>,
+  "verdict": "<concise evaluation label matching the score, e.g. 'Production Caliber & Verified', 'Solid Architecture with Proof Gaps', 'Early Stage Prototype'>",
+  "breakdown": [
+    { "label": "Technical Depth & Algorithmic Complexity", "score": <0-25>, "max": 25 },
+    { "label": "Architectural Modularity & State Isolation", "score": <0-25>, "max": 25 },
+    { "label": "Code Quality & Clean Architecture Principles", "score": <0-20>, "max": 20 },
+    { "label": "Documentation, API Specs & README Clarity", "score": <0-15>, "max": 15 },
+    { "label": "Automated Testing & Verifiable Proof of Work", "score": <0-15>, "max": 15 }
+  ],
+  "strengths": [
+    "<3 to 4 specific technical strengths referencing the actual technologies and architectural design of this project>"
+  ],
+  "gaps": [
+    "<2 to 4 specific technical gaps, deficiencies, or unverified claims in this project>"
+  ],
+  "missingEvidence": [
+    "<specific missing proof items, e.g. 'GitHub Repository Link', 'Live Deployed Staging URL', 'Automated Test Coverage', 'API Documentation'>"
+  ],
+  "recommendations": [
+    { "priority": 1, "title": "<actionable title>", "desc": "<clear, actionable recommendation tailored specifically to this project>" },
+    { "priority": 2, "title": "<actionable title>", "desc": "<clear, actionable recommendation tailored specifically to this project>" },
+    { "priority": 3, "title": "<actionable title>", "desc": "<clear, actionable recommendation tailored specifically to this project>" }
+  ]
+}
+
+After the JSON code block, you may provide a brief markdown narrative detailing your architectural evaluation.`;
+    }
 
     case 'github-audit':
       return `${baseContext}
@@ -1112,8 +1178,120 @@ function parseStructuredData(
     };
   }
 
-  // For GitHub Audit & Project Auditor: calculate score deterministically from breakdown
-  if (engineId === 'github-audit' || engineId === 'project-auditor') {
+  // For Project Auditor: Parse project-specific structured output directly from model
+  if (engineId === 'project-auditor') {
+    let parsedJson: any = null;
+    const jsonMatch = text.match(/```(?:json)?\s*([\s\S]*?)```/);
+    const candidateJsonStr = jsonMatch ? jsonMatch[1].trim() : text.trim();
+
+    try {
+      parsedJson = JSON.parse(candidateJsonStr);
+    } catch {
+      const start = candidateJsonStr.indexOf('{');
+      const end = candidateJsonStr.lastIndexOf('}');
+      if (start !== -1 && end > start) {
+        try {
+          parsedJson = JSON.parse(candidateJsonStr.slice(start, end + 1));
+        } catch {}
+      }
+    }
+
+    if (parsedJson && (typeof parsedJson.overallScore === 'number' || Array.isArray(parsedJson.breakdown))) {
+      const rawBreakdown = Array.isArray(parsedJson.breakdown) && parsedJson.breakdown.length > 0
+        ? parsedJson.breakdown.map((b: any) => ({
+            label: String(b.label || 'Technical Criterion'),
+            score: Math.max(0, Math.min(Number(b.max || 25), Math.round(Number(b.score || 0)))),
+            max: Number(b.max || 25),
+          }))
+        : [];
+
+      const validated = rawBreakdown.length > 0 ? calculateDeterministicCategoryScore(rawBreakdown) : null;
+      const score = typeof parsedJson.overallScore === 'number'
+        ? Math.max(0, Math.min(100, Math.round(parsedJson.overallScore)))
+        : (validated ? validated.overallScore : 75);
+      const evaluation = parsedJson.verdict || getEvaluationLabel(score);
+
+      return {
+        projectId: userInputs?.projectId,
+        projectTitle: userInputs?.projectTitle || 'Audited Project',
+        score,
+        overallScore: score,
+        evaluation,
+        verdict: evaluation,
+        breakdown: validated ? validated.breakdown : [
+          { label: 'Technical Depth & Algorithmic Complexity', score: Math.round(score * 0.25), max: 25 },
+          { label: 'Architectural Modularity & State Isolation', score: Math.round(score * 0.25), max: 25 },
+          { label: 'Code Quality & Clean Architecture Principles', score: Math.round(score * 0.20), max: 20 },
+          { label: 'Documentation, API Specs & README Clarity', score: Math.round(score * 0.15), max: 15 },
+          { label: 'Automated Testing & Verifiable Proof of Work', score: Math.round(score * 0.15), max: 15 },
+        ],
+        strengths: Array.isArray(parsedJson.strengths) ? parsedJson.strengths : [],
+        gaps: Array.isArray(parsedJson.gaps) ? parsedJson.gaps : [],
+        missingEvidence: Array.isArray(parsedJson.missingEvidence) ? parsedJson.missingEvidence : [],
+        recommendations: Array.isArray(parsedJson.recommendations) ? parsedJson.recommendations : [],
+        timestamp: new Date().toISOString(),
+      };
+    }
+
+    // Dynamic text extraction fallback for markdown responses
+    const scoreMatch = text.match(/(?:Score|Rating|Audit Score):\s*\*?([0-9]{1,3})%?/i);
+    const score = scoreMatch ? Math.min(100, Math.max(0, parseInt(scoreMatch[1], 10))) : 70;
+    const evaluation = getEvaluationLabel(score);
+
+    const strengths: string[] = [];
+    const gaps: string[] = [];
+    const recommendations: any[] = [];
+    const lines = text.split('\n');
+    let section = '';
+
+    for (const line of lines) {
+      const lower = line.toLowerCase();
+      if (lower.includes('strength')) section = 'strengths';
+      else if (lower.includes('gap') || lower.includes('deficien') || lower.includes('weakness') || lower.includes('missing evidence')) section = 'gaps';
+      else if (lower.includes('recommend') || lower.includes('action') || lower.includes('next steps')) section = 'recs';
+      else if (line.trim().startsWith('-') || line.trim().startsWith('*') || /^\d+\./.test(line.trim())) {
+        const item = line.replace(/^[-*\d.]+\s*/, '').trim();
+        if (item.length > 6) {
+          if (section === 'strengths' && strengths.length < 4) strengths.push(item);
+          else if (section === 'gaps' && gaps.length < 4) gaps.push(item);
+          else if (section === 'recs' && recommendations.length < 3) {
+            recommendations.push({
+              priority: recommendations.length + 1,
+              title: item.split(':')[0] || `Recommendation ${recommendations.length + 1}`,
+              desc: item.includes(':') ? item.substring(item.indexOf(':') + 1).trim() : item,
+            });
+          }
+        }
+      }
+    }
+
+    return {
+      projectId: userInputs?.projectId,
+      projectTitle: userInputs?.projectTitle || 'Audited Project',
+      score,
+      overallScore: score,
+      evaluation,
+      verdict: evaluation,
+      breakdown: [
+        { label: 'Technical Depth & Algorithmic Complexity', score: Math.round(score * 0.25), max: 25 },
+        { label: 'Architectural Modularity & State Isolation', score: Math.round(score * 0.25), max: 25 },
+        { label: 'Code Quality & Clean Architecture Principles', score: Math.round(score * 0.20), max: 20 },
+        { label: 'Documentation, API Specs & README Clarity', score: Math.round(score * 0.15), max: 15 },
+        { label: 'Automated Testing & Verifiable Proof of Work', score: Math.round(score * 0.15), max: 15 },
+      ],
+      strengths: strengths.length > 0 ? strengths : ['Project architecture aligns with stated domain objectives.'],
+      gaps: gaps.length > 0 ? gaps : ['Add automated tests and deployed demonstration link to strengthen proof.'],
+      missingEvidence: [],
+      recommendations: recommendations.length > 0 ? recommendations : [
+        { priority: 1, title: 'Add Comprehensive Test Suite', desc: 'Implement unit and integration tests to verify critical logic.' },
+        { priority: 2, title: 'Deploy Live Demonstration', desc: 'Provide an interactive live URL to demonstrate production readiness.' },
+      ],
+      timestamp: new Date().toISOString(),
+    };
+  }
+
+  // For GitHub Audit: calculate score deterministically from breakdown
+  if (engineId === 'github-audit') {
     const rawBreakdown = (baseModel as any)?.breakdown;
     if (Array.isArray(rawBreakdown) && rawBreakdown.length > 0) {
       const validated = calculateDeterministicCategoryScore(rawBreakdown, text);
@@ -1227,83 +1405,19 @@ ${context.projects.map((p) => `##### **${p.title}**
     }
 
     case 'project-auditor': {
-      const userProjTitle = userInputs?.projectTitle || userInputs?.projectName || userInputs?.title;
-      const userTechStack = Array.isArray(userInputs?.techStack)
-        ? userInputs.techStack
-        : typeof userInputs?.techStack === 'string' && userInputs.techStack.trim()
-        ? userInputs.techStack.split(',').map((s: string) => s.trim())
-        : null;
-
-      const fallbackProj = {
-        title: userProjTitle || 'Distributed Microservices Platform',
-        techStack: userTechStack || ['TypeScript', 'React', 'Node.js', 'PostgreSQL', 'Docker'],
-        description: userInputs?.projectDetails || userInputs?.description || 'Scalable cloud architecture with JWT authentication and caching.',
-      };
-
-      const proj = context.projects[0] || fallbackProj;
-      const auditedTitle = userProjTitle || proj.title;
-      const auditedStack = userTechStack || (Array.isArray(proj.techStack) ? proj.techStack : ['TypeScript', 'React', 'Node.js']);
-
-      const score = 86;
-      const evaluation = getEvaluationLabel(score);
-      const text = `### Technical Project Architecture Audit
-
-**Project Audited**: **${auditedTitle}**  
-**Assessed Stack**: ${auditedStack.join(', ')}
-
-#### 1. Architecture Rigor & Complexity
-- **AST Depth Rating**: **88 / 100** (High structural modularity)
-- **Code Entropy Score**: **84 / 100** (Organic commit history, minimal boilerplate)
-- **Design Patterns**: Clean layered architecture with repository pattern.
-
-#### 2. Project Strengths
-- Strong type safety throughout client and server interface definitions.
-- Pragmatic relational data models matching industry production standards.
-- Clear separation of concerns with isolated service layers.
-
-#### 3. Identified Gaps & Missing Evidence
-- Missing automated end-to-end integration tests (Playwright/Jest).
-- Lacks throughput/latency benchmark numbers in project README.
-- Architecture diagram missing from documentation.`;
-
-      const data = {
-        score,
-        evaluation,
-        profile: {
-          name: auditedTitle,
-          sourceUrl: userInputs?.repoUrl || userInputs?.githubUrl || context.githubUrl,
-          techStack: auditedStack,
-          astDepth: 'Level 3.4 (High Modularity)',
-          codeEntropy: '84% (Organic Engineering)',
+      // Deterministic fallback disabled: Project Auditor requires real AI evaluation
+      const pTitle = userInputs?.projectTitle || userInputs?.projectName || '';
+      return {
+        text: 'Project audit requires active AI evaluation.',
+        data: {
+          error: 'No predetermined audit available.',
+          projectTitle: pTitle,
+          breakdown: [],
+          strengths: [],
+          gaps: [],
+          recommendations: [],
         },
-        breakdown: [
-          { label: 'Technical Depth', score: 22, max: 25 },
-          { label: 'Implementation Quality', score: 21, max: 25 },
-          { label: 'Documentation & Architecture', score: 16, max: 20 },
-          { label: 'Code Entropy & Originality', score: 13, max: 15 },
-          { label: 'Resume Impact Value', score: 14, max: 15 },
-        ],
-        strengths: [
-          'High structural modularity with strict type definitions',
-          'Production-grade relational schema design',
-          'Organic development trajectory with low copy-paste boilerplate',
-        ],
-        gaps: [
-          'Automated CI/CD workflow and unit test coverage missing',
-          'No latency or load-testing benchmarks reported in README',
-          'Missing visual architecture diagram (e.g. Mermaid/ASCII)',
-        ],
-        recommendations: [
-          { priority: 1, title: 'Add Integration Test Suite', desc: 'Implement Jest and Supertest suites for all API endpoints' },
-          { priority: 2, title: 'Publish Benchmark Metrics', desc: 'Include requests-per-second and query latency benchmarks' },
-          { priority: 3, title: 'Attach Architecture Diagram', desc: 'Add Mermaid.js system topology in repository root' },
-        ],
-        nextSteps: [
-          'Link this audited project directly to your Student Twin profile.',
-          'Feature this project on your GitHub overview with live staging link.',
-        ],
       };
-      return { text, data };
     }
 
     case 'github-audit': {

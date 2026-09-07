@@ -88,9 +88,10 @@ interface StudentTwinContextType {
   isTwinReady: boolean;
   isLoading: boolean;
   switchProfile: (profileId: string) => void;
-  addNewStudentProfile: (profileData: Partial<StudentProfile>) => Promise<void>;
-  updateProfile: (profileData: Partial<StudentProfile>) => Promise<{ error?: any; success?: boolean }>;
-  updateStudentProfile: (profileData: Partial<StudentProfile>) => Promise<void>;
+  addNewStudentProfile: (profileData: Partial<StudentProfile> & { careerGoal?: string; setActiveImmediately?: boolean }) => Promise<void>;
+  deleteStudentProfile: (profileId: string) => Promise<void>;
+  updateProfile: (profileData: Partial<StudentProfile>, targetProfileId?: string) => Promise<{ error?: any; success?: boolean }>;
+  updateStudentProfile: (profileData: Partial<StudentProfile>, targetProfileId?: string) => Promise<void>;
   uploadAvatar: (avatarDataUrl: string) => Promise<{ success: boolean; avatarUrl: string }>;
   removeAvatar: () => Promise<void>;
   upgradeSubscription: (tier: SubscriptionTier) => Promise<{ success: boolean; plan: SubscriptionPlan }>;
@@ -167,6 +168,7 @@ export const StudentTwinProvider: React.FC<{
   // Load authenticated student data whenever authenticated user changes
   useEffect(() => {
     if (!user) {
+      setIsDemoMode(false);
       setUserProfiles([]);
       setActiveProfileId('');
       setUserSkills([]);
@@ -181,6 +183,9 @@ export const StudentTwinProvider: React.FC<{
       return;
     }
 
+    // Authenticated user should never be trapped in demo mode
+    setIsDemoMode(false);
+
     async function loadUserData() {
       const userId = user!.id;
       setIsTwinHydrating(true);
@@ -190,13 +195,16 @@ export const StudentTwinProvider: React.FC<{
       const profileStorageKey = `${USER_STUDENT_PROFILES_KEY}_${userId}`;
       const localSavedProfiles = localStorage.getItem(profileStorageKey);
       let hasCachedProfiles = false;
+      let effectiveActiveId = '';
 
       if (localSavedProfiles) {
         try {
           const parsed = JSON.parse(localSavedProfiles);
           if (Array.isArray(parsed) && parsed.length > 0) {
             setUserProfiles(parsed);
-            setActiveProfileId(parsed[0].id);
+            const savedActiveId = localStorage.getItem(`sdt_active_profile_id_${userId}`);
+            effectiveActiveId = (savedActiveId && parsed.some((p: StudentProfile) => p.id === savedActiveId)) ? savedActiveId : parsed[0].id;
+            setActiveProfileId(effectiveActiveId);
             hasCachedProfiles = true;
             // Mark ready immediately so returning users never see an onboarding modal
             setIsTwinReady(true);
@@ -222,20 +230,21 @@ export const StudentTwinProvider: React.FC<{
         setSubscription(SUBSCRIPTION_PLANS.free);
       }
 
-      // Load User Skills, Projects, Achievements, Certifications, Participations, Goals from user-scoped storage immediately
-      const skillsStorageKey = `${USER_SKILLS_KEY}_${userId}`;
-      const projectsStorageKey = `${USER_PROJECTS_KEY}_${userId}`;
-      const achStorageKey = `${USER_ACHIEVEMENTS_KEY}_${userId}`;
-      const certStorageKey = `${USER_CERTIFICATIONS_KEY}_${userId}`;
-      const partStorageKey = `${USER_PARTICIPATIONS_KEY}_${userId}`;
-      const goalsStorageKey = `${USER_GOALS_KEY}_${userId}`;
+      // Load User Skills, Projects, Achievements, Certifications, Participations, Goals from profile-scoped storage
+      const isPrimaryProfile = !effectiveActiveId || (localSavedProfiles ? JSON.parse(localSavedProfiles)[0]?.id === effectiveActiveId : true);
+      const skillsStorageKey = effectiveActiveId ? `${USER_SKILLS_KEY}_${userId}_${effectiveActiveId}` : `${USER_SKILLS_KEY}_${userId}`;
+      const projectsStorageKey = effectiveActiveId ? `${USER_PROJECTS_KEY}_${userId}_${effectiveActiveId}` : `${USER_PROJECTS_KEY}_${userId}`;
+      const achStorageKey = effectiveActiveId ? `${USER_ACHIEVEMENTS_KEY}_${userId}_${effectiveActiveId}` : `${USER_ACHIEVEMENTS_KEY}_${userId}`;
+      const certStorageKey = effectiveActiveId ? `${USER_CERTIFICATIONS_KEY}_${userId}_${effectiveActiveId}` : `${USER_CERTIFICATIONS_KEY}_${userId}`;
+      const partStorageKey = effectiveActiveId ? `${USER_PARTICIPATIONS_KEY}_${userId}_${effectiveActiveId}` : `${USER_PARTICIPATIONS_KEY}_${userId}`;
+      const goalsStorageKey = effectiveActiveId ? `${USER_GOALS_KEY}_${userId}_${effectiveActiveId}` : `${USER_GOALS_KEY}_${userId}`;
 
-      const savedSkills = localStorage.getItem(skillsStorageKey);
-      const savedProjects = localStorage.getItem(projectsStorageKey);
-      const savedAch = localStorage.getItem(achStorageKey);
-      const savedCerts = localStorage.getItem(certStorageKey);
-      const savedParts = localStorage.getItem(partStorageKey);
-      const savedGoals = localStorage.getItem(goalsStorageKey);
+      const savedSkills = localStorage.getItem(skillsStorageKey) || (isPrimaryProfile ? localStorage.getItem(`${USER_SKILLS_KEY}_${userId}`) : null);
+      const savedProjects = localStorage.getItem(projectsStorageKey) || (isPrimaryProfile ? localStorage.getItem(`${USER_PROJECTS_KEY}_${userId}`) : null);
+      const savedAch = localStorage.getItem(achStorageKey) || (isPrimaryProfile ? localStorage.getItem(`${USER_ACHIEVEMENTS_KEY}_${userId}`) : null);
+      const savedCerts = localStorage.getItem(certStorageKey) || (isPrimaryProfile ? localStorage.getItem(`${USER_CERTIFICATIONS_KEY}_${userId}`) : null);
+      const savedParts = localStorage.getItem(partStorageKey) || (isPrimaryProfile ? localStorage.getItem(`${USER_PARTICIPATIONS_KEY}_${userId}`) : null);
+      const savedGoals = localStorage.getItem(goalsStorageKey) || (isPrimaryProfile ? localStorage.getItem(`${USER_GOALS_KEY}_${userId}`) : null);
 
       if (savedSkills) {
         try {
@@ -346,7 +355,9 @@ export const StudentTwinProvider: React.FC<{
             }));
 
             setUserProfiles(mappedProfiles);
-            setActiveProfileId(mappedProfiles[0].id);
+            const savedActiveId = localStorage.getItem(`sdt_active_profile_id_${userId}`);
+            const effectiveCloudActiveId = (savedActiveId && mappedProfiles.some((p) => p.id === savedActiveId)) ? savedActiveId : mappedProfiles[0].id;
+            setActiveProfileId(effectiveCloudActiveId);
             localStorage.setItem(profileStorageKey, JSON.stringify(mappedProfiles));
 
             if (mappedProfiles[0]?.subscriptionTier && SUBSCRIPTION_PLANS[mappedProfiles[0].subscriptionTier as SubscriptionTier]) {
@@ -601,37 +612,81 @@ export const StudentTwinProvider: React.FC<{
       setIsDemoLockOpen(true);
       return;
     }
+    if (!profileId || profileId === activeProfileId) return;
+
+    if (user && activeProfileId) {
+      // Save current active profile's evidence to profile-scoped storage
+      localStorage.setItem(`${USER_SKILLS_KEY}_${user.id}_${activeProfileId}`, JSON.stringify(userSkills));
+      localStorage.setItem(`${USER_PROJECTS_KEY}_${user.id}_${activeProfileId}`, JSON.stringify(userProjects));
+      localStorage.setItem(`${USER_ACHIEVEMENTS_KEY}_${user.id}_${activeProfileId}`, JSON.stringify(userAchievements));
+      localStorage.setItem(`${USER_CERTIFICATIONS_KEY}_${user.id}_${activeProfileId}`, JSON.stringify(userCertifications));
+      localStorage.setItem(`${USER_PARTICIPATIONS_KEY}_${user.id}_${activeProfileId}`, JSON.stringify(userParticipations));
+      localStorage.setItem(`${USER_GOALS_KEY}_${user.id}_${activeProfileId}`, JSON.stringify(userCareerGoals));
+    }
+
     setActiveProfileId(profileId);
+
+    if (user) {
+      localStorage.setItem(`sdt_active_profile_id_${user.id}`, profileId);
+
+      const isPrimary = userProfiles[0]?.id === profileId;
+
+      const profileSkills = localStorage.getItem(`${USER_SKILLS_KEY}_${user.id}_${profileId}`) || (isPrimary ? localStorage.getItem(`${USER_SKILLS_KEY}_${user.id}`) : null);
+      try { setUserSkills(profileSkills ? JSON.parse(profileSkills) : []); } catch { setUserSkills([]); }
+
+      const profileProjects = localStorage.getItem(`${USER_PROJECTS_KEY}_${user.id}_${profileId}`) || (isPrimary ? localStorage.getItem(`${USER_PROJECTS_KEY}_${user.id}`) : null);
+      try { setUserProjects(profileProjects ? JSON.parse(profileProjects) : []); } catch { setUserProjects([]); }
+
+      const profileAch = localStorage.getItem(`${USER_ACHIEVEMENTS_KEY}_${user.id}_${profileId}`) || (isPrimary ? localStorage.getItem(`${USER_ACHIEVEMENTS_KEY}_${user.id}`) : null);
+      try { setUserAchievements(profileAch ? JSON.parse(profileAch) : []); } catch { setUserAchievements([]); }
+
+      const profileCerts = localStorage.getItem(`${USER_CERTIFICATIONS_KEY}_${user.id}_${profileId}`) || (isPrimary ? localStorage.getItem(`${USER_CERTIFICATIONS_KEY}_${user.id}`) : null);
+      try { setUserCertifications(profileCerts ? JSON.parse(profileCerts) : []); } catch { setUserCertifications([]); }
+
+      const profileParts = localStorage.getItem(`${USER_PARTICIPATIONS_KEY}_${user.id}_${profileId}`) || (isPrimary ? localStorage.getItem(`${USER_PARTICIPATIONS_KEY}_${user.id}`) : null);
+      try { setUserParticipations(profileParts ? JSON.parse(profileParts) : []); } catch { setUserParticipations([]); }
+
+      const profileGoals = localStorage.getItem(`${USER_GOALS_KEY}_${user.id}_${profileId}`) || (isPrimary ? localStorage.getItem(`${USER_GOALS_KEY}_${user.id}`) : null);
+      try { setUserCareerGoals(profileGoals ? JSON.parse(profileGoals) : []); } catch { setUserCareerGoals([]); }
+    }
   };
 
-  const updateStudentProfile = async (profileData: Partial<StudentProfile>) => {
+  const updateStudentProfile = async (profileData: Partial<StudentProfile>, targetProfileId?: string) => {
     if (isDemoMode) {
       setIsDemoLockOpen(true);
       return;
     }
-    
-    // Deterministically recompute readiness score strictly from verified user evidence
-    const candidateProfile = { ...activeProfile, ...profileData };
-    const realBreakdown = calculateRealReadiness(
-      candidateProfile,
-      userSkills,
-      userProjects,
-      userAchievements,
-      userCareerGoals
-    );
+
+    const profileIdToUpdate = targetProfileId || activeProfile.id;
+    const isTargetActive = profileIdToUpdate === activeProfile.id;
+
+    const targetProfile = userProfiles.find((p) => p.id === profileIdToUpdate) || activeProfile;
+    const candidateProfile = { ...targetProfile, ...profileData };
+
+    let calculatedScore = targetProfile.readinessScore;
+    if (isTargetActive) {
+      const realBreakdown = calculateRealReadiness(
+        candidateProfile,
+        userSkills,
+        userProjects,
+        userAchievements,
+        userCareerGoals
+      );
+      calculatedScore = realBreakdown.overallScore;
+    }
 
     const mergedData = {
-      ...profileData,
-      readinessScore: realBreakdown.overallScore,
+      ...candidateProfile,
+      readinessScore: calculatedScore,
     };
 
     setUserProfiles((prev) =>
-      prev.map((p) => (p.id === activeProfile.id ? { ...p, ...mergedData } : p))
+      prev.map((p) => (p.id === profileIdToUpdate ? mergedData : p))
     );
 
     if (user) {
       const updated = userProfiles.map((p) =>
-        p.id === activeProfile.id ? { ...p, ...mergedData } : p
+        p.id === profileIdToUpdate ? mergedData : p
       );
       localStorage.setItem(`${USER_STUDENT_PROFILES_KEY}_${user.id}`, JSON.stringify(updated));
 
@@ -640,18 +695,18 @@ export const StudentTwinProvider: React.FC<{
           supabase
             .from('student_profiles')
             .upsert({
-              id: activeProfile.id,
+              id: profileIdToUpdate,
               user_id: user.id,
               name: mergedData.name || mergedData.fullName,
               display_name: mergedData.displayName || mergedData.fullName,
-              role: mergedData.role,
+              role: mergedData.role || 'Student',
               headline: mergedData.headline,
               university: mergedData.university,
-              academic_program: mergedData.academicProgram,
+              academic_program: mergedData.academicProgram || mergedData.degree,
               degree: mergedData.degree,
               branch: mergedData.branch,
               year: mergedData.year,
-              year_of_study: mergedData.yearOfStudy,
+              year_of_study: mergedData.yearOfStudy || mergedData.year,
               grad_year: mergedData.gradYear,
               career_focus: mergedData.careerFocus,
               specialty: mergedData.specialty,
@@ -668,10 +723,10 @@ export const StudentTwinProvider: React.FC<{
               target_role: mergedData.targetRole,
               target_company_tier: mergedData.targetCompanyTier,
               readiness_score: mergedData.readinessScore,
-              skills_verified_count: userSkills.filter((s) => Boolean(s.verified)).length,
-              project_index_count: userProjects.length,
-              milestones_count: userAchievements.length,
-              status: mergedData.status,
+              skills_verified_count: isTargetActive ? userSkills.filter((s) => Boolean(s.verified)).length : mergedData.skillsVerifiedCount,
+              project_index_count: isTargetActive ? userProjects.length : mergedData.projectIndexCount,
+              milestones_count: isTargetActive ? userAchievements.length : mergedData.milestonesCount,
+              status: mergedData.status || 'Active Twin',
             }),
           3500
         ).catch((err) => {
@@ -681,13 +736,13 @@ export const StudentTwinProvider: React.FC<{
     }
   };
 
-  const updateProfile = async (profileData: Partial<StudentProfile>) => {
+  const updateProfile = async (profileData: Partial<StudentProfile>, targetProfileId?: string) => {
     if (isDemoMode) {
       setIsDemoLockOpen(true);
       return { error: new Error('Demo mode is read-only. Please create an account to customize your profile.'), success: false };
     }
     try {
-      await updateStudentProfile(profileData);
+      await updateStudentProfile(profileData, targetProfileId);
       return { success: true };
     } catch (err) {
       return { error: err, success: false };
@@ -745,30 +800,40 @@ export const StudentTwinProvider: React.FC<{
     return { success: true, plan: activatedPlan };
   };
 
-  const addNewStudentProfile = async (profileData: Partial<StudentProfile>) => {
+  const addNewStudentProfile = async (
+    profileData: Partial<StudentProfile> & { careerGoal?: string; setActiveImmediately?: boolean }
+  ) => {
     if (isDemoMode) {
       setIsDemoLockOpen(true);
       return;
     }
 
-    const newId = `profile-${Date.now()}`;
+    const newId =
+      typeof crypto !== 'undefined' && crypto.randomUUID
+        ? crypto.randomUUID()
+        : 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+            const r = (Math.random() * 16) | 0,
+              v = c === 'x' ? r : (r & 0x3) | 0x8;
+            return v.toString(16);
+          });
+
     const newProfile: StudentProfile = {
       id: newId,
       userId: user?.id,
       isDemo: false,
-      name: profileData.name || 'New Student',
-      fullName: profileData.fullName || profileData.name || 'New Student',
-      displayName: profileData.displayName || profileData.name || 'New Student',
-      role: profileData.role || '',
+      name: profileData.name || profileData.fullName || 'Student Twin',
+      fullName: profileData.fullName || profileData.name || 'Student Twin',
+      displayName: profileData.displayName || profileData.fullName || profileData.name || 'Student Twin',
+      role: profileData.role || 'Student',
       headline: profileData.headline || '',
       university: profileData.university || '',
-      academicProgram: profileData.academicProgram || '',
+      academicProgram: profileData.academicProgram || profileData.degree || '',
       degree: profileData.degree || '',
       branch: profileData.branch || '',
       year: profileData.year || '',
-      yearOfStudy: profileData.yearOfStudy || '',
+      yearOfStudy: profileData.yearOfStudy || profileData.year || '',
       gradYear: profileData.gradYear || '',
-      careerFocus: profileData.careerFocus || '',
+      careerFocus: profileData.careerFocus || profileData.careerGoal || '',
       specialty: profileData.specialty || '',
       bio: profileData.bio || '',
       avatarUrl: profileData.avatarUrl,
@@ -785,19 +850,45 @@ export const StudentTwinProvider: React.FC<{
       targetRole: profileData.targetRole || '',
       targetCompanyTier: profileData.targetCompanyTier || '',
       currentGpa: profileData.currentGpa || '',
-      cgpa: 0,
-      semester: '',
-      status: 'Draft',
+      cgpa: profileData.cgpa || 0,
+      semester: profileData.semester || '',
+      status: 'Active Twin',
       subscriptionTier: subscription.tier,
       createdAt: new Date().toISOString(),
     };
 
     const updated = [...userProfiles, newProfile];
     setUserProfiles(updated);
-    setActiveProfileId(newId);
 
     if (user) {
       localStorage.setItem(`${USER_STUDENT_PROFILES_KEY}_${user.id}`, JSON.stringify(updated));
+
+      // Strictly isolate newly created profile's evidence: start clean with 0 items
+      localStorage.setItem(`${USER_SKILLS_KEY}_${user.id}_${newId}`, JSON.stringify([]));
+      localStorage.setItem(`${USER_PROJECTS_KEY}_${user.id}_${newId}`, JSON.stringify([]));
+      localStorage.setItem(`${USER_ACHIEVEMENTS_KEY}_${user.id}_${newId}`, JSON.stringify([]));
+      localStorage.setItem(`${USER_CERTIFICATIONS_KEY}_${user.id}_${newId}`, JSON.stringify([]));
+      localStorage.setItem(`${USER_PARTICIPATIONS_KEY}_${user.id}_${newId}`, JSON.stringify([]));
+
+      const newGoals: CareerGoal[] = profileData.careerGoal
+        ? [
+            {
+              id: `goal-${Date.now()}`,
+              title: profileData.careerGoal,
+              targetRole: newProfile.targetRole || 'Software Engineering',
+              targetDomain: newProfile.branch || '',
+              targetTimeline: '12 Months',
+              targetDate: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+              progress: 0,
+              status: 'Active',
+              confidenceScore: 0,
+              requiredSkills: [],
+              acquiredSkills: [],
+              keyMilestones: [],
+            },
+          ]
+        : [];
+      localStorage.setItem(`${USER_GOALS_KEY}_${user.id}_${newId}`, JSON.stringify(newGoals));
 
       if (isSupabaseConfigured) {
         withTimeout(
@@ -819,10 +910,96 @@ export const StudentTwinProvider: React.FC<{
             linkedin_url: newProfile.linkedinUrl,
             location: newProfile.location,
             readiness_score: 0,
+            skills_verified_count: 0,
+            project_index_count: 0,
+            milestones_count: 0,
+            target_role: newProfile.targetRole,
+            semester: newProfile.semester,
+            current_gpa: newProfile.cgpa ? String(newProfile.cgpa) : '',
+            status: 'Active Twin',
           }),
-          3000
+          3500
         ).catch((err) => {
           console.warn('Student profile cloud insert notice:', err);
+        });
+      }
+    }
+
+    // Set as active if requested (default is true)
+    if (profileData.setActiveImmediately !== false) {
+      if (user && activeProfileId) {
+        localStorage.setItem(`${USER_SKILLS_KEY}_${user.id}_${activeProfileId}`, JSON.stringify(userSkills));
+        localStorage.setItem(`${USER_PROJECTS_KEY}_${user.id}_${activeProfileId}`, JSON.stringify(userProjects));
+        localStorage.setItem(`${USER_ACHIEVEMENTS_KEY}_${user.id}_${activeProfileId}`, JSON.stringify(userAchievements));
+        localStorage.setItem(`${USER_CERTIFICATIONS_KEY}_${user.id}_${activeProfileId}`, JSON.stringify(userCertifications));
+        localStorage.setItem(`${USER_PARTICIPATIONS_KEY}_${user.id}_${activeProfileId}`, JSON.stringify(userParticipations));
+        localStorage.setItem(`${USER_GOALS_KEY}_${user.id}_${activeProfileId}`, JSON.stringify(userCareerGoals));
+      }
+
+      setActiveProfileId(newId);
+      if (user) {
+        localStorage.setItem(`sdt_active_profile_id_${user.id}`, newId);
+      }
+      setUserSkills([]);
+      setUserProjects([]);
+      setUserAchievements([]);
+      setUserCertifications([]);
+      setUserParticipations([]);
+      setUserCareerGoals(
+        profileData.careerGoal
+          ? [
+              {
+                id: `goal-${Date.now()}`,
+                title: profileData.careerGoal,
+                targetRole: newProfile.targetRole || 'Software Engineering',
+                targetDomain: newProfile.branch || '',
+                targetTimeline: '12 Months',
+                targetDate: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+                progress: 0,
+                status: 'Active',
+                confidenceScore: 0,
+                requiredSkills: [],
+                acquiredSkills: [],
+                keyMilestones: [],
+              },
+            ]
+          : []
+      );
+    }
+  };
+
+  const deleteStudentProfile = async (profileId: string) => {
+    if (isDemoMode) {
+      setIsDemoLockOpen(true);
+      return;
+    }
+    if (userProfiles.length <= 1) {
+      return;
+    }
+
+    const updated = userProfiles.filter((p) => p.id !== profileId);
+    setUserProfiles(updated);
+
+    if (activeProfileId === profileId) {
+      const nextActiveId = updated[0].id;
+      switchProfile(nextActiveId);
+    }
+
+    if (user) {
+      localStorage.setItem(`${USER_STUDENT_PROFILES_KEY}_${user.id}`, JSON.stringify(updated));
+      localStorage.removeItem(`${USER_SKILLS_KEY}_${user.id}_${profileId}`);
+      localStorage.removeItem(`${USER_PROJECTS_KEY}_${user.id}_${profileId}`);
+      localStorage.removeItem(`${USER_ACHIEVEMENTS_KEY}_${user.id}_${profileId}`);
+      localStorage.removeItem(`${USER_CERTIFICATIONS_KEY}_${user.id}_${profileId}`);
+      localStorage.removeItem(`${USER_PARTICIPATIONS_KEY}_${user.id}_${profileId}`);
+      localStorage.removeItem(`${USER_GOALS_KEY}_${user.id}_${profileId}`);
+
+      if (isSupabaseConfigured) {
+        withTimeout(
+          supabase.from('student_profiles').delete().eq('id', profileId).eq('user_id', user.id),
+          3500
+        ).catch((err) => {
+          console.warn('Student profile cloud delete notice:', err);
         });
       }
     }
@@ -872,6 +1049,7 @@ export const StudentTwinProvider: React.FC<{
     setUserSkills(updated);
     if (user) {
       localStorage.setItem(`${USER_SKILLS_KEY}_${user.id}`, JSON.stringify(updated));
+      localStorage.setItem(`${USER_SKILLS_KEY}_${user.id}_${activeProfile.id}`, JSON.stringify(updated));
       syncEvidenceCountersToCloud(updated, userProjects, userAchievements, userCareerGoals);
     }
   };
@@ -885,6 +1063,7 @@ export const StudentTwinProvider: React.FC<{
     setUserSkills(updated);
     if (user) {
       localStorage.setItem(`${USER_SKILLS_KEY}_${user.id}`, JSON.stringify(updated));
+      localStorage.setItem(`${USER_SKILLS_KEY}_${user.id}_${activeProfile.id}`, JSON.stringify(updated));
       syncEvidenceCountersToCloud(updated, userProjects, userAchievements, userCareerGoals);
     }
   };
@@ -898,6 +1077,7 @@ export const StudentTwinProvider: React.FC<{
     setUserSkills(updated);
     if (user) {
       localStorage.setItem(`${USER_SKILLS_KEY}_${user.id}`, JSON.stringify(updated));
+      localStorage.setItem(`${USER_SKILLS_KEY}_${user.id}_${activeProfile.id}`, JSON.stringify(updated));
       syncEvidenceCountersToCloud(updated, userProjects, userAchievements, userCareerGoals);
     }
   };
@@ -915,6 +1095,7 @@ export const StudentTwinProvider: React.FC<{
     setUserProjects(updated);
     if (user) {
       localStorage.setItem(`${USER_PROJECTS_KEY}_${user.id}`, JSON.stringify(updated));
+      localStorage.setItem(`${USER_PROJECTS_KEY}_${user.id}_${activeProfile.id}`, JSON.stringify(updated));
       syncEvidenceCountersToCloud(userSkills, updated, userAchievements, userCareerGoals);
     }
   };
@@ -928,6 +1109,7 @@ export const StudentTwinProvider: React.FC<{
     setUserProjects(updated);
     if (user) {
       localStorage.setItem(`${USER_PROJECTS_KEY}_${user.id}`, JSON.stringify(updated));
+      localStorage.setItem(`${USER_PROJECTS_KEY}_${user.id}_${activeProfile.id}`, JSON.stringify(updated));
       syncEvidenceCountersToCloud(userSkills, updated, userAchievements, userCareerGoals);
     }
   };
@@ -941,6 +1123,7 @@ export const StudentTwinProvider: React.FC<{
     setUserProjects(updated);
     if (user) {
       localStorage.setItem(`${USER_PROJECTS_KEY}_${user.id}`, JSON.stringify(updated));
+      localStorage.setItem(`${USER_PROJECTS_KEY}_${user.id}_${activeProfile.id}`, JSON.stringify(updated));
       syncEvidenceCountersToCloud(userSkills, updated, userAchievements, userCareerGoals);
     }
   };
@@ -958,6 +1141,7 @@ export const StudentTwinProvider: React.FC<{
     setUserAchievements(updated);
     if (user) {
       localStorage.setItem(`${USER_ACHIEVEMENTS_KEY}_${user.id}`, JSON.stringify(updated));
+      localStorage.setItem(`${USER_ACHIEVEMENTS_KEY}_${user.id}_${activeProfile.id}`, JSON.stringify(updated));
       syncEvidenceCountersToCloud(userSkills, userProjects, updated, userCareerGoals);
     }
   };
@@ -971,6 +1155,7 @@ export const StudentTwinProvider: React.FC<{
     setUserAchievements(updated);
     if (user) {
       localStorage.setItem(`${USER_ACHIEVEMENTS_KEY}_${user.id}`, JSON.stringify(updated));
+      localStorage.setItem(`${USER_ACHIEVEMENTS_KEY}_${user.id}_${activeProfile.id}`, JSON.stringify(updated));
       syncEvidenceCountersToCloud(userSkills, userProjects, updated, userCareerGoals);
     }
   };
@@ -984,6 +1169,7 @@ export const StudentTwinProvider: React.FC<{
     setUserAchievements(updated);
     if (user) {
       localStorage.setItem(`${USER_ACHIEVEMENTS_KEY}_${user.id}`, JSON.stringify(updated));
+      localStorage.setItem(`${USER_ACHIEVEMENTS_KEY}_${user.id}_${activeProfile.id}`, JSON.stringify(updated));
       syncEvidenceCountersToCloud(userSkills, userProjects, updated, userCareerGoals);
     }
   };
@@ -1001,6 +1187,8 @@ export const StudentTwinProvider: React.FC<{
     setUserCertifications(updated);
     if (user) {
       localStorage.setItem(`${USER_CERTIFICATIONS_KEY}_${user.id}`, JSON.stringify(updated));
+      localStorage.setItem(`${USER_CERTIFICATIONS_KEY}_${user.id}_${activeProfile.id}`, JSON.stringify(updated));
+      syncEvidenceCountersToCloud(userSkills, userProjects, userAchievements, userCareerGoals);
     }
   };
 
@@ -1013,6 +1201,8 @@ export const StudentTwinProvider: React.FC<{
     setUserCertifications(updated);
     if (user) {
       localStorage.setItem(`${USER_CERTIFICATIONS_KEY}_${user.id}`, JSON.stringify(updated));
+      localStorage.setItem(`${USER_CERTIFICATIONS_KEY}_${user.id}_${activeProfile.id}`, JSON.stringify(updated));
+      syncEvidenceCountersToCloud(userSkills, userProjects, userAchievements, userCareerGoals);
     }
   };
 
@@ -1025,6 +1215,8 @@ export const StudentTwinProvider: React.FC<{
     setUserCertifications(updated);
     if (user) {
       localStorage.setItem(`${USER_CERTIFICATIONS_KEY}_${user.id}`, JSON.stringify(updated));
+      localStorage.setItem(`${USER_CERTIFICATIONS_KEY}_${user.id}_${activeProfile.id}`, JSON.stringify(updated));
+      syncEvidenceCountersToCloud(userSkills, userProjects, userAchievements, userCareerGoals);
     }
   };
 
@@ -1041,6 +1233,8 @@ export const StudentTwinProvider: React.FC<{
     setUserParticipations(updated);
     if (user) {
       localStorage.setItem(`${USER_PARTICIPATIONS_KEY}_${user.id}`, JSON.stringify(updated));
+      localStorage.setItem(`${USER_PARTICIPATIONS_KEY}_${user.id}_${activeProfile.id}`, JSON.stringify(updated));
+      syncEvidenceCountersToCloud(userSkills, userProjects, userAchievements, userCareerGoals);
     }
   };
 
@@ -1053,6 +1247,8 @@ export const StudentTwinProvider: React.FC<{
     setUserParticipations(updated);
     if (user) {
       localStorage.setItem(`${USER_PARTICIPATIONS_KEY}_${user.id}`, JSON.stringify(updated));
+      localStorage.setItem(`${USER_PARTICIPATIONS_KEY}_${user.id}_${activeProfile.id}`, JSON.stringify(updated));
+      syncEvidenceCountersToCloud(userSkills, userProjects, userAchievements, userCareerGoals);
     }
   };
 
@@ -1065,6 +1261,8 @@ export const StudentTwinProvider: React.FC<{
     setUserParticipations(updated);
     if (user) {
       localStorage.setItem(`${USER_PARTICIPATIONS_KEY}_${user.id}`, JSON.stringify(updated));
+      localStorage.setItem(`${USER_PARTICIPATIONS_KEY}_${user.id}_${activeProfile.id}`, JSON.stringify(updated));
+      syncEvidenceCountersToCloud(userSkills, userProjects, userAchievements, userCareerGoals);
     }
   };
 
@@ -1094,6 +1292,7 @@ export const StudentTwinProvider: React.FC<{
     setUserCareerGoals(updated);
     if (user) {
       localStorage.setItem(`${USER_GOALS_KEY}_${user.id}`, JSON.stringify(updated));
+      localStorage.setItem(`${USER_GOALS_KEY}_${user.id}_${activeProfile.id}`, JSON.stringify(updated));
     }
   };
 
@@ -1129,6 +1328,7 @@ export const StudentTwinProvider: React.FC<{
         isLoading: isTwinHydrating,
         switchProfile,
         addNewStudentProfile,
+        deleteStudentProfile,
         updateProfile,
         updateStudentProfile,
         uploadAvatar,

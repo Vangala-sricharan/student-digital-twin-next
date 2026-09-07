@@ -13,13 +13,13 @@ export function buildStudentContext(
   careerGoal?: CareerGoal
 ): EngineAiRequest['studentContext'] {
   return {
-    name: profile.fullName || profile.name || 'Student Candidate',
-    targetRole: profile.targetRole || 'Software Development Engineer',
-    degree: profile.degree || 'B.Tech',
-    branch: profile.branch || 'Computer Science & Engineering',
-    university: profile.university || 'Engineering University',
-    year: profile.year || '3rd',
-    cgpa: profile.cgpa || profile.currentGpa || '8.5',
+    name: profile.fullName || profile.name || '',
+    targetRole: profile.targetRole || careerGoal?.targetRole || '',
+    degree: profile.degree || '',
+    branch: profile.branch || '',
+    university: profile.university || '',
+    year: profile.year || '',
+    cgpa: profile.cgpa || profile.currentGpa || '',
     readinessScore: profile.readinessScore ?? 0,
     skills: skills.map((s) => ({
       name: s.name,
@@ -33,6 +33,10 @@ export function buildStudentContext(
       description: p.description,
       astDepth: p.astDepth,
       entropyScore: p.entropyScore,
+      githubUrl: p.githubUrl,
+      liveUrl: p.liveUrl,
+      role: p.role,
+      status: p.status,
     })),
     achievements: achievements.map((a) => ({
       title: a.title,
@@ -49,6 +53,7 @@ export function buildStudentContext(
       : undefined,
     githubUrl: profile.githubUrl,
     linkedinUrl: profile.linkedinUrl,
+    portfolioUrl: profile.portfolioUrl,
   };
 }
 

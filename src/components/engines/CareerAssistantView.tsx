@@ -2,7 +2,8 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useStudentTwin } from '../../context/StudentTwinContext';
 import { AI_ENGINES } from '../../data/enginesData';
 import { EngineLayout } from './EngineLayout';
-import { buildStudentContext, executeAiEngine } from '../../lib/aiEngineService';
+import { buildStudentContext } from '../../lib/aiEngineService';
+import { askCareerAssistantStream } from '../../services/aiService';
 import { generateStyledPDF } from '../../lib/pdfExportService';
 import { Send, Bot, Sparkles, Download, Copy, Check, RotateCcw } from 'lucide-react';
 
@@ -46,6 +47,7 @@ export const CareerAssistantView: React.FC<CareerAssistantViewProps> = ({ onBack
   const [exportingPdf, setExportingPdf] = useState(false);
 
   const isSubmittingRef = useRef(false);
+  const abortControllerRef = useRef<AbortController | null>(null);
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
   const chatContainerRef = useRef<HTMLDivElement | null>(null);
 
@@ -70,20 +72,25 @@ export const CareerAssistantView: React.FC<CareerAssistantViewProps> = ({ onBack
     performScroll();
     requestAnimationFrame(performScroll);
     setTimeout(performScroll, 50);
-    setTimeout(performScroll, 150);
   };
 
-  // User isolation: Reset conversation when switching between Demo Mode and Authenticated user, or across logins
+  // User isolation: Reset conversation when switching between Demo Mode and Authenticated user, or across profiles
   const userIdentifier = isDemoMode ? 'demo-mode-session' : (profile?.id || profile?.fullName || 'authenticated-user');
   const prevUserRef = useRef(userIdentifier);
 
   useEffect(() => {
     if (prevUserRef.current !== userIdentifier) {
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+        abortControllerRef.current = null;
+      }
       prevUserRef.current = userIdentifier;
       setMessages([getInitialWelcomeMessage()]);
       setError(null);
       setLastFailedQuery(null);
       setInputQuery('');
+      setIsThinking(false);
+      isSubmittingRef.current = false;
     }
   }, [userIdentifier]);
 
@@ -97,7 +104,7 @@ export const CareerAssistantView: React.FC<CareerAssistantViewProps> = ({ onBack
     scrollToBottom('smooth');
   }, [messages, isThinking, error]);
 
-  // ResizeObserver to ensure dynamic content expansion (e.g. text reflow, markdown) stays scrolled
+  // ResizeObserver to ensure dynamic content expansion stays scrolled
   useEffect(() => {
     const container = chatContainerRef.current;
     if (!container) return;
@@ -121,6 +128,19 @@ export const CareerAssistantView: React.FC<CareerAssistantViewProps> = ({ onBack
     navigator.clipboard.writeText(text);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
+  };
+
+  const handleResetChat = () => {
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+      abortControllerRef.current = null;
+    }
+    setMessages([getInitialWelcomeMessage()]);
+    setError(null);
+    setLastFailedQuery(null);
+    setInputQuery('');
+    setIsThinking(false);
+    isSubmittingRef.current = false;
   };
 
   const handleExportPDF = async () => {
@@ -151,7 +171,14 @@ export const CareerAssistantView: React.FC<CareerAssistantViewProps> = ({ onBack
 
   const handleSendMessage = async (queryToSend?: string) => {
     const query = (queryToSend ?? inputQuery).trim();
-    if (!query || isSubmittingRef.current || isThinking) return;
+    if (!query || isSubmittingRef.current) return;
+
+    // Cancel any previous in-flight request to protect against race conditions
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
+    const controller = new AbortController();
+    abortControllerRef.current = controller;
 
     isSubmittingRef.current = true;
     setIsThinking(true);
@@ -165,10 +192,16 @@ export const CareerAssistantView: React.FC<CareerAssistantViewProps> = ({ onBack
       timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
     };
 
-    const nextMessages = [...messages, userMsg];
-    setMessages(nextMessages);
+    const assistantMsgId = `assistant-${Date.now()}`;
+    const assistantPlaceholder: Message = {
+      id: assistantMsgId,
+      sender: 'assistant',
+      text: '',
+      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+    };
 
-    // Ensure prompt and 'Thinking...' indicator are immediately scrolled into view
+    const nextMessages = [...messages, userMsg];
+    setMessages([...nextMessages, assistantPlaceholder]);
     scrollToBottom('smooth');
 
     try {
@@ -180,41 +213,65 @@ export const CareerAssistantView: React.FC<CareerAssistantViewProps> = ({ onBack
         careerGoals[0]
       );
 
-      // Build compact history of recent exchanges
       const recentHistory = nextMessages.slice(-8).map((m) => ({
         role: m.sender,
         text: m.text,
       }));
 
-      const res = await executeAiEngine({
-        engineId: 'career-assistant',
+      let accumulatedText = '';
+
+      await askCareerAssistantStream({
+        message: query,
+        history: recentHistory,
         studentContext,
-        userInputs: {
-          query,
-          history: recentHistory,
+        signal: controller.signal,
+        onChunk: (chunkText) => {
+          accumulatedText += chunkText;
+          setIsThinking(false);
+          setMessages((prev) =>
+            prev.map((msg) =>
+              msg.id === assistantMsgId ? { ...msg, text: accumulatedText } : msg
+            )
+          );
+          scrollToBottom('smooth');
+        },
+        onDone: (finalText) => {
+          const resolved = finalText || accumulatedText;
+          setMessages((prev) =>
+            prev.map((msg) =>
+              msg.id === assistantMsgId ? { ...msg, text: resolved } : msg
+            )
+          );
+          setIsThinking(false);
+          setLastFailedQuery(null);
+          scrollToBottom('smooth');
+        },
+        onError: (err) => {
+          if (controller.signal.aborted) return;
+          console.error('Career Assistant error:', err);
+          // Remove empty placeholder message
+          setMessages((prev) =>
+            prev.filter((msg) => msg.id !== assistantMsgId || msg.text.trim().length > 0)
+          );
+          setError('Career Assistant is temporarily unavailable. Please try again.');
+          setLastFailedQuery(query);
         },
       });
-
-      if (res && res.status === 'success' && res.rawText) {
-        const assistantMsg: Message = {
-          id: `assistant-${Date.now()}`,
-          sender: 'assistant',
-          text: res.rawText,
-          timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-        };
-        setMessages((prev) => [...prev, assistantMsg]);
-        setLastFailedQuery(null);
-      } else {
-        setError('Something went wrong. Please try again.');
+    } catch (err: any) {
+      if (!controller.signal.aborted) {
+        console.error('Career Assistant request failed:', err);
+        setMessages((prev) =>
+          prev.filter((msg) => msg.id !== assistantMsgId || msg.text.trim().length > 0)
+        );
+        setError('Career Assistant is temporarily unavailable. Please try again.');
         setLastFailedQuery(query);
       }
-    } catch (err) {
-      console.error('Career Assistant request failed:', err);
-      setError('Something went wrong. Please try again.');
-      setLastFailedQuery(query);
     } finally {
-      setIsThinking(false);
-      isSubmittingRef.current = false;
+      if (abortControllerRef.current === controller) {
+        abortControllerRef.current = null;
+        isSubmittingRef.current = false;
+        setIsThinking(false);
+      }
     }
   };
 
@@ -240,41 +297,43 @@ export const CareerAssistantView: React.FC<CareerAssistantViewProps> = ({ onBack
             ref={chatContainerRef}
             className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4 scroll-smooth"
           >
-            {messages.map((m) => (
-              <div
-                key={m.id}
-                className={`flex gap-3 ${m.sender === 'user' ? 'justify-end' : 'justify-start'}`}
-              >
-                {m.sender === 'assistant' && (
-                  <div className="w-8 h-8 rounded-xl bg-blue-600 text-white flex items-center justify-center shrink-0 shadow-sm mt-1">
-                    <Bot className="w-4 h-4" />
-                  </div>
-                )}
-
+            {messages
+              .filter((m) => m.text.length > 0)
+              .map((m) => (
                 <div
-                  className={`max-w-[85%] sm:max-w-[80%] rounded-2xl p-4 text-xs sm:text-sm leading-relaxed ${
-                    m.sender === 'user'
-                      ? 'bg-blue-600 text-white rounded-tr-none'
-                      : 'bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/5 text-slate-800 dark:text-slate-200 rounded-tl-none prose dark:prose-invert max-w-none'
-                  }`}
+                  key={m.id}
+                  className={`flex gap-3 ${m.sender === 'user' ? 'justify-end' : 'justify-start'}`}
                 >
-                  <div className="whitespace-pre-wrap font-sans">{m.text}</div>
+                  {m.sender === 'assistant' && (
+                    <div className="w-8 h-8 rounded-xl bg-blue-600 text-white flex items-center justify-center shrink-0 shadow-sm mt-1">
+                      <Bot className="w-4 h-4" />
+                    </div>
+                  )}
+
                   <div
-                    className={`text-[10px] font-mono mt-2 text-right ${
-                      m.sender === 'user' ? 'text-blue-100' : 'text-slate-500 dark:text-slate-400'
+                    className={`max-w-[85%] sm:max-w-[80%] rounded-2xl p-4 text-xs sm:text-sm leading-relaxed ${
+                      m.sender === 'user'
+                        ? 'bg-blue-600 text-white rounded-tr-none'
+                        : 'bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/5 text-slate-800 dark:text-slate-200 rounded-tl-none prose dark:prose-invert max-w-none'
                     }`}
                   >
-                    {m.timestamp}
+                    <div className="whitespace-pre-wrap font-sans">{m.text}</div>
+                    <div
+                      className={`text-[10px] font-mono mt-2 text-right ${
+                        m.sender === 'user' ? 'text-blue-100' : 'text-slate-500 dark:text-slate-400'
+                      }`}
+                    >
+                      {m.timestamp}
+                    </div>
                   </div>
-                </div>
 
-                {m.sender === 'user' && (
-                  <div className="w-8 h-8 rounded-xl bg-slate-200 dark:bg-white/10 text-slate-700 dark:text-slate-300 flex items-center justify-center shrink-0 shadow-sm mt-1 font-mono font-bold text-xs">
-                    {profile?.fullName?.charAt(0) || 'U'}
-                  </div>
-                )}
-              </div>
-            ))}
+                  {m.sender === 'user' && (
+                    <div className="w-8 h-8 rounded-xl bg-slate-200 dark:bg-white/10 text-slate-700 dark:text-slate-300 flex items-center justify-center shrink-0 shadow-sm mt-1 font-mono font-bold text-xs">
+                      {profile?.fullName?.charAt(0) || 'U'}
+                    </div>
+                  )}
+                </div>
+              ))}
 
             {/* Conversational "Thinking..." Minimal Loading Indicator */}
             {isThinking && (
@@ -390,21 +449,31 @@ export const CareerAssistantView: React.FC<CareerAssistantViewProps> = ({ onBack
               </div>
             </div>
 
-            <div className="pt-2 border-t border-slate-100 dark:border-white/5 grid grid-cols-2 gap-2">
+            <div className="pt-2 border-t border-slate-100 dark:border-white/5 flex flex-col gap-2">
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  onClick={handleCopyTranscript}
+                  className="py-2 px-2.5 rounded-xl bg-slate-100 dark:bg-white/5 hover:bg-slate-200 dark:hover:bg-white/10 text-slate-800 dark:text-slate-200 text-xs font-bold font-mono flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                >
+                  {copied ? <Check className="w-3.5 h-3.5 text-emerald-500" /> : <Copy className="w-3.5 h-3.5" />}
+                  <span>{copied ? 'Copied' : 'Copy Chat'}</span>
+                </button>
+                <button
+                  onClick={handleExportPDF}
+                  disabled={exportingPdf}
+                  className="py-2 px-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold font-mono flex items-center justify-center gap-1.5 shadow-sm transition-all cursor-pointer disabled:opacity-50"
+                >
+                  <Download className="w-3.5 h-3.5" />
+                  <span>{exportingPdf ? 'Exporting...' : 'Export PDF'}</span>
+                </button>
+              </div>
+
               <button
-                onClick={handleCopyTranscript}
-                className="py-2 px-2.5 rounded-xl bg-slate-100 dark:bg-white/5 hover:bg-slate-200 dark:hover:bg-white/10 text-slate-800 dark:text-slate-200 text-xs font-bold font-mono flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                onClick={handleResetChat}
+                className="w-full py-2 px-2.5 rounded-xl bg-slate-100 dark:bg-white/5 hover:bg-slate-200 dark:hover:bg-white/10 text-slate-600 dark:text-slate-400 text-xs font-bold font-mono flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
               >
-                {copied ? <Check className="w-3.5 h-3.5 text-emerald-500" /> : <Copy className="w-3.5 h-3.5" />}
-                <span>{copied ? 'Copied' : 'Copy Chat'}</span>
-              </button>
-              <button
-                onClick={handleExportPDF}
-                disabled={exportingPdf}
-                className="py-2 px-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold font-mono flex items-center justify-center gap-1.5 shadow-sm transition-all cursor-pointer disabled:opacity-50"
-              >
-                <Download className="w-3.5 h-3.5" />
-                <span>{exportingPdf ? 'Exporting...' : 'Export PDF'}</span>
+                <RotateCcw className="w-3.5 h-3.5" />
+                <span>Reset Conversation</span>
               </button>
             </div>
           </div>
