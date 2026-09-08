@@ -5,7 +5,7 @@ import fs from 'fs';
 import path from 'path';
 import {defineConfig, Plugin} from 'vite';
 import { processEngineAiRequest } from './src/lib/serverAiHandler';
-import { handleAssistantRequest } from './api/_handlers/ai/assistant';
+import { handleAssistantRequest } from './api/ai/assistant.js';
 
 function aiEngineApiPlugin(): Plugin {
   const attachMiddleware = (server: any) => {
@@ -22,15 +22,21 @@ function aiEngineApiPlugin(): Plugin {
         return;
       }
 
-      // Career Assistant: POST /api/ai/assistant
-      if (url.startsWith('/api/ai/assistant') && req.method === 'POST') {
+      // Career Assistant: /api/ai/assistant
+      if (url.startsWith('/api/ai/assistant')) {
         let body = '';
         req.on('data', (chunk: any) => {
           body += chunk;
         });
         req.on('end', async () => {
           try {
-            req.body = JSON.parse(body || '{}');
+            if (body) {
+              try {
+                req.body = JSON.parse(body);
+              } catch {
+                req.body = {};
+              }
+            }
             await handleAssistantRequest(req, res);
           } catch (err: any) {
             res.statusCode = 500;

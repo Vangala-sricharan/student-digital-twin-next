@@ -1,8 +1,8 @@
 import { GoogleGenAI } from '@google/genai';
 
-let aiClient: GoogleGenAI | null = null;
+let aiClient = null;
 
-function getAiClient(): GoogleGenAI | null {
+function getAiClient() {
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey || apiKey === 'MY_GEMINI_API_KEY') {
     return null;
@@ -33,15 +33,11 @@ function getAiClient(): GoogleGenAI | null {
  * - NO HARDCODED PROFILE FALLBACKS: missing data remains missing (no "Software Engineer", no "Student").
  * - INR ONLY: All currency and CTC in Indian Rupees (₹) with Indian numbering. No dollar signs ($).
  */
-export function buildCareerContextPrompt(
-  studentContext: any,
-  message: string,
-  history: Array<{ role: 'user' | 'assistant'; text: string }> = []
-): { prompt: string; systemInstruction: string } {
+export function buildCareerContextPrompt(studentContext, message, history = []) {
   const c = studentContext || {};
 
   // Format profile attributes without fabricating defaults
-  const profileLines: string[] = [];
+  const profileLines = [];
   if (c.name) profileLines.push(`- Candidate Name: ${c.name}`);
   if (c.targetRole) {
     profileLines.push(`- Target Role: ${c.targetRole}`);
@@ -72,10 +68,10 @@ export function buildCareerContextPrompt(
   const skillsList =
     Array.isArray(c.skills) && c.skills.length > 0
       ? c.skills
-          .map((s: any) => {
-            const name = typeof s === 'string' ? s : s.name || '';
-            const prof = s.proficiency ? ` (${s.proficiency}%)` : '';
-            const cat = s.category ? ` [${s.category}]` : '';
+          .map((s) => {
+            const name = typeof s === 'string' ? s : s?.name || '';
+            const prof = s?.proficiency ? ` (${s.proficiency}%)` : '';
+            const cat = s?.category ? ` [${s.category}]` : '';
             return `${name}${prof}${cat}`;
           })
           .filter(Boolean)
@@ -86,7 +82,7 @@ export function buildCareerContextPrompt(
   const projectsList =
     Array.isArray(c.projects) && c.projects.length > 0
       ? c.projects
-          .map((p: any) => {
+          .map((p) => {
             const stack = Array.isArray(p.techStack) ? p.techStack.join(', ') : (p.techStack || '');
             const role = p.role ? ` | Role: ${p.role}` : '';
             const status = p.status ? ` | Status: ${p.status}` : '';
@@ -102,7 +98,7 @@ export function buildCareerContextPrompt(
   const achievementsList =
     Array.isArray(c.achievements) && c.achievements.length > 0
       ? c.achievements
-          .map((a: any) => {
+          .map((a) => {
             const title = a.title || 'Achievement';
             const issuer = a.issuer ? ` (${a.issuer})` : '';
             const date = a.date ? ` [${a.date}]` : '';
@@ -155,8 +151,9 @@ CORE RULES:
 /**
  * Handles POST /api/ai/assistant
  * Supports SSE streaming (default) and standard JSON response.
+ * Compatible with Vercel Serverless Functions and Node http.IncomingMessage / ServerResponse.
  */
-export async function handleAssistantRequest(req: any, res: any) {
+export async function handleAssistantRequest(req, res) {
   if (req.method !== 'POST') {
     res.setHeader('Allow', 'POST');
     res.statusCode = 405;
@@ -165,8 +162,28 @@ export async function handleAssistantRequest(req: any, res: any) {
     return;
   }
 
+  // Parse body safely whether pre-parsed (Express/Vercel) or a raw stream
   let body = req.body;
-  if (typeof body === 'string') {
+  if (!body && typeof req.on === 'function') {
+    try {
+      body = await new Promise((resolve, reject) => {
+        let raw = '';
+        req.on('data', (chunk) => {
+          raw += chunk;
+        });
+        req.on('end', () => {
+          try {
+            resolve(raw ? JSON.parse(raw) : {});
+          } catch {
+            resolve({});
+          }
+        });
+        req.on('error', reject);
+      });
+    } catch {
+      body = {};
+    }
+  } else if (typeof body === 'string') {
     try {
       body = JSON.parse(body);
     } catch {
@@ -200,7 +217,7 @@ export async function handleAssistantRequest(req: any, res: any) {
 
   const { prompt, systemInstruction } = buildCareerContextPrompt(studentContext, message, history);
 
-  // V3 proven model strategy: gemini-2.5-flash with resilient fallback
+  // Proven Gemini models with resilient fallback
   const models = ['gemini-2.5-flash', 'gemini-3.8-flash', 'gemini-3.1-flash-lite'];
 
   if (isStreamingRequested) {
@@ -242,7 +259,7 @@ export async function handleAssistantRequest(req: any, res: any) {
         res.end();
         streamSucceeded = true;
         break;
-      } catch (err: any) {
+      } catch (err) {
         console.warn(`[Assistant Stream] Model ${model} failed, trying alternate:`, err?.message || err);
       }
     }
@@ -278,7 +295,7 @@ export async function handleAssistantRequest(req: any, res: any) {
           })
         );
         return;
-      } catch (err: any) {
+      } catch (err) {
         console.warn(`[Assistant Non-Stream] Model ${model} failed:`, err?.message || err);
       }
     }
@@ -292,4 +309,9 @@ export async function handleAssistantRequest(req: any, res: any) {
       })
     );
   }
+}
+
+// Default export for Vercel Serverless Function entrypoint
+export default async function handler(req, res) {
+  return handleAssistantRequest(req, res);
 }
