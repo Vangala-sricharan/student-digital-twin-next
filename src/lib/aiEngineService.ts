@@ -122,6 +122,114 @@ export async function executeAiEngine(
     }
   }
 
+  // GitHub Auditor: Call dedicated /api/ai/github-audit route
+  if (request.engineId === 'github-audit') {
+    try {
+      onStageUpdate?.(1, 'Analyzing GitHub Profile');
+      const res = await fetch('/api/ai/github-audit', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          ...request.userInputs,
+          studentContext: request.studentContext,
+        }),
+      });
+
+      const json = await res.json().catch(() => ({}));
+
+      if (res.ok && json.status === 'success' && json.data) {
+        onStageUpdate?.(2, 'Audit Complete');
+        return {
+          engineId: 'github-audit',
+          status: 'success',
+          data: json.data,
+          rawText: json.rawText || '',
+          timestamp: json.timestamp || new Date().toISOString(),
+        };
+      }
+
+      const errorMsg =
+        json.error ||
+        (res.status === 404
+          ? "GitHub account not found. We couldn't find a public GitHub account for this username. Please check the URL and try again."
+          : res.status === 400
+          ? 'Please provide a valid public GitHub profile URL.'
+          : res.status === 429
+          ? 'GitHub API rate limit reached. Please wait a few moments before retrying.'
+          : 'GitHub profile audit could not be completed.');
+
+      return {
+        engineId: 'github-audit',
+        status: 'error',
+        error: errorMsg,
+        data: null,
+        timestamp: new Date().toISOString(),
+      };
+    } catch (fetchErr: any) {
+      return {
+        engineId: 'github-audit',
+        status: 'error',
+        error: fetchErr?.message || 'Network connection failed while reaching GitHub Auditor API.',
+        data: null,
+        timestamp: new Date().toISOString(),
+      };
+    }
+  }
+
+  // LinkedIn Audit: Call dedicated /api/ai/linkedin-audit route
+  if (request.engineId === 'linkedin-audit') {
+    try {
+      onStageUpdate?.(1, 'Analyzing LinkedIn PDF');
+      const res = await fetch('/api/ai/linkedin-audit', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          ...request.userInputs,
+          studentContext: request.studentContext,
+        }),
+      });
+
+      const json = await res.json().catch(() => ({}));
+
+      if (res.ok && json.status === 'success' && json.data) {
+        onStageUpdate?.(2, 'Audit Complete');
+        return {
+          engineId: 'linkedin-audit',
+          status: 'success',
+          data: json.data,
+          rawText: json.rawText || '',
+          timestamp: json.timestamp || new Date().toISOString(),
+        };
+      }
+
+      const errorMsg =
+        json.error ||
+        (res.status === 400
+          ? 'The uploaded PDF does not contain sufficient profile content to conduct an audit. Please upload an authentic profile export PDF.'
+          : 'LinkedIn profile audit could not be completed.');
+
+      return {
+        engineId: 'linkedin-audit',
+        status: 'error',
+        error: errorMsg,
+        data: null,
+        timestamp: new Date().toISOString(),
+      };
+    } catch (fetchErr: any) {
+      return {
+        engineId: 'linkedin-audit',
+        status: 'error',
+        error: fetchErr?.message || 'Network connection failed while reaching LinkedIn Audit API.',
+        data: null,
+        timestamp: new Date().toISOString(),
+      };
+    }
+  }
+
   try {
     const res = await fetch('/api/engine-ai', {
       method: 'POST',

@@ -452,8 +452,8 @@ export async function handleProjectAuditRequest(req, res) {
           break;
         }
       }
-    } catch (modelErr) {
-      console.warn(`[Project Audit] Model ${model} failed, trying alternate:`, modelErr?.message || modelErr);
+    } catch {
+      // Model temporarily unavailable; quietly cascade to alternate candidate
     }
   }
 

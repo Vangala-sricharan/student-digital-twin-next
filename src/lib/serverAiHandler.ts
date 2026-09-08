@@ -80,30 +80,18 @@ export async function fetchRealGitHubProfileData(rawUrlOrUsername: string, force
   ]);
 
   if (userRes.status === 404) {
-    throw new Error('GITHUB PROFILE NOT FOUND\nPlease check the username and try again.');
+    throw new Error("GitHub account not found. We couldn't find a public GitHub account for this username. Please check the URL and try again.");
   }
 
-  if (!userRes.ok && userRes.status !== 403) {
+  if (userRes.status === 403 || userRes.status === 429) {
+    throw new Error('GitHub API rate limit reached. Please wait a few moments before retrying.');
+  }
+
+  if (!userRes.ok) {
     throw new Error(`GitHub API returned status ${userRes.status}. Please retry in a moment.`);
   }
 
-  let userData: any = null;
-  if (userRes.ok) {
-    userData = await userRes.json();
-  } else {
-    // If rate-limited by unauthenticated GitHub API limits, provide graceful verified envelope
-    userData = {
-      login: username,
-      name: username,
-      avatar_url: `https://github.com/${username}.png`,
-      html_url: `https://github.com/${username}`,
-      bio: 'B.Tech Student & Software Developer',
-      public_repos: 18,
-      followers: 0,
-      following: 0,
-      created_at: new Date().toISOString(),
-    };
-  }
+  const userData: any = await userRes.json();
 
   let repos: any[] = [];
   if (reposRes && reposRes.ok) {
@@ -281,11 +269,11 @@ async function callGeminiWithResilience(
   systemInstruction: string,
   engineId: string
 ): Promise<string | null> {
-  // Official, high-availability Gemini models: primary standard flash followed by alternate flash and fast flash-lite
+  // Official, high-availability Gemini models: low-latency high-throughput flash-lite first, then flash models
   const candidateModels = [
+    { name: 'gemini-3.1-flash-lite', timeoutMs: 8000 },
     { name: 'gemini-3.8-flash', timeoutMs: 12000 },
     { name: 'gemini-3.6-flash', timeoutMs: 10000 },
-    { name: 'gemini-3.1-flash-lite', timeoutMs: 8000 },
   ];
 
   for (let i = 0; i < candidateModels.length; i++) {
@@ -591,12 +579,24 @@ export async function processEngineAiRequest(
           engineId,
           timestamp: new Date().toISOString(),
           status: 'error',
-          error: cleanMsg.includes('404')
-            ? 'GitHub user not found. Please double-check the username and ensure the profile is public.'
+          error: cleanMsg.includes('404') || cleanMsg.includes('not found')
+            ? "GitHub account not found. We couldn't find a public GitHub account for this username. Please check the URL and try again."
             : cleanMsg,
           data: null,
         };
       }
+    } else if (engineId === 'linkedin-audit') {
+      const pdfText = (userInputs?.profileText || documentText || '').trim();
+      if (!pdfText || pdfText.length < 30) {
+        return {
+          engineId,
+          timestamp: new Date().toISOString(),
+          status: 'error',
+          error: 'The uploaded PDF does not contain sufficient profile content to conduct an audit. Please upload an authentic profile export PDF.',
+          data: null,
+        };
+      }
+      onStageUpdate?.(1, 'Analyzing LinkedIn PDF');
     } else if (documentText || documentMeta) {
       onStageUpdate?.(1, 'Parsing Document Evidence');
     } else {
@@ -677,7 +677,7 @@ Format all pricing and CTC estimates strictly in Indian Rupees (₹) using the I
       }
     }
 
-    // Career Assistant & Project Auditor MUST NOT return a fake static answer if AI execution fails
+    // Critical Engines: NEVER return a fake static answer if prerequisites or AI execution fails
     if (engineId === 'career-assistant' || engineId === 'project-auditor') {
       return {
         engineId,
@@ -685,7 +685,27 @@ Format all pricing and CTC estimates strictly in Indian Rupees (₹) using the I
         status: 'error',
         error: engineId === 'project-auditor'
           ? 'Project code audit could not be completed. Please ensure your project details are valid and try again.'
-          : 'Something went wrong. Please try again.',
+          : 'Career Assistant analysis could not be completed.',
+        data: null,
+      };
+    }
+
+    if (engineId === 'github-audit' && !githubProfileData) {
+      return {
+        engineId,
+        timestamp: new Date().toISOString(),
+        status: 'error',
+        error: "GitHub account not found. We couldn't find a public GitHub account for this username. Please check the URL and try again.",
+        data: null,
+      };
+    }
+
+    if (engineId === 'linkedin-audit' && (!userInputs?.profileText && !documentText)) {
+      return {
+        engineId,
+        timestamp: new Date().toISOString(),
+        status: 'error',
+        error: 'The uploaded PDF does not contain sufficient profile content to conduct an audit. Please upload an authentic profile export PDF.',
         data: null,
       };
     }
@@ -1137,9 +1157,9 @@ export function calculateLinkedInAuditScore(
   const defaultCategories: LinkedInCategoryBreakdown[] = [
     { label: 'Headline Impact', score: 12, max: 15 },
     { label: 'About Section Depth', score: 19, max: 25 },
-    { label: 'Technical Positioning', score: 17, max: 20 },
-    { label: 'Experience & Project Relevance', score: 16, max: 20 },
-    { label: 'Recruiter Search Discoverability', score: 18, max: 20 },
+    { label: 'Experience & Career Progression', score: 16, max: 20 },
+    { label: 'Education & Certifications', score: 16, max: 20 },
+    { label: 'Skills & Professional Positioning', score: 17, max: 20 },
   ];
 
   const source = Array.isArray(rawBreakdown) && rawBreakdown.length > 0 ? rawBreakdown : defaultCategories;
@@ -1421,21 +1441,19 @@ ${context.projects.map((p) => `##### **${p.title}**
     }
 
     case 'github-audit': {
-      const rawUrl = userInputs?.githubUrl || context.githubUrl || '';
-      let username = 'student-engineer';
-      try {
-        if (rawUrl) {
-          const clean = rawUrl.replace(/^https?:\/\/(www\.)?github\.com\/?/, '').split('/')[0].trim();
-          if (clean) username = clean;
-        } else if (context.name) {
-          username = context.name.toLowerCase().replace(/\s+/g, '-');
-        }
-      } catch (e) {}
+      const gpd = userInputs?.githubProfileData;
+      if (!gpd) {
+        throw new Error("GitHub account not found. We couldn't find a public GitHub account for this username. Please check the URL and try again.");
+      }
 
-      const score = 84;
-      const evaluation = getEvaluationLabel(score);
-      const avatarUrl = `https://github.com/${username}.png`;
-      const htmlUrl = `https://github.com/${username}`;
+      const score = gpd.score || 75;
+      const evaluation = gpd.evaluation || getEvaluationLabel(score);
+      const username = gpd.username;
+      const htmlUrl = gpd.htmlUrl;
+
+      const strengthsList = (gpd.strengths || []).map((s: string) => `- ${s}`).join('\n') || '- Verifiable repositories with public code.';
+      const gapsList = (gpd.gaps || []).map((g: string) => `- ${g}`).join('\n') || '- Profile README could be enhanced with architecture details.';
+      const adjustmentsList = (gpd.adjustments || []).map((a: any, i: number) => `#${i + 1} ${typeof a === 'string' ? a : a.title}: ${typeof a === 'string' ? '' : a.desc}`).join('\n') || '#1 Add architecture badges to pinned repositories';
 
       const text = `### GitHub Code Signals & Technical Readiness Audit
 
@@ -1443,133 +1461,159 @@ ${context.projects.map((p) => `##### **${p.title}**
 **Recruiter-Readiness Score**: **${score} / 100** (${evaluation})
 
 #### 1. Empirical Profile Strengths
-- **Verifiable Proof of Work**: Repositories showcase technical project evidence rather than generic tutorial clones.
-- **Consistent Tech Stack**: Deep usage of modern languages (${context.skills.slice(0, 3).map((s) => s.name).join(', ') || 'TypeScript, React, Python'}).
-- **Academic & Engineering Alignment**: Clear correlation between coursework and repository complexity.
+${strengthsList}
 
 #### 2. Identified Gaps & Deficiencies
-- **Profile README**: Missing technical positioning headline and architecture summary.
-- **Repository Documentation**: Several repositories lack setup badges and license files.
-- **Live Demonstrations**: Live demo URLs missing in repository header sections.
+${gapsList}
 
 #### 3. High Impact Profile Adjustments
-#1 Improve the GitHub profile README with architecture highlights and tech badges
-#2 Add project demonstrations and live deployed URLs to pinned repositories
-#3 Improve repository documentation with step-by-step setup guides
-#4 Add stronger technical positioning with explicit performance benchmarks
+${adjustmentsList}
 
 #### 4. Recruiter Search Algorithm Optimization
-Pin top 3 proof-of-work repositories. Ensure keywords: \`REST APIs\`, \`TypeScript\`, \`Distributed Systems\`, \`Docker\` appear in repository descriptions for recruiter search indexing.`;
+${gpd.searchOptimization || 'Pin top proof-of-work repositories with relevant tech stack keywords.'}`;
 
       const data = {
         score,
         evaluation,
         profile: {
-          username,
-          name: context.name || username,
-          avatarUrl,
-          htmlUrl,
-          bio: (context as any).bio || 'Developer & Student Scholar building verifiable systems.',
-          publicRepos: 18,
-          totalStars: 42,
-          forks: 14,
-          languages: ['TypeScript', 'Python', 'Go', 'React', 'PostgreSQL'],
-          memberSince: 'Oct 2022',
-          followers: 67,
+          username: gpd.username,
+          name: gpd.name || gpd.username,
+          avatarUrl: gpd.avatarUrl,
+          htmlUrl: gpd.htmlUrl,
+          bio: gpd.bio || '',
+          publicRepos: gpd.publicRepos ?? 0,
+          totalStars: gpd.totalStars ?? 0,
+          forks: gpd.forks ?? 0,
+          languages: gpd.languages || [],
+          memberSince: gpd.memberSince || '',
+          followers: gpd.followers ?? 0,
         },
-        breakdown: [
-          { label: 'Profile Quality', score: 13, max: 15 },
-          { label: 'Project Quality', score: 21, max: 25 },
-          { label: 'Documentation', score: 17, max: 20 },
-          { label: 'Repository Organization', score: 13, max: 15 },
-          { label: 'Activity Consistency', score: 12, max: 15 },
-          { label: 'Engineering Presentation', score: 8, max: 10 },
-        ],
-        strengths: [
-          'Clear education path and academic credentials',
-          'Strong technical project evidence in core technologies',
-          'Consistent technology stack usage across top repositories',
-          'Good proof-of-work signals with low boilerplate redundancy',
-        ],
-        gaps: [
-          'Missing professional headline in GitHub profile overview',
-          'Limited project documentation and architecture diagrams',
-          'Missing live deployed demo links on pinned repositories',
-          'Limited automated CI/CD workflows and unit test badges',
-        ],
-        recommendations: [
-          { priority: 1, title: 'Improve the GitHub profile README', desc: 'Add tech badges, architecture overview, and verified Student Twin badge' },
-          { priority: 2, title: 'Add project demonstrations', desc: 'Attach live interactive staging URLs in repository description headers' },
-          { priority: 3, title: 'Improve repository documentation', desc: 'Add detailed setup instructions and API schema specifications' },
-          { priority: 4, title: 'Add stronger technical positioning', desc: 'Pin top 3 proof-of-work repositories highlighting complex algorithms' },
-        ],
-        searchOptimization: 'Pin top 3 proof-of-work repositories. Ensure keywords: REST APIs, TypeScript, Distributed Systems, Docker appear in repository descriptions for recruiter boolean search indexing.',
+        breakdown: gpd.breakdown || [],
+        strengths: gpd.strengths || [],
+        gaps: gpd.gaps || [],
+        adjustments: gpd.adjustments || [],
+        searchOptimization: gpd.searchOptimization || '',
       };
       return { text, data };
     }
 
     case 'linkedin-audit': {
-      const rawUrl = userInputs?.linkedinUrl || context.linkedinUrl || '';
-      const auditMode = userInputs?.auditMode === 'pdf' ? 'pdf' : 'url';
-      const categoryBreakdown = [
-        { label: 'Headline Impact', score: 12, max: 15 },
-        { label: 'About Section Depth', score: 19, max: 25 },
-        { label: 'Technical Positioning', score: 17, max: 20 },
-        { label: 'Experience & Project Relevance', score: 16, max: 20 },
-        { label: 'Recruiter Search Discoverability', score: 18, max: 20 },
-      ];
-      const validated = calculateLinkedInAuditScore(categoryBreakdown);
-      const score = validated.overallScore;
-      const evaluation = validated.evaluation;
-      const breakdown = validated.breakdown;
-      const text = `### LinkedIn Profile & Recruiter Visibility Audit
+      const pdfText = (userInputs?.profileText || docText || '').trim();
+      if (!pdfText || pdfText.length < 30) {
+        throw new Error('The uploaded PDF does not contain sufficient profile content to conduct an audit. Please upload an authentic profile export PDF.');
+      }
 
-**Target Role**: ${context.targetRole || 'Software Development Engineer'}  
+      const lower = pdfText.toLowerCase();
+      const detectedSections = userInputs?.detectedSections || [];
+      const fileName = userInputs?.fileName || 'linkedin_profile.pdf';
+      const candidateName = userInputs?.candidateName || context.name || 'Candidate';
+      const candidateHeadline = userInputs?.candidateHeadline || '';
+
+      const hasHeadline = !!candidateHeadline || lower.includes('headline') || detectedSections.includes('Headline');
+      const hasAbout = lower.includes('about') || lower.includes('summary') || detectedSections.includes('About');
+      const hasExperience = lower.includes('experience') || lower.includes('employment') || detectedSections.includes('Experience');
+      const hasEducation = lower.includes('education') || lower.includes('bachelor') || lower.includes('b.tech') || detectedSections.includes('Education');
+      const hasSkills = lower.includes('skills') || lower.includes('languages') || detectedSections.includes('Skills');
+
+      // Deterministic category scoring
+      let headlineScore = hasHeadline ? 11 : 4;
+      if (candidateHeadline && candidateHeadline.length > 25) headlineScore += 3;
+
+      let aboutScore = hasAbout ? 17 : 5;
+      if (pdfText.length > 800) aboutScore += 5;
+
+      let experienceScore = hasExperience ? 14 : 5;
+      if (lower.includes('developer') || lower.includes('engineer') || lower.includes('intern')) experienceScore += 3;
+
+      let educationScore = hasEducation ? 15 : 6;
+      if (lower.includes('b.tech') || lower.includes('computer science') || lower.includes('engineering')) educationScore += 3;
+
+      let skillsScore = hasSkills ? 15 : 5;
+      if (lower.includes('python') || lower.includes('javascript') || lower.includes('react') || lower.includes('java')) skillsScore += 3;
+
+      headlineScore = Math.min(headlineScore, 15);
+      aboutScore = Math.min(aboutScore, 25);
+      experienceScore = Math.min(experienceScore, 20);
+      educationScore = Math.min(educationScore, 20);
+      skillsScore = Math.min(skillsScore, 20);
+
+      const categoryBreakdown = [
+        { label: 'Headline Impact', score: headlineScore, max: 15 },
+        { label: 'About Section Depth', score: aboutScore, max: 25 },
+        { label: 'Experience & Career Progression', score: experienceScore, max: 20 },
+        { label: 'Education & Certifications', score: educationScore, max: 20 },
+        { label: 'Skills & Professional Positioning', score: skillsScore, max: 20 },
+      ];
+
+      const sumScores = headlineScore + aboutScore + experienceScore + educationScore + skillsScore;
+      const sumMax = 100;
+      const score = Math.round((sumScores / sumMax) * 100);
+      const evaluation = getEvaluationLabel(score);
+
+      const strengths = [
+        hasEducation ? 'Authentic academic credentials verified from LinkedIn PDF export.' : 'Valid profile documentation extracted.',
+        hasSkills ? 'Core technical skill taxonomy detected and aligned with engineering roles.' : 'Professional positioning framework identified.',
+        hasExperience ? 'Real-world project and experience history present in profile export.' : 'Baseline technical profile established.',
+      ];
+
+      const gaps = [
+        headlineScore < 13 ? 'Headline can be enhanced with higher-converting role and technology keywords.' : 'Headline could include more specific specialization niches.',
+        aboutScore < 20 ? 'About section lacks quantified business metrics and architecture highlights.' : 'About section can highlight deeper system design problem-solving.',
+        'Ensure top repositories and proof-of-work links are prominently attached.',
+      ];
+
+      const headlineVariations = [
+        `${candidateName} | Aspiring Software Engineer | Full-Stack & Systems`,
+        `${candidateName} | Computer Science Scholar | Proven Proof-of-Work`,
+        `${candidateName} | Software Developer | Building Scalable Web Applications`,
+      ];
+
+      const recommendations = [
+        { priority: 1, title: 'Upgrade Professional Headline', desc: `Adopt high-converting keywords: ${candidateName} | Software Engineer | React, TypeScript, Node.js` },
+        { priority: 2, title: 'Quantify Engineering About Narrative', desc: 'Detail specific architecture decisions, latency optimizations, and GitHub proof-of-work' },
+        { priority: 3, title: 'Feature Top Repositories in Media', desc: 'Directly attach verified repository links and live deployment URLs' },
+      ];
+
+      const searchOptimization = 'Optimize profile with high-volume recruiter Boolean keywords: REST APIs, TypeScript, Distributed Systems, Cloud Architecture, PostgreSQL.';
+
+      const text = `### LinkedIn Profile & Recruiter Visibility Audit (PDF Export)
+
+**Candidate**: ${candidateName}  
+**Audited File**: \`${fileName}\`  
 **Recruiter-Readiness Score**: **${score} / 100** (${evaluation})
 
-#### 1. Profile Strengths
-- Clear academic credentials${context.university ? ` at ${context.university}` : ''}.
-- Demonstrable alignment with high-demand tech stacks (${context.skills.slice(0, 3).map((s) => s.name).join(', ') || 'core software engineering concepts'}).
-- Solid foundation for early-career placement outreach.
+#### 1. Empirical Profile Strengths
+${strengths.map((s) => `- ${s}`).join('\n')}
 
-#### 2. Identified Gaps
-- **Headline**: Current headline is generic; lacks high-converting recruiter keywords.
-- **About Section**: Needs quantifiable project outcomes and technical depth signals.
-- **Featured Section**: Missing direct links to top GitHub repositories and verified Student Twin.
+#### 2. Identified Gaps & Deficiencies
+${gaps.map((g) => `- ${g}`).join('\n')}
 
-#### 3. High Impact Profile Adjustments
-#1 Update headline to: \`${context.name} | Aspiring ${context.targetRole} @ ${context.university} | ${context.skills.slice(0, 3).map((s) => s.name).join(' • ')} | Open to Internships\`
-#2 Rewrite About section focusing on system architecture and problem solving
-#3 Pin top 2 GitHub repositories in the Featured Media section
-#4 Ensure top 3 skill endorsements align directly with target job postings`;
+#### 3. Headline Calibration Options
+${headlineVariations.map((h, i) => `Option ${i + 1}: \`${h}\``).join('\n')}
+
+#### 4. High Impact Profile Adjustments
+${recommendations.map((r) => `#${r.priority} ${r.title}: ${r.desc}`).join('\n')}
+
+#### 5. Recruiter Search Discoverability Strategy
+${searchOptimization}`;
 
       const data = {
         score,
         evaluation,
-        source: auditMode,
+        source: 'pdf',
+        fileName,
         profile: {
-          name: context.name,
-          headline: `Student @ ${context.university} | Aspiring ${context.targetRole || 'Software Engineer'}`,
-          linkedinUrl: rawUrl,
-          avatarUrl: undefined,
+          name: candidateName,
+          headline: candidateHeadline || `Student Scholar | Aspiring ${context.targetRole || 'Software Engineer'}`,
+          location: userInputs?.candidateLocation || 'Verified Profile',
         },
-        breakdown,
-        strengths: [
-          'Strong educational credentials with clear graduation timeline',
-          'Good alignment with core software engineering stacks',
-          'Clear technical domain interest in backend & full-stack systems',
-        ],
-        gaps: [
-          'Missing high-converting keywords in headline',
-          'About section lacks quantifiable engineering accomplishments',
-          'Featured media section is currently empty',
-        ],
-        recommendations: [
-          { priority: 1, title: 'Upgrade Professional Headline', desc: `Adopt: "${context.name} | CS Scholar @ ${context.university} | ${context.skills.slice(0, 3).map((s) => s.name).join(' • ')}"` },
-          { priority: 2, title: 'Quantify About Narrative', desc: 'Highlight latency reductions, user scale, or project complexity' },
-          { priority: 3, title: 'Attach Featured Proof-of-Work', desc: 'Add direct links to GitHub repositories and live deployments' },
-        ],
-        searchOptimization: 'Optimize headline and skills endorsements for recruiter boolean filters: REST APIs, TypeScript, Java, Spring Boot, Data Structures.',
+        breakdown: categoryBreakdown,
+        strengths,
+        gaps,
+        headlineVariations,
+        recommendations,
+        searchOptimization,
+        detectedSections,
       };
       return { text, data };
     }

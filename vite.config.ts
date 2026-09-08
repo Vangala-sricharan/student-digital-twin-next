@@ -7,6 +7,8 @@ import {defineConfig, Plugin} from 'vite';
 import { processEngineAiRequest } from './src/lib/serverAiHandler';
 import { handleAssistantRequest } from './api/ai/assistant.js';
 import { handleProjectAuditRequest } from './api/ai/project-audit.js';
+import { handleGitHubAuditRequest } from './api/ai/github-audit.js';
+import { handleLinkedInAuditRequest } from './api/ai/linkedin-audit.js';
 
 function aiEngineApiPlugin(): Plugin {
   const attachMiddleware = (server: any) => {
@@ -14,12 +16,70 @@ function aiEngineApiPlugin(): Plugin {
       const url = req.url || '';
 
       // CORS Preflight
-      if (req.method === 'OPTIONS' && (url.startsWith('/api/ai/assistant') || url.startsWith('/api/ai/project-audit') || url.startsWith('/api/project-audit') || url.startsWith('/api/engine-ai'))) {
+      if (
+        req.method === 'OPTIONS' &&
+        (url.startsWith('/api/ai/assistant') ||
+          url.startsWith('/api/ai/project-audit') ||
+          url.startsWith('/api/project-audit') ||
+          url.startsWith('/api/ai/github-audit') ||
+          url.startsWith('/api/ai/linkedin-audit') ||
+          url.startsWith('/api/engine-ai'))
+      ) {
         res.setHeader('Access-Control-Allow-Origin', '*');
         res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
         res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Accept');
         res.statusCode = 204;
         res.end();
+        return;
+      }
+
+      // GitHub Auditor: /api/ai/github-audit
+      if (url.startsWith('/api/ai/github-audit')) {
+        let body = '';
+        req.on('data', (chunk: any) => {
+          body += chunk;
+        });
+        req.on('end', async () => {
+          try {
+            if (body) {
+              try {
+                req.body = JSON.parse(body);
+              } catch {
+                req.body = {};
+              }
+            }
+            await handleGitHubAuditRequest(req, res);
+          } catch (err: any) {
+            res.statusCode = 500;
+            res.setHeader('Content-Type', 'application/json');
+            res.end(JSON.stringify({ status: 'error', error: err?.message || 'Server error' }));
+          }
+        });
+        return;
+      }
+
+      // LinkedIn Audit: /api/ai/linkedin-audit
+      if (url.startsWith('/api/ai/linkedin-audit')) {
+        let body = '';
+        req.on('data', (chunk: any) => {
+          body += chunk;
+        });
+        req.on('end', async () => {
+          try {
+            if (body) {
+              try {
+                req.body = JSON.parse(body);
+              } catch {
+                req.body = {};
+              }
+            }
+            await handleLinkedInAuditRequest(req, res);
+          } catch (err: any) {
+            res.statusCode = 500;
+            res.setHeader('Content-Type', 'application/json');
+            res.end(JSON.stringify({ status: 'error', error: err?.message || 'Server error' }));
+          }
+        });
         return;
       }
 

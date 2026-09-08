@@ -27,6 +27,15 @@ const RESERVED_GITHUB_PATHS = new Set([
   'pulls',
   'issues',
   'notifications',
+  'stars',
+  'search',
+  'account',
+  'dashboard',
+  'about',
+  'contact',
+  'blog',
+  'support',
+  'site',
 ]);
 
 export function validateGitHubProfileUrl(rawInput: string): GitHubUrlValidationResult {

@@ -217,8 +217,8 @@ export async function handleAssistantRequest(req, res) {
 
   const { prompt, systemInstruction } = buildCareerContextPrompt(studentContext, message, history);
 
-  // Proven Gemini models with resilient fallback
-  const models = ['gemini-2.5-flash', 'gemini-3.8-flash', 'gemini-3.1-flash-lite'];
+  // Proven Gemini models with resilient fallback (fast flash-lite first)
+  const models = ['gemini-3.1-flash-lite', 'gemini-3.8-flash', 'gemini-3.6-flash'];
 
   if (isStreamingRequested) {
     res.setHeader('Content-Type', 'text/event-stream; charset=utf-8');
@@ -259,8 +259,8 @@ export async function handleAssistantRequest(req, res) {
         res.end();
         streamSucceeded = true;
         break;
-      } catch (err) {
-        console.warn(`[Assistant Stream] Model ${model} failed, trying alternate:`, err?.message || err);
+      } catch {
+        // Stream model unavailable; quietly try alternate candidate
       }
     }
 
@@ -295,8 +295,8 @@ export async function handleAssistantRequest(req, res) {
           })
         );
         return;
-      } catch (err) {
-        console.warn(`[Assistant Non-Stream] Model ${model} failed:`, err?.message || err);
+      } catch {
+        // Non-stream model unavailable; quietly try alternate candidate
       }
     }
 
