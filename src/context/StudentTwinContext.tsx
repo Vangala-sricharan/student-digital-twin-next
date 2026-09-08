@@ -129,7 +129,13 @@ export const StudentTwinProvider: React.FC<{
   children: React.ReactNode;
 }> = ({ isDemoInitial = false, children }) => {
   const { user, userProfile, updateProfile: updateAuthProfile } = useAuth();
-  const [isDemoMode, setIsDemoMode] = useState<boolean>(isDemoInitial);
+  const [isDemoMode, setIsDemoMode] = useState<boolean>(() => {
+    if (isDemoInitial) return true;
+    if (typeof window !== 'undefined') {
+      return window.location.pathname.startsWith('/demo') || window.location.search.includes('demo=true');
+    }
+    return false;
+  });
 
   const enterDemoMode = () => setIsDemoMode(true);
   const exitDemoMode = () => setIsDemoMode(false);

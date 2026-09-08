@@ -58,6 +58,27 @@ body {
   animation: marquee 25s linear infinite;
 }
 
+@keyframes floatFun {
+  0% {
+    transform: translateY(20px) scale(0.7);
+    opacity: 0;
+  }
+  25% {
+    opacity: 1;
+  }
+  75% {
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(-50px) scale(1.15);
+    opacity: 0;
+  }
+}
+
+.animate-float-fun {
+  animation: floatFun 1.2s ease-out forwards;
+}
+
 .animate-marquee:hover {
   animation-play-state: paused;
 }

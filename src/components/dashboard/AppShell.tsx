@@ -38,7 +38,9 @@ import {
   User,
   PanelLeftClose,
   PanelLeftOpen,
+  Flame,
 } from 'lucide-react';
+import { useQuizStreak } from '../../lib/quizStreak';
 
 interface AppShellProps {
   currentTab: string;
@@ -67,6 +69,7 @@ export const AppShell: React.FC<AppShellProps> = ({
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [enginesExpanded, setEnginesExpanded] = useState(true);
   const [isPortfolioSetupOpen, setIsPortfolioSetupOpen] = useState(false);
+  const quizStreak = useQuizStreak();
 
   // Check if authenticated user has configured a portfolio
   const hasPortfolio = Boolean(profile?.portfolioUrl && profile.portfolioUrl.trim().length > 0) ||
@@ -195,18 +198,50 @@ export const AppShell: React.FC<AppShellProps> = ({
 
             {/* PORTFOLIO SHORTCUT BUTTON (AROUND DOWNLOAD REPORT AREA) */}
             {isDemoMode ? (
-              <a
-                id="btn-demo-view-portfolio-topbar"
-                href="https://vangala-sricharan-portfolio.vercel.app/"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-700 dark:text-slate-200 hover:text-blue-600 dark:hover:text-cyan-400 bg-slate-100 dark:bg-white/5 hover:bg-slate-200 dark:hover:bg-white/10 border border-slate-200 dark:border-white/10 shadow-2xs transition-all cursor-pointer"
-                title="View Creator Live Portfolio in a new tab"
-              >
-                <Globe className="w-3.5 h-3.5 text-blue-600 dark:text-cyan-400 shrink-0" />
-                <span className="font-mono font-medium">View Portfolio</span>
-                <ExternalLink className="w-3 h-3 text-slate-400 shrink-0" />
-              </a>
+              <>
+                {/* DEMO MODE ONLY: PLAY QUIZ HEADER OPTION & STREAK */}
+                {(!user || isDemoMode) && (
+                  <button
+                    id="btn-demo-play-quiz-topbar"
+                    type="button"
+                    onClick={() => {
+                      sessionStorage.setItem('sdt_settings_initial_tab', 'fun-time');
+                      handleTabSelect('settings');
+                      window.dispatchEvent(new CustomEvent('sdt:open-quiz'));
+                    }}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-700 dark:text-slate-200 hover:text-blue-600 dark:hover:text-cyan-400 bg-slate-100 dark:bg-white/5 hover:bg-slate-200 dark:hover:bg-white/10 border border-slate-200 dark:border-white/10 shadow-2xs transition-all cursor-pointer"
+                    title={quizStreak > 0 ? `Play Quiz (Current streak: 🔥 ${quizStreak} days)` : 'Play Demo Quiz'}
+                  >
+                    {quizStreak > 0 ? (
+                      <>
+                        <span className="font-mono font-bold text-amber-600 dark:text-amber-400 flex items-center gap-1">
+                          <span>🔥</span>
+                          <span>{quizStreak}</span>
+                        </span>
+                        <span className="font-mono font-medium">Play Quiz</span>
+                      </>
+                    ) : (
+                      <>
+                        <Sparkles className="w-3.5 h-3.5 text-blue-600 dark:text-cyan-400 shrink-0" />
+                        <span className="font-mono font-medium">Play Quiz</span>
+                      </>
+                    )}
+                  </button>
+                )}
+
+                <a
+                  id="btn-demo-view-portfolio-topbar"
+                  href="https://vangala-sricharan-portfolio.vercel.app/"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-700 dark:text-slate-200 hover:text-blue-600 dark:hover:text-cyan-400 bg-slate-100 dark:bg-white/5 hover:bg-slate-200 dark:hover:bg-white/10 border border-slate-200 dark:border-white/10 shadow-2xs transition-all cursor-pointer"
+                  title="View Creator Live Portfolio in a new tab"
+                >
+                  <Globe className="w-3.5 h-3.5 text-blue-600 dark:text-cyan-400 shrink-0" />
+                  <span className="font-mono font-medium">View Portfolio</span>
+                  <ExternalLink className="w-3 h-3 text-slate-400 shrink-0" />
+                </a>
+              </>
             ) : hasPortfolio ? (
               <div className="flex items-center gap-1">
                 <button

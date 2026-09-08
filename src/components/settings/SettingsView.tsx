@@ -1,8 +1,13 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { useStudentTwin } from '../../context/StudentTwinContext';
 import { useTheme } from '../../context/ThemeContext';
 import { ProfilePictureUploader } from '../profile/ProfilePictureUploader';
+import { CircularEngineLoading } from '../common/CircularEngineLoading';
+import { TimepassQuiz } from './TimepassQuiz';
+import { FunTimeEntranceOverlay } from './FunTimeEntranceOverlay';
+import { FunTimeExitOverlay } from './FunTimeExitOverlay';
+import { playLaughSound, playExitSound } from '../../lib/funTimeAudio';
 import {
   Settings,
   User,
@@ -22,6 +27,8 @@ import {
   AlertTriangle,
   Mail,
   RefreshCw,
+  Smile,
+  Play,
 } from 'lucide-react';
 
 interface SettingsViewProps {
@@ -39,12 +46,111 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
 }) => {
   const { user, userProfile, signOut } = useAuth();
   const { profile, subscription, isDemoMode, updateProfile, exitDemoMode, openDemoLockModal } = useStudentTwin();
-  const { theme, toggleTheme } = useTheme();
+  const { theme, setTheme, toggleTheme } = useTheme();
   const isDarkMode = theme === 'dark';
 
-  const [activeTab, setActiveTab] = useState<'account' | 'appearance' | 'profile' | 'subscription' | 'data'>('account');
+  const [activeTab, setActiveTab] = useState<'account' | 'appearance' | 'profile' | 'subscription' | 'data' | 'fun-time'>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const initial = sessionStorage.getItem('sdt_settings_initial_tab');
+        if (initial === 'fun-time') {
+          sessionStorage.removeItem('sdt_settings_initial_tab');
+          return 'fun-time';
+        }
+      } catch {
+        // storage fallback
+      }
+    }
+    return 'account';
+  });
+
+  const previousTabRef = useRef<'account' | 'appearance' | 'profile' | 'subscription' | 'data'>('account');
+  const [isEnteringFunTime, setIsEnteringFunTime] = useState(false);
+  const [isExitingFunTime, setIsExitingFunTime] = useState(false);
+
+  const [isFunTimeActive, setIsFunTimeActive] = useState(false);
+  const [overlayTheme, setOverlayTheme] = useState<'light' | 'dark'>(() => (theme as 'light' | 'dark') || 'dark');
+  const initialThemeRef = useRef<'light' | 'dark'>((theme as 'light' | 'dark') || 'dark');
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const [exportSuccess, setExportSuccess] = useState(false);
+
+  // Listen for direct navigation to quiz from top header or buttons
+  useEffect(() => {
+    const handleOpenQuizEvent = () => {
+      if (activeTab !== 'fun-time') {
+        previousTabRef.current = (activeTab as any) || 'account';
+        playLaughSound();
+        setIsEnteringFunTime(true);
+      }
+      setActiveTab('fun-time');
+    };
+    window.addEventListener('sdt:open-quiz', handleOpenQuizEvent);
+    return () => window.removeEventListener('sdt:open-quiz', handleOpenQuizEvent);
+  }, [activeTab]);
+
+  const handleSelectFunTime = () => {
+    if (activeTab === 'fun-time') return;
+    if (activeTab !== 'fun-time') {
+      previousTabRef.current = activeTab as 'account' | 'appearance' | 'profile' | 'subscription' | 'data';
+    }
+    // Play small, lighthearted laughing sound on explicit user click
+    playLaughSound();
+    // Show smooth, colourful entrance overlay
+    setIsEnteringFunTime(true);
+    setActiveTab('fun-time');
+  };
+
+  const handleExitFunTime = () => {
+    // Play subtle "bye-bye" sound on explicit user click
+    playExitSound();
+    setIsExitingFunTime(true);
+
+    setTimeout(() => {
+      // Restore application's previous theme if altered by Try Me
+      if (theme !== initialThemeRef.current) {
+        setTheme(initialThemeRef.current);
+      }
+      setIsFunTimeActive(false);
+      setIsExitingFunTime(false);
+      setActiveTab(previousTabRef.current || 'account');
+    }, 350);
+  };
+
+  const handleOpenTryMe = () => {
+    const currentT = (theme as 'light' | 'dark') || 'dark';
+    initialThemeRef.current = currentT;
+    setOverlayTheme(currentT);
+    setIsFunTimeActive(true);
+  };
+
+  const handleCloseTryMe = () => {
+    // Restore application's previous theme exactly without modifying permanently
+    if (theme !== initialThemeRef.current) {
+      setTheme(initialThemeRef.current);
+    }
+    setIsFunTimeActive(false);
+  };
+
+  const handleToggleOverlayTheme = () => {
+    const next = overlayTheme === 'dark' ? 'light' : 'dark';
+    setOverlayTheme(next);
+    setTheme(next);
+  };
+
+  // Keyboard accessibility: Escape key exits Fun Time / Try Me
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        if (isFunTimeActive) {
+          handleCloseTryMe();
+        } else if (activeTab === 'fun-time') {
+          handleExitFunTime();
+        }
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isFunTimeActive, activeTab, overlayTheme]);
 
   // Quick form state for account tab
   const [displayName, setDisplayName] = useState(profile.fullName || profile.name || userProfile?.fullName || 'Student Candidate');
@@ -116,10 +222,10 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
       </div>
 
       {/* Navigation Tabs */}
-      <div className="flex items-center gap-1.5 p-1.5 rounded-full bg-slate-100 dark:bg-white/5 border border-slate-200/80 dark:border-white/10 overflow-x-auto no-scrollbar">
+      <div className="flex items-center gap-1 sm:gap-1.5 p-1 sm:p-1.5 rounded-full bg-slate-100 dark:bg-white/5 border border-slate-200/80 dark:border-white/10 overflow-x-auto no-scrollbar max-w-full">
         <button
           onClick={() => setActiveTab('account')}
-          className={`px-5 py-2.5 rounded-full text-xs font-mono font-bold transition-all cursor-pointer flex items-center gap-2 shrink-0 ${
+          className={`px-3.5 sm:px-4 md:px-5 py-2 sm:py-2.5 rounded-full text-xs font-mono font-bold transition-all cursor-pointer flex items-center gap-2 shrink-0 ${
             activeTab === 'account'
               ? 'bg-white dark:bg-[#0d1117] text-blue-600 dark:text-cyan-400 shadow-sm'
               : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
@@ -131,7 +237,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
 
         <button
           onClick={() => setActiveTab('appearance')}
-          className={`px-5 py-2.5 rounded-full text-xs font-mono font-bold transition-all cursor-pointer flex items-center gap-2 shrink-0 ${
+          className={`px-3.5 sm:px-4 md:px-5 py-2 sm:py-2.5 rounded-full text-xs font-mono font-bold transition-all cursor-pointer flex items-center gap-2 shrink-0 ${
             activeTab === 'appearance'
               ? 'bg-white dark:bg-[#0d1117] text-blue-600 dark:text-cyan-400 shadow-sm'
               : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
@@ -143,7 +249,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
 
         <button
           onClick={() => setActiveTab('profile')}
-          className={`px-5 py-2.5 rounded-full text-xs font-mono font-bold transition-all cursor-pointer flex items-center gap-2 shrink-0 ${
+          className={`px-3.5 sm:px-4 md:px-5 py-2 sm:py-2.5 rounded-full text-xs font-mono font-bold transition-all cursor-pointer flex items-center gap-2 shrink-0 ${
             activeTab === 'profile'
               ? 'bg-white dark:bg-[#0d1117] text-blue-600 dark:text-cyan-400 shadow-sm'
               : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
@@ -155,7 +261,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
 
         <button
           onClick={() => setActiveTab('subscription')}
-          className={`px-5 py-2.5 rounded-full text-xs font-mono font-bold transition-all cursor-pointer flex items-center gap-2 shrink-0 ${
+          className={`px-3.5 sm:px-4 md:px-5 py-2 sm:py-2.5 rounded-full text-xs font-mono font-bold transition-all cursor-pointer flex items-center gap-2 shrink-0 ${
             activeTab === 'subscription'
               ? 'bg-white dark:bg-[#0d1117] text-blue-600 dark:text-cyan-400 shadow-sm'
               : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
@@ -167,7 +273,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
 
         <button
           onClick={() => setActiveTab('data')}
-          className={`px-5 py-2.5 rounded-full text-xs font-mono font-bold transition-all cursor-pointer flex items-center gap-2 shrink-0 ${
+          className={`px-3.5 sm:px-4 md:px-5 py-2 sm:py-2.5 rounded-full text-xs font-mono font-bold transition-all cursor-pointer flex items-center gap-2 shrink-0 ${
             activeTab === 'data'
               ? 'bg-white dark:bg-[#0d1117] text-blue-600 dark:text-cyan-400 shadow-sm'
               : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
@@ -175,6 +281,22 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
         >
           <HardDrive className="w-3.5 h-3.5" />
           <span>Data & Privacy</span>
+        </button>
+
+        {/* Fun Time Tab (Available to ALL users: Demo, Google auth, Email auth) */}
+        <button
+          id="tab-settings-fun-time"
+          type="button"
+          onClick={handleSelectFunTime}
+          className={`px-3.5 sm:px-4 md:px-5 py-2 sm:py-2.5 rounded-full text-xs font-mono font-bold transition-all cursor-pointer flex items-center gap-2 shrink-0 ${
+            activeTab === 'fun-time'
+              ? 'bg-white dark:bg-[#0d1117] text-blue-600 dark:text-cyan-400 shadow-sm'
+              : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+          }`}
+          aria-label="Fun Time"
+        >
+          <Smile className="w-3.5 h-3.5" />
+          <span>Fun Time</span>
         </button>
       </div>
 
@@ -524,6 +646,56 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
         </div>
       )}
 
+      {/* TAB CONTENT: FUN TIME (AVAILABLE TO ALL USERS) */}
+      {activeTab === 'fun-time' && (
+        <div className="space-y-8 pb-16">
+          {/* SECTION A: TRY ME */}
+          <div className="p-6 md:p-8 rounded-[2.5rem] bg-white dark:bg-[#0d1117] border border-slate-200/90 dark:border-white/10 shadow-sm dark:shadow-xl space-y-4 transition-colors">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div className="space-y-1">
+                <div className="flex items-center gap-2.5">
+                  <h2 className="text-sm font-bold text-slate-900 dark:text-white uppercase tracking-wider font-mono">
+                    Try Me
+                  </h2>
+                  <span className="px-2.5 py-0.5 rounded-full bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-cyan-400 font-mono text-[10px] font-bold border border-blue-200 dark:border-blue-800">
+                    VISUAL REPLAY
+                  </span>
+                </div>
+                <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed max-w-2xl">
+                  Replay the real-time circular Career OS 11-engine synchronization animation in a focused, full-screen visual experience.
+                </p>
+              </div>
+
+              <button
+                id="btn-try-me"
+                type="button"
+                onClick={handleOpenTryMe}
+                className="px-6 py-3 rounded-full bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-500 hover:to-cyan-500 text-white text-xs font-mono font-bold shadow-md shadow-blue-600/20 transition-all cursor-pointer flex items-center justify-center gap-2 self-start sm:self-auto shrink-0"
+              >
+                <Play className="w-3.5 h-3.5 fill-white" />
+                <span>TRY ME</span>
+              </button>
+            </div>
+          </div>
+
+          {/* SECTION B: TIMEPASS QUIZ */}
+          <TimepassQuiz />
+
+          {/* Fixed Bottom-Left Exit Fun Time Button */}
+          {!isFunTimeActive && (
+            <button
+              id="btn-exit-fun-time"
+              type="button"
+              onClick={handleExitFunTime}
+              className="fixed bottom-4 left-4 z-[100000] px-4 py-2 rounded-full bg-slate-900/95 dark:bg-white/95 text-white dark:text-slate-900 text-xs font-mono font-bold shadow-xl hover:bg-slate-800 dark:hover:bg-white transition-all cursor-pointer flex items-center gap-1.5 backdrop-blur-md border border-white/20 dark:border-slate-800/20 hover:scale-105 active:scale-95"
+              aria-label="Exit Fun Time"
+            >
+              <span>← Exit Fun Time</span>
+            </button>
+          )}
+        </div>
+      )}
+
       {/* LOGOUT CONFIRMATION MODAL */}
       {showLogoutConfirm && (
         <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
@@ -565,6 +737,54 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
           </div>
         </div>
       )}
+
+      {/* Fullscreen Try Me Circular Animation Overlay */}
+      {isFunTimeActive && (
+        <div className="fixed inset-0 z-[99999] bg-slate-50 dark:bg-[#02040a] overflow-hidden select-none">
+          {/* Top-Right: Isolated Theme Switcher */}
+          <button
+            id="btn-fun-time-theme-toggle"
+            type="button"
+            onClick={handleToggleOverlayTheme}
+            className="fixed top-4 right-4 z-[100000] px-3.5 py-1.5 rounded-full bg-slate-900/90 dark:bg-white/90 text-white dark:text-slate-900 text-xs font-mono font-medium shadow-md hover:bg-slate-800 dark:hover:bg-white transition-colors cursor-pointer flex items-center gap-2 backdrop-blur-sm"
+            aria-label="Toggle Theme"
+          >
+            {overlayTheme === 'dark' ? (
+              <>
+                <Sun className="w-3.5 h-3.5 text-amber-400" />
+                <span>Light Mode</span>
+              </>
+            ) : (
+              <>
+                <Moon className="w-3.5 h-3.5 text-slate-700" />
+                <span>Dark Mode</span>
+              </>
+            )}
+          </button>
+
+          {/* Reused Unmodified Circular Engine Loading */}
+          <CircularEngineLoading />
+
+          {/* Bottom-Left: Exit Button */}
+          <button
+            id="btn-exit-fun-time"
+            type="button"
+            onClick={handleExitFunTime}
+            className="fixed bottom-4 left-4 z-[100000] px-4 py-2 rounded-full bg-slate-900/95 dark:bg-white/95 text-white dark:text-slate-900 text-xs font-mono font-bold shadow-xl hover:bg-slate-800 dark:hover:bg-white transition-all cursor-pointer flex items-center gap-1.5 backdrop-blur-md border border-white/20 dark:border-slate-800/20 hover:scale-105 active:scale-95"
+            aria-label="Exit Fun Time"
+          >
+            <span>← Exit Fun Time</span>
+          </button>
+        </div>
+      )}
+
+      {/* Fun Time Fullscreen Visual Entrance Animation */}
+      {isEnteringFunTime && (
+        <FunTimeEntranceOverlay onComplete={() => setIsEnteringFunTime(false)} />
+      )}
+
+      {/* Fun Time Brief Clean Exit Animation */}
+      {isExitingFunTime && <FunTimeExitOverlay />}
     </div>
   );
 };

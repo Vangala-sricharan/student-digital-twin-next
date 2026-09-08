@@ -9,6 +9,7 @@ import { handleAssistantRequest } from './api/ai/assistant.js';
 import { handleProjectAuditRequest } from './api/ai/project-audit.js';
 import { handleGitHubAuditRequest } from './api/ai/github-audit.js';
 import { handleLinkedInAuditRequest } from './api/ai/linkedin-audit.js';
+import { handleQuizRequest } from './api/ai/quiz.js';
 
 function aiEngineApiPlugin(): Plugin {
   const attachMiddleware = (server: any) => {
@@ -23,6 +24,7 @@ function aiEngineApiPlugin(): Plugin {
           url.startsWith('/api/project-audit') ||
           url.startsWith('/api/ai/github-audit') ||
           url.startsWith('/api/ai/linkedin-audit') ||
+          url.startsWith('/api/ai/quiz') ||
           url.startsWith('/api/engine-ai'))
       ) {
         res.setHeader('Access-Control-Allow-Origin', '*');
@@ -128,6 +130,31 @@ function aiEngineApiPlugin(): Plugin {
             res.statusCode = 500;
             res.setHeader('Content-Type', 'application/json');
             res.end(JSON.stringify({ error: err?.message || 'Server error' }));
+          }
+        });
+        return;
+      }
+
+      // Demo Mode Timepass Quiz: /api/ai/quiz
+      if (url.startsWith('/api/ai/quiz')) {
+        let body = '';
+        req.on('data', (chunk: any) => {
+          body += chunk;
+        });
+        req.on('end', async () => {
+          try {
+            if (body) {
+              try {
+                req.body = JSON.parse(body);
+              } catch {
+                req.body = {};
+              }
+            }
+            await handleQuizRequest(req, res);
+          } catch (err: any) {
+            res.statusCode = 500;
+            res.setHeader('Content-Type', 'application/json');
+            res.end(JSON.stringify({ status: 'error', error: err?.message || 'Server error' }));
           }
         });
         return;
