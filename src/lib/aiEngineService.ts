@@ -67,6 +67,61 @@ export async function executeAiEngine(
 ): Promise<EngineAiResponse> {
   onStageUpdate?.(0, 'Initializing Engine');
 
+  // Dedicated Production Serverless Route for Project Proof Auditor
+  if (request.engineId === 'project-auditor') {
+    onStageUpdate?.(1, 'Inspecting Repository & Code Evidence');
+    try {
+      const res = await fetch('/api/ai/project-audit', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          ...request.userInputs,
+          studentContext: request.studentContext,
+        }),
+      });
+
+      const json = await res.json().catch(() => ({}));
+
+      if (res.ok && json.status === 'success' && json.data) {
+        onStageUpdate?.(2, 'Audit Complete');
+        return {
+          engineId: 'project-auditor',
+          status: 'success',
+          data: json.data,
+          rawText: json.rawText || json.data.rawText || '',
+          timestamp: json.timestamp || new Date().toISOString(),
+        };
+      }
+
+      // Handle specific error codes cleanly
+      const errorMsg =
+        json.error ||
+        (res.status === 404
+          ? 'GitHub repository not found.'
+          : res.status === 400
+          ? 'Invalid project details provided for audit.'
+          : 'Project code audit could not be completed.');
+
+      return {
+        engineId: 'project-auditor',
+        status: 'error',
+        error: errorMsg,
+        data: null,
+        timestamp: new Date().toISOString(),
+      };
+    } catch (fetchErr: any) {
+      return {
+        engineId: 'project-auditor',
+        status: 'error',
+        error: fetchErr?.message || 'Network connection failed while reaching Project Auditor API.',
+        data: null,
+        timestamp: new Date().toISOString(),
+      };
+    }
+  }
+
   try {
     const res = await fetch('/api/engine-ai', {
       method: 'POST',

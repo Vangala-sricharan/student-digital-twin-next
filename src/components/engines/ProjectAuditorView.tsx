@@ -49,7 +49,7 @@ export const ProjectAuditorView: React.FC<ProjectAuditorViewProps> = ({
   onNavigateTab,
 }) => {
   const engine = AI_ENGINES.find((e) => e.id === 'project-auditor')!;
-  const { profile, skills, projects, achievements, careerGoals, activeProfile } = useStudentTwin();
+  const { profile, skills, projects, achievements, careerGoals, activeProfile, isDemoMode } = useStudentTwin();
   const { job, isRunning, isError, execute, retry } = useEngineJob('project-auditor');
 
   // Selected project ID from current active Student Twin
@@ -58,7 +58,7 @@ export const ProjectAuditorView: React.FC<ProjectAuditorViewProps> = ({
   const [copied, setCopied] = useState(false);
   const [exportingPdf, setExportingPdf] = useState(false);
 
-  // Scoped audit results keyed by: `${activeProfileId}_${projectId}`
+  // Scoped audit results keyed by: `${isDemoMode ? 'demo' : activeProfileId}_${projectId}`
   const [auditStore, setAuditStore] = useState<Record<string, StoredAuditResult>>({});
 
   // Ref to prevent displaying stale results if user changes project mid-request
@@ -75,8 +75,9 @@ export const ProjectAuditorView: React.FC<ProjectAuditorViewProps> = ({
     }
   }, [projects, selectedProjectId]);
 
+  const activeScopeKey = isDemoMode ? 'demo' : (activeProfile?.id || 'default');
   const selectedProject = projects.find((p) => p.id === selectedProjectId) || null;
-  const storeKey = `${activeProfile?.id || 'default'}_${selectedProject?.id || ''}`;
+  const storeKey = `${activeScopeKey}_${selectedProject?.id || ''}`;
   const currentAudit = selectedProject ? auditStore[storeKey] : null;
 
   // Handle running an audit for the currently selected project
@@ -162,7 +163,7 @@ export const ProjectAuditorView: React.FC<ProjectAuditorViewProps> = ({
 
       setAuditStore((prev) => ({
         ...prev,
-        [`${activeProfile?.id || 'default'}_${auditedId}`]: newAudit,
+        [`${activeScopeKey}_${auditedId}`]: newAudit,
       }));
     }
   };
@@ -273,7 +274,7 @@ export const ProjectAuditorView: React.FC<ProjectAuditorViewProps> = ({
               <div className="space-y-1.5 max-h-64 overflow-y-auto pr-1">
                 {projects.map((p) => {
                   const isSelected = selectedProjectId === p.id;
-                  const hasAudit = Boolean(auditStore[`${activeProfile?.id || 'default'}_${p.id}`]);
+                  const hasAudit = Boolean(auditStore[`${activeScopeKey}_${p.id}`]);
 
                   return (
                     <button

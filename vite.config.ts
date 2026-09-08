@@ -6,6 +6,7 @@ import path from 'path';
 import {defineConfig, Plugin} from 'vite';
 import { processEngineAiRequest } from './src/lib/serverAiHandler';
 import { handleAssistantRequest } from './api/ai/assistant.js';
+import { handleProjectAuditRequest } from './api/ai/project-audit.js';
 
 function aiEngineApiPlugin(): Plugin {
   const attachMiddleware = (server: any) => {
@@ -13,12 +14,37 @@ function aiEngineApiPlugin(): Plugin {
       const url = req.url || '';
 
       // CORS Preflight
-      if (req.method === 'OPTIONS' && (url.startsWith('/api/ai/assistant') || url.startsWith('/api/engine-ai'))) {
+      if (req.method === 'OPTIONS' && (url.startsWith('/api/ai/assistant') || url.startsWith('/api/ai/project-audit') || url.startsWith('/api/project-audit') || url.startsWith('/api/engine-ai'))) {
         res.setHeader('Access-Control-Allow-Origin', '*');
         res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
         res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Accept');
         res.statusCode = 204;
         res.end();
+        return;
+      }
+
+      // Project Proof Auditor: /api/ai/project-audit or /api/project-audit
+      if (url.startsWith('/api/ai/project-audit') || url.startsWith('/api/project-audit')) {
+        let body = '';
+        req.on('data', (chunk: any) => {
+          body += chunk;
+        });
+        req.on('end', async () => {
+          try {
+            if (body) {
+              try {
+                req.body = JSON.parse(body);
+              } catch {
+                req.body = {};
+              }
+            }
+            await handleProjectAuditRequest(req, res);
+          } catch (err: any) {
+            res.statusCode = 500;
+            res.setHeader('Content-Type', 'application/json');
+            res.end(JSON.stringify({ error: err?.message || 'Server error' }));
+          }
+        });
         return;
       }
 
