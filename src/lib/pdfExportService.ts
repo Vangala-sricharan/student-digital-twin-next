@@ -231,6 +231,39 @@ export interface ResumePDFData {
 }
 
 /**
+ * Helpers for ATS Resume PDF formatting
+ */
+function cleanPdfLocation(loc?: string): string {
+  if (!loc) return '';
+  return loc.split(',').map((p) => p.trim()).filter(Boolean).join(', ');
+}
+
+function cleanPdfEducationYear(year?: string): string {
+  if (!year) return '';
+  let y = year.replace(/\b2rd\b/gi, '2nd').replace(/\b1rd\b/gi, '1st').replace(/\b3st\b/gi, '3rd').trim();
+  if (/^[1-4]$/.test(y)) {
+    const suffixes: Record<string, string> = { '1': '1st', '2': '2nd', '3': '3rd', '4': '4th' };
+    y = `${suffixes[y]} Year`;
+  } else if (!y.toLowerCase().includes('year')) {
+    y = `${y} Year`;
+  }
+  return y;
+}
+
+function isPdfValidUrl(url?: string): boolean {
+  if (!url) return false;
+  const trimmed = url.trim();
+  if (['!—', '—', '-', '#', 'none', 'n/a', 'not provided', 'null', 'undefined'].includes(trimmed.toLowerCase())) return false;
+  if (trimmed.includes('candidate') || trimmed.includes('example.com')) return false;
+  return /^https?:\/\//i.test(trimmed) || /^[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/i.test(trimmed);
+}
+
+function normalizePdfUrl(url: string): string {
+  const trimmed = url.trim();
+  return /^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`;
+}
+
+/**
  * Generate ATS Compliant Single-Column Resume PDF
  * 1–2 pages, clean typography, verified project bullets, clickable links
  */
@@ -271,7 +304,8 @@ export async function generateResumePDF(data: ResumePDFData, filename: string = 
   cursorY += 4.5;
 
   // Contact line: Email • Phone • Location
-  const contactParts = [data.email, data.phone, data.location].filter(Boolean);
+  const cleanLoc = cleanPdfLocation(data.location);
+  const contactParts = [data.email, data.phone, cleanLoc].filter(Boolean);
   if (contactParts.length > 0) {
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(8);
@@ -280,15 +314,17 @@ export async function generateResumePDF(data: ResumePDFData, filename: string = 
     cursorY += 4;
   }
 
-  // Links line: GitHub • LinkedIn
+  // Links line: GitHub • LinkedIn (ONLY if valid, clickable)
   const linkItems: Array<{ label: string; url: string }> = [];
-  if (data.githubUrl) {
-    const cleanGh = data.githubUrl.replace(/^https?:\/\//, '').replace(/\/$/, '');
-    linkItems.push({ label: `GitHub: ${cleanGh}`, url: data.githubUrl });
+  if (isPdfValidUrl(data.githubUrl)) {
+    const normGh = normalizePdfUrl(data.githubUrl!);
+    const cleanGh = normGh.replace(/^https?:\/\//, '').replace(/\/$/, '');
+    linkItems.push({ label: `GitHub: ${cleanGh}`, url: normGh });
   }
-  if (data.linkedinUrl) {
-    const cleanLi = data.linkedinUrl.replace(/^https?:\/\//, '').replace(/\/$/, '');
-    linkItems.push({ label: `LinkedIn: ${cleanLi}`, url: data.linkedinUrl });
+  if (isPdfValidUrl(data.linkedinUrl)) {
+    const normLi = normalizePdfUrl(data.linkedinUrl!);
+    const cleanLi = normLi.replace(/^https?:\/\//, '').replace(/\/$/, '');
+    linkItems.push({ label: `LinkedIn: ${cleanLi}`, url: normLi });
   }
 
   if (linkItems.length > 0) {
@@ -347,38 +383,27 @@ export async function generateResumePDF(data: ResumePDFData, filename: string = 
     cursorY += sumLines.length * 3.8 + 3.5;
   }
 
-  // 3. Education (Clean, no duplicate 'Year', correct CGPA)
+  // 3. Education (B.Tech • CSE (AI/ML) • 2nd Year, real CGPA only)
   renderSectionHeading('Education');
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(9);
   doc.setTextColor(15, 23, 42);
   doc.text(data.university, margin, cursorY);
-
-  const cleanYear = data.year
-    ? data.year.toLowerCase().includes('year')
-      ? data.year
-      : `${data.year} Year`
-    : '';
-
-  if (cleanYear) {
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(8.5);
-    doc.setTextColor(100, 116, 139);
-    doc.text(cleanYear, pageWidth - margin, cursorY, { align: 'right' });
-  }
   cursorY += 4;
+
+  const cleanYear = cleanPdfEducationYear(data.year);
+  const progLine = [data.degree || 'B.Tech', data.branch, cleanYear].filter(Boolean).join(' • ');
 
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(8.5);
   doc.setTextColor(71, 85, 105);
-  const progLine = [data.degree || 'B.Tech', data.branch || 'CSE (AI/ML)'].filter(Boolean).join(' • ');
   doc.text(progLine, margin, cursorY);
 
-  if (data.cgpa) {
+  if (data.cgpa && data.cgpa.trim() !== '' && data.cgpa !== '0') {
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(8.5);
     doc.setTextColor(30, 41, 59);
-    doc.text(`CGPA: ${data.cgpa}`, pageWidth - margin, cursorY, { align: 'right' });
+    doc.text(`CGPA: ${data.cgpa.trim()}`, pageWidth - margin, cursorY, { align: 'right' });
   }
   cursorY += 5;
 
@@ -427,13 +452,25 @@ export async function generateResumePDF(data: ResumePDFData, filename: string = 
     cursorY += skillLines.length * 3.8 + 3.5;
   }
 
-  // 5. Technical Projects (Actual verified projects with project-specific bullets & compact links)
+  // 5. Technical Projects (Digital Student Twin first, real URLs only, clean bullets)
   if (data.projects && data.projects.length > 0) {
     renderSectionHeading('Technical Projects');
 
-    for (const proj of data.projects) {
-      // Estimate height for project header + bullets
-      const estimatedHeight = 12 + (proj.bullets?.length || 2) * 4.5;
+    // Prioritize Digital Student Twin first
+    const sortedProjects = [...data.projects].sort((a, b) => {
+      const aTwin = /student\s*twin/i.test(a.title);
+      const bTwin = /student\s*twin/i.test(b.title);
+      if (aTwin && !bTwin) return -1;
+      if (!aTwin && bTwin) return 1;
+      return 0;
+    });
+
+    for (const proj of sortedProjects) {
+      const cleanBullets = (proj.bullets || [])
+        .filter((b) => !b.toLowerCase().includes('optimized performance and ensured reliable error handling'))
+        .slice(0, 3);
+
+      const estimatedHeight = 12 + cleanBullets.length * 4.5;
       checkPageBreak(estimatedHeight);
 
       // Line 1: Title and Tech Stack
@@ -451,13 +488,13 @@ export async function generateResumePDF(data: ResumePDFData, filename: string = 
       }
       cursorY += 4;
 
-      // Compact Clickable Links (GitHub ↗ | Live Demo ↗) if present
+      // Compact Clickable Links (GitHub ↗ | Live Demo ↗) ONLY if real valid URLs exist
       const projLinks: Array<{ label: string; url: string }> = [];
-      if (proj.githubUrl) {
-        projLinks.push({ label: 'GitHub ↗', url: proj.githubUrl });
+      if (isPdfValidUrl(proj.githubUrl)) {
+        projLinks.push({ label: 'GitHub ↗', url: normalizePdfUrl(proj.githubUrl!) });
       }
-      if (proj.liveUrl) {
-        projLinks.push({ label: 'Live Demo ↗', url: proj.liveUrl });
+      if (isPdfValidUrl(proj.liveUrl)) {
+        projLinks.push({ label: 'Live Demo ↗', url: normalizePdfUrl(proj.liveUrl!) });
       }
 
       if (projLinks.length > 0) {
@@ -484,12 +521,12 @@ export async function generateResumePDF(data: ResumePDFData, filename: string = 
       }
 
       // Project Bullets
-      if (proj.bullets && proj.bullets.length > 0) {
+      if (cleanBullets.length > 0) {
         doc.setFont('helvetica', 'normal');
         doc.setFontSize(8.2);
         doc.setTextColor(51, 65, 85);
 
-        for (const bullet of proj.bullets) {
+        for (const bullet of cleanBullets) {
           const splitBullet = doc.splitTextToSize(`•  ${bullet}`, contentWidth - 3);
           checkPageBreak(splitBullet.length * 3.8 + 1.5);
           doc.text(splitBullet, margin + 2, cursorY);

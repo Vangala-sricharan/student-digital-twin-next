@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useStudentTwin } from '../../context/StudentTwinContext';
+import { useAuth } from '../../context/AuthContext';
 import { useEngineJob } from '../../context/AIJobContext';
 import { AI_ENGINES } from '../../data/enginesData';
 import { EngineLayout } from './EngineLayout';
@@ -62,7 +63,137 @@ interface ResumeParticipationItem {
   description: string;
 }
 
-// Default verified project bullets and links for the 6 real projects
+/**
+ * Robust formatting and data cleaning helpers for ATS Recruiter-Ready Resumes
+ */
+function cleanEducationYear(year?: string | null): string {
+  if (!year) return '2nd Year';
+  let y = year.replace(/\b2rd\b/gi, '2nd').replace(/\b1rd\b/gi, '1st').replace(/\b3st\b/gi, '3rd').trim();
+  if (/^[1-4]$/.test(y)) {
+    const suffixes: Record<string, string> = { '1': '1st', '2': '2nd', '3': '3rd', '4': '4th' };
+    y = `${suffixes[y]} Year`;
+  } else if (!y.toLowerCase().includes('year')) {
+    y = `${y} Year`;
+  }
+  return y;
+}
+
+function cleanLocation(loc?: string | null): string {
+  if (!loc) return '';
+  return loc.split(',').map((p) => p.trim()).filter(Boolean).join(', ');
+}
+
+function isValidUrl(url?: string | null): boolean {
+  if (!url) return false;
+  const trimmed = url.trim();
+  if (!trimmed || ['!—', '—', '-', '#', 'none', 'n/a', 'not provided', 'null', 'undefined'].includes(trimmed.toLowerCase())) return false;
+  if (trimmed.includes('candidate') || trimmed.includes('example.com')) return false;
+  return /^https?:\/\//i.test(trimmed) || /^[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/i.test(trimmed);
+}
+
+function normalizeUrl(url: string): string {
+  const trimmed = url.trim();
+  return /^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`;
+}
+
+function getCleanCgpa(prof?: any): string {
+  if (!prof) return '';
+  if (typeof prof.cgpa === 'number' && prof.cgpa > 0) return prof.cgpa.toString();
+  if (typeof prof.cgpa === 'string' && prof.cgpa.trim() && prof.cgpa.trim() !== '0') return prof.cgpa.trim();
+  if (typeof prof.currentGpa === 'string' && prof.currentGpa.trim() && prof.currentGpa.trim() !== '0') return prof.currentGpa.trim();
+  return '';
+}
+
+function buildInitialRecruiterSummary(
+  prof: any,
+  userSkills: Array<{ name: string }>,
+  userProjects: any[],
+  isDemo: boolean
+): string {
+  const degreeStr = prof?.degree || 'B.Tech';
+  const branchStr = prof?.branch || 'CSE (AI/ML)';
+  const uniStr = prof?.university || 'Marwadi University';
+  const hasAi = userSkills.some((s) => /ai|ml|pytorch|deep learning|llm/i.test(s.name)) || /ai|ml/i.test(branchStr);
+
+  const studentPrefix = `${degreeStr} student in ${branchStr} at ${uniStr}`;
+  const focus = hasAi
+    ? 'specializing in AI/ML systems and full-stack software development'
+    : 'focused on scalable full-stack software engineering and clean web architectures';
+
+  const allSkills = Array.from(
+    new Set(userSkills.map((s) => s.name).concat(userProjects.flatMap((p) => (Array.isArray(p.techStack) ? p.techStack : []))))
+  );
+  const coreTech = allSkills.filter((s) => /python|javascript|typescript|react|node|sql|postgres|supabase|fastapi/i.test(s)).slice(0, 5);
+  const techPhrase = coreTech.length > 0 ? `Proficient in ${coreTech.join(', ')}.` : '';
+
+  const hasTwin = userProjects.some((p) => /student\s*twin/i.test(p.title));
+  const projectPhrase = hasTwin
+    ? 'Hands-on experience architecting full-stack systems including the Digital Student Twin intelligence platform with structured diagnostics and cloud data workflows.'
+    : userProjects.length > 0
+    ? `Hands-on experience architecting applications including ${userProjects[0].title} with modular system architecture.`
+    : '';
+
+  return `${studentPrefix}, ${focus}. ${techPhrase} ${projectPhrase} Focused on engineering production-oriented, reliable software.`.replace(/\s+/g, ' ').trim();
+}
+
+function buildInitialSkillCategories(
+  userSkills: Array<{ name: string }>,
+  userProjects: any[]
+): SkillCategoryItem[] {
+  const allSkillNames = Array.from(
+    new Set(
+      userSkills
+        .map((s) => s.name?.trim())
+        .concat(
+          userProjects.flatMap((p) => {
+            if (Array.isArray(p.techStack)) return p.techStack;
+            if (typeof p.techStack === 'string') return p.techStack.split(/[|,•]/).map((s: string) => s.trim());
+            return [];
+          })
+        )
+        .filter(Boolean)
+    )
+  );
+
+  const assigned = new Set<string>();
+  const matchCategory = (regex: RegExp) => {
+    const matched = allSkillNames.filter((s) => !assigned.has(s.toLowerCase()) && regex.test(s));
+    matched.forEach((s) => assigned.add(s.toLowerCase()));
+    return matched;
+  };
+
+  const lang = matchCategory(/^(?:python|javascript|typescript|c\+\+|java|sql|c#|rust|golang|go|php|c|html|css|bash)$/i);
+  const fe = matchCategory(/^(?:react|tailwind|tailwind css|next\.js|redux|recharts|vue|angular|vite)$/i);
+  const be = matchCategory(/^(?:node\.js|node|express|fastapi|django|flask|spring|rest apis?|graphql)$/i);
+  const ai = matchCategory(/^(?:pytorch|tensorflow|generative ai|llm orchestration|vector embeddings|deep learning|nlp|machine learning|ai apis)$/i);
+  const db = matchCategory(/^(?:postgresql|postgres|mysql|supabase|mongodb|redis|sqlite|firebase)$/i);
+  const tools = matchCategory(/^(?:docker|git|github|vercel|ci\/cd|linux|aws|postman)$/i);
+
+  const remaining = allSkillNames.filter((s) => !assigned.has(s.toLowerCase()));
+
+  const result: SkillCategoryItem[] = [];
+  if (lang.length > 0) result.push({ id: 'cat-lang', category: 'Languages', skills: lang.join(', ') });
+  if (fe.length > 0) result.push({ id: 'cat-fe', category: 'Frontend', skills: fe.join(', ') });
+  if (be.length > 0) result.push({ id: 'cat-be', category: 'Backend & APIs', skills: be.join(', ') });
+  if (ai.length > 0) result.push({ id: 'cat-ai', category: 'AI / ML', skills: ai.join(', ') });
+  if (db.length > 0) result.push({ id: 'cat-db', category: 'Databases', skills: db.join(', ') });
+  if (tools.length > 0) result.push({ id: 'cat-tools', category: 'Systems & Tools', skills: tools.join(', ') });
+  if (remaining.length > 0) {
+    if (result.length > 0) {
+      result.push({ id: 'cat-other', category: 'Other Competencies', skills: remaining.join(', ') });
+    } else {
+      result.push({ id: 'cat-all', category: 'Technical Skills', skills: remaining.join(', ') });
+    }
+  }
+
+  if (result.length === 0) {
+    result.push({ id: 'cat-core', category: 'Technical Skills', skills: 'Python, JavaScript, TypeScript, React, Node.js, PostgreSQL' });
+  }
+
+  return result;
+}
+
+// Default verified project bullets and links for the creator / demo showcase
 const VERIFIED_PROJECT_DEFAULTS: Record<string, { bullets: string[]; githubUrl: string; liveUrl: string; techStack: string }> = {
   'Digital Student Twin': {
     bullets: [
@@ -72,7 +203,7 @@ const VERIFIED_PROJECT_DEFAULTS: Record<string, { bullets: string[]; githubUrl: 
     ],
     githubUrl: 'https://github.com/Vangala-sricharan/student-digital-twin-v3',
     liveUrl: 'https://student-digital-twin-v3.vercel.app/',
-    techStack: 'React | Tailwind CSS | Supabase | PostgreSQL | Vercel',
+    techStack: 'React • Tailwind CSS • Supabase • PostgreSQL • Vercel',
   },
   'AI Travel Planner': {
     bullets: [
@@ -82,7 +213,7 @@ const VERIFIED_PROJECT_DEFAULTS: Record<string, { bullets: string[]; githubUrl: 
     ],
     githubUrl: 'https://github.com/Vangala-sricharan/AI-travel-planner-new-',
     liveUrl: 'https://ai-travel-planner-new-phi.vercel.app/',
-    techStack: 'React | Tailwind CSS | AI APIs | REST APIs | Vercel',
+    techStack: 'React • Tailwind CSS • AI APIs • REST APIs • Vercel',
   },
   'Event Management System': {
     bullets: [
@@ -92,7 +223,7 @@ const VERIFIED_PROJECT_DEFAULTS: Record<string, { bullets: string[]; githubUrl: 
     ],
     githubUrl: 'https://github.com/Vangala-sricharan/event-management-system',
     liveUrl: 'https://event-management-system-five-delta.vercel.app/',
-    techStack: 'React | Node.js | REST API | MySQL',
+    techStack: 'React • Node.js • REST API • MySQL',
   },
   'Restaurant Management System': {
     bullets: [
@@ -102,7 +233,7 @@ const VERIFIED_PROJECT_DEFAULTS: Record<string, { bullets: string[]; githubUrl: 
     ],
     githubUrl: 'https://github.com/Vangala-sricharan/restaurant-management-system',
     liveUrl: 'https://restaurant-management-system-one-green.vercel.app/',
-    techStack: 'React | Node.js | REST API | MySQL',
+    techStack: 'React • Node.js • REST API • MySQL',
   },
   'Praveen Kiranam – ERP / POS / E-Commerce': {
     bullets: [
@@ -112,7 +243,7 @@ const VERIFIED_PROJECT_DEFAULTS: Record<string, { bullets: string[]; githubUrl: 
     ],
     githubUrl: 'https://github.com/Vangala-sricharan/praveen-kiranam-erp-pos-ecommerce',
     liveUrl: 'https://praveen-kiranam-erp-pos-ecommerce.vercel.app/',
-    techStack: 'React | Tailwind CSS | Supabase | PostgreSQL | Vercel',
+    techStack: 'React • Tailwind CSS • Supabase • PostgreSQL • Vercel',
   },
   'Student Productivity Dashboard': {
     bullets: [
@@ -122,124 +253,138 @@ const VERIFIED_PROJECT_DEFAULTS: Record<string, { bullets: string[]; githubUrl: 
     ],
     githubUrl: 'https://github.com/Vangala-sricharan/student-productivity-dashboard',
     liveUrl: 'https://student-productivity-dashboard-kohl.vercel.app/',
-    techStack: 'React | TypeScript | Tailwind CSS | Local Storage | Recharts',
+    techStack: 'React • TypeScript • Tailwind CSS • Local Storage • Recharts',
   },
 };
+
+function buildInitialProjects(
+  userProjects: any[],
+  isDemo: boolean,
+  isCreator: boolean
+): ResumeProjectItem[] {
+  // Sort: Digital Student Twin first
+  const sorted = [...userProjects].sort((a, b) => {
+    const aTwin = /student\s*twin/i.test(a.title);
+    const bTwin = /student\s*twin/i.test(b.title);
+    if (aTwin && !bTwin) return -1;
+    if (!aTwin && bTwin) return 1;
+    return 0;
+  });
+
+  return sorted.map((p) => {
+    const isTwin = /student\s*twin/i.test(p.title);
+    const match = VERIFIED_PROJECT_DEFAULTS[p.title];
+
+    // URLs: strictly real user URLs if not demo/creator
+    const gh = isValidUrl(p.githubUrl)
+      ? p.githubUrl
+      : (isDemo || isCreator) && match ? match.githubUrl : '';
+    const live = isValidUrl(p.liveUrl)
+      ? p.liveUrl
+      : (isDemo || isCreator) && match ? match.liveUrl : '';
+
+    // Tech Stack
+    const stackStr = Array.isArray(p.techStack)
+      ? p.techStack.join(' • ')
+      : typeof p.techStack === 'string'
+      ? p.techStack.replace(/\|/g, '•').trim()
+      : (match?.techStack || 'React • TypeScript • Tailwind CSS');
+
+    // Bullets: 2-3 concise bullets without repeating generic filler
+    let bullets: string[] = [];
+    if (isTwin) {
+      bullets = [
+        'Architected student intelligence platform combining academic analytics, skill tracking, and career readiness diagnostics.',
+        'Implemented responsive multi-engine student workspace using React and Tailwind CSS with PostgreSQL and Supabase data layer.',
+        'Deployed on Vercel with structured progress tracking and deterministic readiness scoring across academic and practical pillars.',
+      ];
+    } else if (match && (isDemo || isCreator)) {
+      bullets = [...match.bullets];
+    } else {
+      const cleanHighlights = (p.highlights || [])
+        .filter((h: string) => !h.toLowerCase().includes('optimized performance and ensured reliable error handling'));
+
+      if (cleanHighlights.length >= 2) {
+        bullets = cleanHighlights.slice(0, 3);
+      } else {
+        const stackList = Array.isArray(p.techStack) ? p.techStack.join(', ') : p.techStack || 'modular technologies';
+        bullets = [
+          `Architected ${p.title} platform utilizing ${stackList} with modular component hierarchy.`,
+          p.description || `Engineered full-stack workflows with responsive user interface and structured data handling.`,
+        ];
+        if (cleanHighlights.length === 1 && !bullets.includes(cleanHighlights[0])) {
+          bullets.push(cleanHighlights[0]);
+        }
+      }
+    }
+
+    bullets = bullets
+      .filter((b) => !b.toLowerCase().includes('optimized performance and ensured reliable error handling'))
+      .slice(0, 3);
+
+    return {
+      id: p.id || `proj-${Math.random()}`,
+      title: p.title,
+      techStack: stackStr,
+      githubUrl: gh || undefined,
+      liveUrl: live || undefined,
+      bullets,
+    };
+  });
+}
 
 export const ResumeBuilderView: React.FC<ResumeBuilderViewProps> = ({ onBackToHub }) => {
   const engine = AI_ENGINES.find((e) => e.id === 'resume-builder')!;
   const { profile, skills, projects, achievements, certifications, participations, careerGoals, isDemoMode } = useStudentTwin();
+  const { user, userProfile } = useAuth();
   const { job, isRunning, isError, rawText, structuredData, execute, retry } = useEngineJob('resume-builder');
 
   // Mode: Editor vs Full Live Preview
   const [viewMode, setViewMode] = useState<'editor' | 'preview'>('editor');
 
+  const isSricharan = isDemoMode || (profile?.name && (profile.name.includes('Sricharan') || profile.name.includes('Vangala')));
+
   // Structured Resume State - Section 1: Contact
-  const [fullName, setFullName] = useState(profile?.fullName || profile?.name || 'Vangala Sricharan');
+  const [fullName, setFullName] = useState(
+    profile?.fullName ||
+      profile?.name ||
+      userProfile?.fullName ||
+      (user?.user_metadata?.full_name as string) ||
+      (user?.email ? user.email.split('@')[0] : isDemoMode ? 'Vangala Sricharan' : 'Candidate')
+  );
   const [headline, setHeadline] = useState(profile?.targetRole || profile?.headline || 'Software Developer / AI Engineer');
-  const [email, setEmail] = useState((profile as any)?.email || '');
+  const [email, setEmail] = useState((profile as any)?.email || user?.email || '');
   const [phone, setPhone] = useState((profile as any)?.phone || '');
-  const [location, setLocation] = useState(profile?.location || 'Rajkot, Gujarat, India');
-  const [githubUrl, setGithubUrl] = useState(profile?.githubUrl || 'https://github.com/Vangala-sricharan');
-  const [linkedinUrl, setLinkedinUrl] = useState(profile?.linkedinUrl || 'https://www.linkedin.com/in/sri-charan-vangala-a7453b384/');
+  const [location, setLocation] = useState(cleanLocation(profile?.location || (isDemoMode ? 'Rajkot, Gujarat, India' : '')));
+  const [githubUrl, setGithubUrl] = useState(
+    isValidUrl(profile?.githubUrl) ? profile!.githubUrl! : (isDemoMode ? 'https://github.com/Vangala-sricharan' : '')
+  );
+  const [linkedinUrl, setLinkedinUrl] = useState(
+    isValidUrl(profile?.linkedinUrl) ? profile!.linkedinUrl! : (isDemoMode ? 'https://www.linkedin.com/in/sri-charan-vangala-a7453b384/' : '')
+  );
   const [targetRole, setTargetRole] = useState(profile?.targetRole || 'Software Developer / AI Engineer');
 
   // Section 2: Summary
-  const isSricharan = isDemoMode || (profile?.name && (profile.name.includes('Sricharan') || profile.name.includes('Vangala')));
-  const defaultSummary = isSricharan
-    ? 'Student and Software Developer passionate about full-stack engineering, AI systems, and building practical, high-performance web platforms.'
-    : profile?.bio || 'Motivated student and software developer with proven experience in building responsive full-stack applications and modular software systems.';
+  const [summary, setSummary] = useState(
+    buildInitialRecruiterSummary(profile, skills, projects, isDemoMode)
+  );
 
-  const [summary, setSummary] = useState(defaultSummary);
-
-  // Section 3: Education - Clean Year (no duplicate "Year") & CGPA: 9.42
+  // Section 3: Education - Clean Year (no "2rd Year") & Real CGPA only
   const [university, setUniversity] = useState(profile?.university || 'Marwadi University');
   const [degree, setDegree] = useState(profile?.degree || 'B.Tech');
   const [branch, setBranch] = useState(profile?.branch || 'CSE (AI/ML)');
-  
-  const initialYear = () => {
-    const rawYear = profile?.yearOfStudy || profile?.year || '2nd Year';
-    return rawYear.toLowerCase().includes('year') ? rawYear : `${rawYear} Year`;
-  };
-  const [gradYear, setGradYear] = useState(initialYear());
-  const [cgpa, setCgpa] = useState(profile?.cgpa?.toString() || profile?.currentGpa || '9.42');
+  const [gradYear, setGradYear] = useState(cleanEducationYear(profile?.yearOfStudy || profile?.year));
+  const [cgpa, setCgpa] = useState(getCleanCgpa(profile));
 
   // Section 4: Categorized Technical Skills (No duplicates, supported by verified data)
-  const initialSkillCategories = (): SkillCategoryItem[] => {
-    if (isDemoMode || isSricharan) {
-      return [
-        { id: 'cat-1', category: 'Languages', skills: 'Python, JavaScript, TypeScript, SQL, C++' },
-        { id: 'cat-2', category: 'Frontend', skills: 'React, Tailwind CSS, Recharts' },
-        { id: 'cat-3', category: 'Backend & APIs', skills: 'Node.js, REST APIs' },
-        { id: 'cat-4', category: 'AI / ML', skills: 'PyTorch, Generative AI, LLM Orchestration, Vector Embeddings' },
-        { id: 'cat-5', category: 'Databases', skills: 'PostgreSQL, MySQL, Supabase' },
-        { id: 'cat-6', category: 'Systems / Tools', skills: 'Docker, Git, Vercel, CI/CD' },
-      ];
-    }
+  const [skillCategories, setSkillCategories] = useState<SkillCategoryItem[]>(() =>
+    buildInitialSkillCategories(skills, projects)
+  );
 
-    // Dynamic categorization for authenticated users
-    const allSkillNames = Array.from(new Set(skills.map((s) => s.name)));
-    const langMatches = allSkillNames.filter((s) => /python|javascript|typescript|c\+\+|java|sql|c#|rust|golang|php/i.test(s));
-    const feMatches = allSkillNames.filter((s) => /react|vue|angular|tailwind|html|css|redux|next\.js/i.test(s));
-    const beMatches = allSkillNames.filter((s) => /node|express|fastapi|django|flask|spring|rest/i.test(s));
-    const aiMatches = allSkillNames.filter((s) => /ai|ml|pytorch|tensorflow|llm|generative|embeddings|deep learning|nlp/i.test(s));
-    const dbMatches = allSkillNames.filter((s) => /sql|postgres|mongo|supabase|redis|mysql|firebase/i.test(s));
-    const toolMatches = allSkillNames.filter((s) => /docker|git|vercel|linux|aws|ci\/cd|kubernetes/i.test(s));
-
-    const result: SkillCategoryItem[] = [];
-    if (langMatches.length > 0) result.push({ id: 'cat-lang', category: 'Languages', skills: langMatches.join(', ') });
-    if (feMatches.length > 0) result.push({ id: 'cat-fe', category: 'Frontend', skills: feMatches.join(', ') });
-    if (beMatches.length > 0) result.push({ id: 'cat-be', category: 'Backend & APIs', skills: beMatches.join(', ') });
-    if (aiMatches.length > 0) result.push({ id: 'cat-ai', category: 'AI / ML', skills: aiMatches.join(', ') });
-    if (dbMatches.length > 0) result.push({ id: 'cat-db', category: 'Databases', skills: dbMatches.join(', ') });
-    if (toolMatches.length > 0) result.push({ id: 'cat-tools', category: 'Systems / Tools', skills: toolMatches.join(', ') });
-
-    if (result.length === 0) {
-      result.push({ id: 'cat-core', category: 'Core Technical Competencies', skills: allSkillNames.join(', ') || 'TypeScript, React, Node.js, PostgreSQL' });
-    }
-    return result;
-  };
-
-  const [skillCategories, setSkillCategories] = useState<SkillCategoryItem[]>(initialSkillCategories);
-
-  // Section 5: Technical Projects (6 verified projects, no generic repeats)
-  const initialProjects = (): ResumeProjectItem[] => {
-    return projects.map((p) => {
-      const match = VERIFIED_PROJECT_DEFAULTS[p.title];
-      if (match) {
-        return {
-          id: p.id,
-          title: p.title,
-          techStack: match.techStack,
-          githubUrl: match.githubUrl,
-          liveUrl: match.liveUrl,
-          bullets: [...match.bullets],
-        };
-      }
-
-      // Fallback for user custom projects: clean non-repetitive bullets
-      const cleanHighlights = (p.highlights || [])
-        .filter((h) => !h.toLowerCase().includes('optimized performance and ensured reliable error handling'));
-
-      const customBullets = cleanHighlights.length > 0
-        ? cleanHighlights
-        : [
-            `Built ${p.title} platform utilizing ${p.techStack.join(', ')}.`,
-            p.description || 'Implemented core application workflows with responsive UI and modular architecture.',
-          ];
-
-      return {
-        id: p.id,
-        title: p.title,
-        techStack: p.techStack.join(' | '),
-        githubUrl: p.githubUrl,
-        liveUrl: p.liveUrl,
-        bullets: customBullets,
-      };
-    });
-  };
-
-  const [resumeProjects, setResumeProjects] = useState<ResumeProjectItem[]>(initialProjects);
+  // Section 5: Technical Projects (Strongest first, real URLs only, clean bullets)
+  const [resumeProjects, setResumeProjects] = useState<ResumeProjectItem[]>(() =>
+    buildInitialProjects(projects, isDemoMode, isSricharan)
+  );
 
   // Section 6: Certifications / Programs
   const initialCertifications = (): ResumeAchievementItem[] => {
@@ -279,6 +424,48 @@ export const ResumeBuilderView: React.FC<ResumeBuilderViewProps> = ({ onBackToHu
   const [copied, setCopied] = useState(false);
   const [exportingPdf, setExportingPdf] = useState(false);
 
+  // Hydrate profile data when user/profile loads or changes
+  useEffect(() => {
+    if (profile) {
+      if (profile.fullName || profile.name) {
+        setFullName(profile.fullName || profile.name);
+      }
+      if (profile.targetRole || profile.headline) {
+        setHeadline(profile.targetRole || profile.headline);
+      }
+      if (profile.location) {
+        setLocation(cleanLocation(profile.location));
+      }
+      if ((profile as any).email) {
+        setEmail((profile as any).email);
+      } else if (user?.email) {
+        setEmail(user.email);
+      }
+      if (isValidUrl(profile.githubUrl)) {
+        setGithubUrl(profile.githubUrl!);
+      }
+      if (isValidUrl(profile.linkedinUrl)) {
+        setLinkedinUrl(profile.linkedinUrl!);
+      }
+      if (profile.university) {
+        setUniversity(profile.university);
+      }
+      if (profile.degree) {
+        setDegree(profile.degree);
+      }
+      if (profile.branch) {
+        setBranch(profile.branch);
+      }
+      if (profile.yearOfStudy || profile.year) {
+        setGradYear(cleanEducationYear(profile.yearOfStudy || profile.year));
+      }
+      const realCgpa = getCleanCgpa(profile);
+      if (realCgpa) {
+        setCgpa(realCgpa);
+      }
+    }
+  }, [profile, user]);
+
   // Sync state if AI generates fresh resume data
   useEffect(() => {
     if (structuredData?.resumeSections) {
@@ -315,35 +502,47 @@ export const ResumeBuilderView: React.FC<ResumeBuilderViewProps> = ({ onBackToHu
   };
 
   const handleCopyText = () => {
-    const contactParts = [email, phone, location].filter(Boolean).join(' • ');
-    const linkParts = [
-      githubUrl ? `GitHub: ${githubUrl.replace(/^https?:\/\//, '')}` : '',
-      linkedinUrl ? `LinkedIn: ${linkedinUrl.replace(/^https?:\/\//, '')}` : '',
-    ].filter(Boolean).join('   |   ');
+    const cleanLoc = cleanLocation(location);
+    const contactParts = [email, phone, cleanLoc].filter(Boolean).join(' • ');
+
+    const linkParts: string[] = [];
+    if (isValidUrl(githubUrl)) {
+      linkParts.push(`GitHub: ${normalizeUrl(githubUrl).replace(/^https?:\/\//, '').replace(/\/$/, '')}`);
+    }
+    if (isValidUrl(linkedinUrl)) {
+      linkParts.push(`LinkedIn: ${normalizeUrl(linkedinUrl).replace(/^https?:\/\//, '').replace(/\/$/, '')}`);
+    }
+
+    const educationDegreeLine = [degree || 'B.Tech', branch, gradYear].filter(Boolean).join(' • ');
+    const educationCgpaPart = cgpa && cgpa.trim() !== '' ? ` | CGPA: ${cgpa.trim()}` : '';
 
     const textOutput = `
 ${fullName.toUpperCase()}
 ${headline}
 ${contactParts}
-${linkParts}
+${linkParts.join('   |   ')}
 
 PROFESSIONAL SUMMARY
 ${summary}
 
 EDUCATION
 ${university}
-${degree} • ${branch} • ${gradYear} | CGPA: ${cgpa}
+${educationDegreeLine}${educationCgpaPart}
 
 TECHNICAL SKILLS
 ${skillCategories.map((c) => `• ${c.category.toUpperCase()}: ${c.skills}`).join('\n')}
 
 TECHNICAL PROJECTS
 ${resumeProjects
-  .map(
-    (p) => `${p.title} | ${p.techStack}
-${[p.githubUrl ? `GitHub: ${p.githubUrl}` : '', p.liveUrl ? `Live: ${p.liveUrl}` : ''].filter(Boolean).join('  |  ')}
-${p.bullets.map((b) => `• ${b}`).join('\n')}`
-  )
+  .map((p) => {
+    const projLinks: string[] = [];
+    if (isValidUrl(p.githubUrl)) projLinks.push(`GitHub: ${normalizeUrl(p.githubUrl!)}`);
+    if (isValidUrl(p.liveUrl)) projLinks.push(`Live: ${normalizeUrl(p.liveUrl!)}`);
+    const linkLine = projLinks.length > 0 ? `\n${projLinks.join('  |  ')}` : '';
+
+    return `${p.title} | ${p.techStack}${linkLine}
+${p.bullets.map((b) => `• ${b}`).join('\n')}`;
+  })
   .join('\n\n')}
 
 ${resumeCertifications.length > 0 ? `CERTIFICATIONS / PROGRAMS\n${resumeCertifications.map((c) => `• ${c.title} — ${c.issuer} (${c.date})`).join('\n')}\n\n` : ''}
@@ -371,12 +570,12 @@ ${resumeParticipations.length > 0 ? `PARTICIPATIONS & EVENTS\n${resumeParticipat
           degree,
           branch,
           year: gradYear,
-          cgpa,
+          cgpa: cgpa.trim(),
           email,
           phone,
-          location,
-          githubUrl,
-          linkedinUrl,
+          location: cleanLocation(location),
+          githubUrl: isValidUrl(githubUrl) ? normalizeUrl(githubUrl) : undefined,
+          linkedinUrl: isValidUrl(linkedinUrl) ? normalizeUrl(linkedinUrl) : undefined,
           summary,
           skillCategories: skillCategories.map((c) => ({
             category: c.category,
@@ -384,9 +583,9 @@ ${resumeParticipations.length > 0 ? `PARTICIPATIONS & EVENTS\n${resumeParticipat
           })),
           projects: resumeProjects.map((p) => ({
             title: p.title,
-            techStack: p.techStack.split('|').map((s) => s.trim()).filter(Boolean),
-            githubUrl: p.githubUrl,
-            liveUrl: p.liveUrl,
+            techStack: p.techStack.split(/[|•]/).map((s) => s.trim()).filter(Boolean),
+            githubUrl: isValidUrl(p.githubUrl) ? normalizeUrl(p.githubUrl!) : undefined,
+            liveUrl: isValidUrl(p.liveUrl) ? normalizeUrl(p.liveUrl!) : undefined,
             bullets: p.bullets,
           })),
           certifications: resumeCertifications.map((c) => ({
@@ -731,7 +930,7 @@ ${resumeParticipations.length > 0 ? `PARTICIPATIONS & EVENTS\n${resumeParticipat
                       type="text"
                       value={cgpa}
                       onChange={(e) => setCgpa(e.target.value)}
-                      placeholder="9.42"
+                      placeholder="Optional (e.g. 8.75)"
                       className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 text-xs text-slate-900 dark:text-white focus:outline-none focus:border-blue-500 font-mono"
                     />
                   </div>
@@ -1072,18 +1271,34 @@ ${resumeParticipations.length > 0 ? `PARTICIPATIONS & EVENTS\n${resumeParticipat
                       {email && <span>{email}</span>}
                       {email && phone && <span>•</span>}
                       {phone && <span>{phone}</span>}
-                      {phone && location && <span>•</span>}
-                      {location && <span>{location}</span>}
+                      {phone && cleanLocation(location) && <span>•</span>}
+                      {cleanLocation(location) && <span>{cleanLocation(location)}</span>}
                     </div>
-                    <div className="text-[10px] text-slate-600 flex items-center justify-center flex-wrap gap-x-2">
-                      {githubUrl && (
-                        <span>GitHub: {githubUrl.replace(/^https?:\/\//, '')}</span>
-                      )}
-                      {githubUrl && linkedinUrl && <span>•</span>}
-                      {linkedinUrl && (
-                        <span>LinkedIn: {linkedinUrl.replace(/^https?:\/\//, '')}</span>
-                      )}
-                    </div>
+                    {(isValidUrl(githubUrl) || isValidUrl(linkedinUrl)) && (
+                      <div className="text-[10px] text-slate-600 flex items-center justify-center flex-wrap gap-x-2">
+                        {isValidUrl(githubUrl) && (
+                          <a
+                            href={normalizeUrl(githubUrl)}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-blue-600 hover:underline"
+                          >
+                            GitHub: {normalizeUrl(githubUrl).replace(/^https?:\/\//, '').replace(/\/$/, '')}
+                          </a>
+                        )}
+                        {isValidUrl(githubUrl) && isValidUrl(linkedinUrl) && <span>•</span>}
+                        {isValidUrl(linkedinUrl) && (
+                          <a
+                            href={normalizeUrl(linkedinUrl)}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-blue-600 hover:underline"
+                          >
+                            LinkedIn: {normalizeUrl(linkedinUrl).replace(/^https?:\/\//, '').replace(/\/$/, '')}
+                          </a>
+                        )}
+                      </div>
+                    )}
                   </div>
 
                   {/* 1. Summary */}
@@ -1102,13 +1317,10 @@ ${resumeParticipations.length > 0 ? `PARTICIPATIONS & EVENTS\n${resumeParticipat
                       Education
                     </div>
                     <div className="text-[10px] text-slate-700 space-y-0.5">
+                      <div className="font-bold text-slate-950">{university}</div>
                       <div className="flex items-baseline justify-between">
-                        <span className="font-bold text-slate-950">{university}</span>
-                        <span className="font-mono text-[9px] text-slate-600">{gradYear}</span>
-                      </div>
-                      <div className="flex items-baseline justify-between">
-                        <span>{degree} • {branch}</span>
-                        <span className="font-semibold text-slate-900">CGPA: {cgpa}</span>
+                        <span>{[degree || 'B.Tech', branch, gradYear].filter(Boolean).join(' • ')}</span>
+                        {cgpa && cgpa.trim() !== '' && <span className="font-semibold text-slate-900">CGPA: {cgpa.trim()}</span>}
                       </div>
                     </div>
                   </div>
@@ -1139,10 +1351,28 @@ ${resumeParticipations.length > 0 ? `PARTICIPATIONS & EVENTS\n${resumeParticipat
                             <span className="font-bold text-slate-950">{p.title}</span>
                             <span className="text-[9px] font-mono text-slate-600">{p.techStack}</span>
                           </div>
-                          {(p.githubUrl || p.liveUrl) && (
+                          {(isValidUrl(p.githubUrl) || isValidUrl(p.liveUrl)) && (
                             <div className="text-[8.5px] text-blue-600 flex items-center gap-2">
-                              {p.githubUrl && <span>GitHub ↗</span>}
-                              {p.liveUrl && <span>Live Demo ↗</span>}
+                              {isValidUrl(p.githubUrl) && (
+                                <a
+                                  href={normalizeUrl(p.githubUrl!)}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="hover:underline"
+                                >
+                                  GitHub ↗
+                                </a>
+                              )}
+                              {isValidUrl(p.liveUrl) && (
+                                <a
+                                  href={normalizeUrl(p.liveUrl!)}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="hover:underline"
+                                >
+                                  Live Demo ↗
+                                </a>
+                              )}
                             </div>
                           )}
                           <ul className="space-y-0.5 pl-3 list-disc text-[9px] text-slate-700">
@@ -1252,22 +1482,34 @@ ${resumeParticipations.length > 0 ? `PARTICIPATIONS & EVENTS\n${resumeParticipat
                   {email && <span>{email}</span>}
                   {email && phone && <span>•</span>}
                   {phone && <span>{phone}</span>}
-                  {phone && location && <span>•</span>}
-                  {location && <span>{location}</span>}
+                  {phone && cleanLocation(location) && <span>•</span>}
+                  {cleanLocation(location) && <span>{cleanLocation(location)}</span>}
                 </div>
-                <div className="text-xs text-slate-600 flex items-center justify-center flex-wrap gap-x-2.5">
-                  {githubUrl && (
-                    <a href={githubUrl} target="_blank" rel="noreferrer" className="text-blue-600 hover:underline">
-                      GitHub: {githubUrl.replace(/^https?:\/\//, '')}
-                    </a>
-                  )}
-                  {githubUrl && linkedinUrl && <span>•</span>}
-                  {linkedinUrl && (
-                    <a href={linkedinUrl} target="_blank" rel="noreferrer" className="text-blue-600 hover:underline">
-                      LinkedIn: {linkedinUrl.replace(/^https?:\/\//, '')}
-                    </a>
-                  )}
-                </div>
+                {(isValidUrl(githubUrl) || isValidUrl(linkedinUrl)) && (
+                  <div className="text-xs text-slate-600 flex items-center justify-center flex-wrap gap-x-2.5">
+                    {isValidUrl(githubUrl) && (
+                      <a
+                        href={normalizeUrl(githubUrl)}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-blue-600 hover:underline"
+                      >
+                        GitHub: {normalizeUrl(githubUrl).replace(/^https?:\/\//, '').replace(/\/$/, '')}
+                      </a>
+                    )}
+                    {isValidUrl(githubUrl) && isValidUrl(linkedinUrl) && <span>•</span>}
+                    {isValidUrl(linkedinUrl) && (
+                      <a
+                        href={normalizeUrl(linkedinUrl)}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-blue-600 hover:underline"
+                      >
+                        LinkedIn: {normalizeUrl(linkedinUrl).replace(/^https?:\/\//, '').replace(/\/$/, '')}
+                      </a>
+                    )}
+                  </div>
+                )}
               </div>
 
               {/* 1. Summary */}
@@ -1286,13 +1528,10 @@ ${resumeParticipations.length > 0 ? `PARTICIPATIONS & EVENTS\n${resumeParticipat
                   Education
                 </h2>
                 <div className="text-xs text-slate-700 space-y-0.5">
-                  <div className="flex items-baseline justify-between">
-                    <span className="font-bold text-slate-950 text-sm">{university}</span>
-                    <span className="font-mono text-xs text-slate-600">{gradYear}</span>
-                  </div>
-                  <div className="flex items-baseline justify-between">
-                    <span>{degree} • {branch}</span>
-                    <span className="font-semibold text-slate-900">CGPA: {cgpa}</span>
+                  <div className="font-bold text-slate-950 text-sm">{university}</div>
+                  <div className="flex items-baseline justify-between pt-0.5">
+                    <span>{[degree || 'B.Tech', branch, gradYear].filter(Boolean).join(' • ')}</span>
+                    {cgpa && cgpa.trim() !== '' && <span className="font-semibold text-slate-900">CGPA: {cgpa.trim()}</span>}
                   </div>
                 </div>
               </div>
@@ -1323,15 +1562,25 @@ ${resumeParticipations.length > 0 ? `PARTICIPATIONS & EVENTS\n${resumeParticipat
                         <span className="text-xs font-bold text-slate-950">{p.title}</span>
                         <span className="text-[11px] font-mono text-slate-600">{p.techStack}</span>
                       </div>
-                      {(p.githubUrl || p.liveUrl) && (
+                      {(isValidUrl(p.githubUrl) || isValidUrl(p.liveUrl)) && (
                         <div className="text-[11px] text-blue-600 flex items-center gap-3">
-                          {p.githubUrl && (
-                            <a href={p.githubUrl} target="_blank" rel="noreferrer" className="hover:underline">
+                          {isValidUrl(p.githubUrl) && (
+                            <a
+                              href={normalizeUrl(p.githubUrl!)}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="hover:underline"
+                            >
                               GitHub ↗
                             </a>
                           )}
-                          {p.liveUrl && (
-                            <a href={p.liveUrl} target="_blank" rel="noreferrer" className="hover:underline">
+                          {isValidUrl(p.liveUrl) && (
+                            <a
+                              href={normalizeUrl(p.liveUrl!)}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="hover:underline"
+                            >
                               Live Demo ↗
                             </a>
                           )}

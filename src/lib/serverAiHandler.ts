@@ -952,14 +952,14 @@ RESUME CONFIGURATION:
 Target Role: ${userInputs?.targetRole || context.targetRole}
 Emphasis: ${userInputs?.emphasis || 'Software Engineering & Cloud Architecture'}
 
-Generate a structured, ATS-friendly resume layout using ONLY the candidate's actual data.
-Include:
-- Header & Contact placeholder
-- Targeted Professional Summary
-- Categorized Skills
-- Verified Projects with quantifiable bullet points
-- Education & GPA
-- Honors & Achievements`;
+Generate a structured, ATS-compliant recruiter-friendly resume using ONLY the candidate's actual verified data.
+GROUNDING & FORMATTING RULES:
+1. ORDER: Name + Contact, Professional Summary, Education, Technical Skills, Projects, Certifications / Programs, Participations / Events.
+2. SUMMARY: Concise recruiter-focused summary (2-3 sentences) communicating student/degree status, software engineering/full-stack focus, AI/ML specialization where supported, strongest technologies, and strongest project direction (e.g. Digital Student Twin if present). No generic filler ("passionate about..."), no invented experience.
+3. EDUCATION: Format cleanly: Degree • Branch • Year (e.g. B.Tech • CSE (AI/ML) • 2nd Year). Fix any "2rd Year" typo to "2nd Year". Preserve actual CGPA only if present in data; never invent or overwrite it.
+4. SKILLS: Categorize cleanly (Languages, Frontend, Backend & APIs, AI/ML, Databases, Systems & Tools). Deduplicate. Include only technologies genuinely present in candidate data.
+5. PROJECTS: Put the strongest/most distinctive project first (especially Digital Student Twin). 2-3 concise, technically specific bullets per project based on actual project data. Avoid repeating generic filler ("Optimized performance and ensured reliable error handling..."). Do NOT fabricate metrics, users, companies, or results.
+6. LINKS: Real URLs only. If valid URL exists, show it. If not, omit completely. Never output broken placeholders like "GitHub !— • Live Demo !—" or "github.com/candidate".`;
 
     case 'resume-ats':
       return `${baseContext}
@@ -1663,20 +1663,78 @@ ${searchOptimization}`;
     case 'resume-builder': {
       const score = 94;
       const evaluation = getEvaluationLabel(score);
-      const cleanYear = context.year
-        ? (context.year.toLowerCase().includes('year') ? context.year : `${context.year} Year`)
+      const rawYear = (context.year || '').replace(/\b2rd\b/gi, '2nd');
+      const cleanYear = rawYear
+        ? (rawYear.toLowerCase().includes('year') ? rawYear : `${rawYear} Year`)
         : '2nd Year';
-      const cleanCgpa = context.cgpa || '9.42';
-      const summaryText = context.name?.toLowerCase().includes('sricharan') || context.name?.toLowerCase().includes('vangala')
-        ? 'Student and Software Developer passionate about full-stack engineering, AI systems, and building practical, high-performance web platforms.'
-        : `Student targeting ${context.targetRole || 'Software Developer / AI Engineer'} roles with verified competencies in full-stack engineering, scalable web architectures, and clean code practices.`;
+      const cleanCgpa = (context.cgpa && String(context.cgpa) !== '0') ? String(context.cgpa) : '';
+
+      // Grounded recruiter summary based strictly on verified user data
+      const studentStatus = `${context.degree || 'B.Tech'} student in ${context.branch || 'Computer Science'}${context.university ? ` at ${context.university}` : ''}`;
+      const hasAi = context.skills.some((s) => /ai|ml|pytorch|deep learning|llm/i.test(s.name)) || /ai|ml/i.test(context.branch || '');
+      const specialization = hasAi
+        ? 'specializing in AI/ML systems and full-stack software development'
+        : 'focused on scalable full-stack software engineering and clean web architectures';
+      const topSkills = Array.from(new Set(context.skills.map((s) => s.name).concat(context.projects.flatMap((p) => p.techStack || []))))
+        .filter((s) => /python|javascript|typescript|react|node|sql|postgres|supabase|fastapi/i.test(s))
+        .slice(0, 5);
+      const techPhrase = topSkills.length > 0 ? `Proficient in ${topSkills.join(', ')}.` : '';
+      const hasTwin = context.projects.some((p) => /student\s*twin/i.test(p.title));
+      const projectPhrase = hasTwin
+        ? 'Hands-on experience architecting full-stack systems including the Digital Student Twin intelligence platform with structured diagnostics and cloud data workflows.'
+        : context.projects.length > 0
+        ? `Hands-on experience architecting full-stack applications including ${context.projects[0].title} with modular system architecture.`
+        : '';
+      const summaryText = `${studentStatus}, ${specialization}. ${techPhrase} ${projectPhrase} Focused on engineering production-oriented, reliable software.`.replace(/\s+/g, ' ').trim();
+
+      // Dynamic skill categorization strictly from user's data
+      const allSkills = Array.from(new Set(context.skills.map((s) => s.name).concat(context.projects.flatMap((p) => p.techStack || []))));
+      const assigned = new Set<string>();
+      const categorize = (regex: RegExp) => {
+        const matches = allSkills.filter((s) => !assigned.has(s.toLowerCase()) && regex.test(s));
+        matches.forEach((s) => assigned.add(s.toLowerCase()));
+        return matches;
+      };
+
+      const langSkills = categorize(/^(?:python|javascript|typescript|c\+\+|java|sql|c#|rust|golang|go|php|c|html|css|bash)$/i);
+      const feSkills = categorize(/^(?:react|tailwind|tailwind css|next\.js|redux|recharts|vue|angular|vite)$/i);
+      const beSkills = categorize(/^(?:node\.js|node|express|fastapi|django|flask|spring|rest apis|rest api|graphql)$/i);
+      const aiSkills = categorize(/^(?:pytorch|tensorflow|generative ai|llm orchestration|vector embeddings|deep learning|nlp|machine learning|ai apis)$/i);
+      const dbSkills = categorize(/^(?:postgresql|postgres|mysql|supabase|mongodb|redis|sqlite|firebase)$/i);
+      const toolSkills = categorize(/^(?:docker|git|github|vercel|ci\/cd|linux|aws|postman)$/i);
+
+      const skillCategoryLines: string[] = [];
+      if (langSkills.length > 0) skillCategoryLines.push(`- Languages: ${langSkills.join(', ')}`);
+      if (feSkills.length > 0) skillCategoryLines.push(`- Frontend: ${feSkills.join(', ')}`);
+      if (beSkills.length > 0) skillCategoryLines.push(`- Backend & APIs: ${beSkills.join(', ')}`);
+      if (aiSkills.length > 0) skillCategoryLines.push(`- AI / ML: ${aiSkills.join(', ')}`);
+      if (dbSkills.length > 0) skillCategoryLines.push(`- Databases: ${dbSkills.join(', ')}`);
+      if (toolSkills.length > 0) skillCategoryLines.push(`- Systems & Tools: ${toolSkills.join(', ')}`);
+      if (skillCategoryLines.length === 0 && allSkills.length > 0) {
+        skillCategoryLines.push(`- Technical Skills: ${allSkills.join(', ')}`);
+      }
+
+      // Sort projects: Digital Student Twin first
+      const sortedProjects = [...context.projects].sort((a, b) => {
+        const aTwin = /student\s*twin/i.test(a.title);
+        const bTwin = /student\s*twin/i.test(b.title);
+        if (aTwin && !bTwin) return -1;
+        if (!aTwin && bTwin) return 1;
+        return 0;
+      });
+
+      // Valid links only
+      const headerLinks = [
+        context.githubUrl && !context.githubUrl.includes('candidate') ? `GitHub: ${context.githubUrl}` : '',
+        context.linkedinUrl && !context.linkedinUrl.includes('candidate') ? `LinkedIn: ${context.linkedinUrl}` : '',
+      ].filter(Boolean).join(' | ');
 
       const text = `### ATS-Compliant Technical Resume Workspace
 
 ================================================================================
 ${context.name.toUpperCase()}
 ${context.targetRole || 'Software Developer / AI Engineer'} | ${context.university}
-GitHub: ${context.githubUrl || 'github.com/candidate'} | LinkedIn: ${context.linkedinUrl || 'linkedin.com/in/candidate'}
+${headerLinks}
 ================================================================================
 
 PROFESSIONAL SUMMARY
@@ -1686,26 +1744,23 @@ ${summaryText}
 EDUCATION
 --------------------------------------------------------------------------------
 ${context.university}
-${context.degree || 'B.Tech'} • ${context.branch || 'CSE (AI/ML)'} • ${cleanYear}
-CGPA: ${cleanCgpa}
+${context.degree || 'B.Tech'} • ${context.branch || 'CSE (AI/ML)'} • ${cleanYear}${cleanCgpa ? `\nCGPA: ${cleanCgpa}` : ''}
 
 TECHNICAL SKILLS
 --------------------------------------------------------------------------------
-- Languages: Python, JavaScript, TypeScript, SQL
-- Frontend: React, Tailwind CSS
-- Backend & APIs: Node.js, REST APIs
-- AI / ML: PyTorch, Generative AI, LLM Orchestration, Vector Embeddings
-- Databases: PostgreSQL, MySQL, Supabase
-- Systems / Tools: Docker, Git, Vercel, CI/CD
+${skillCategoryLines.join('\n')}
 
-VERIFIED PROJECTS
+TECHNICAL PROJECTS
 --------------------------------------------------------------------------------
-${context.projects.map((p) => `${p.title.toUpperCase()} | Tech Stack: ${p.techStack.join(', ')}
-• ${p.description || 'Architected and built full-stack application with modular architecture.'}`).join('\n\n')}
+${sortedProjects.map((p) => {
+  const stack = Array.isArray(p.techStack) ? p.techStack.join(' • ') : p.techStack;
+  return `${p.title.toUpperCase()} | Tech Stack: ${stack}
+• ${p.description || `Architected ${p.title} platform with modular software design.`}`;
+}).join('\n\n')}
 
-HONORS & ACHIEVEMENTS
+CERTIFICATIONS / PROGRAMS
 --------------------------------------------------------------------------------
-${context.achievements.map((a) => `• ${a.title} — ${a.issuer} (${a.date})`).join('\n') || '• Academic Excellence Distinction'}`;
+${context.achievements.map((a) => `• ${a.title} — ${a.issuer}${a.date ? ` (${a.date})` : ''}`).join('\n') || '• Continuous Technical Development'}`;
 
       const data = {
         score,
@@ -1742,14 +1797,15 @@ ${context.achievements.map((a) => `• ${a.title} — ${a.issuer} (${a.date})`).
         ],
         resumeSections: {
           summary: summaryText,
-          skills: context.skills.map((s) => s.name),
-          projects: context.projects,
+          headline: context.targetRole || 'Software Developer / AI Engineer',
+          skills: allSkills,
+          projects: sortedProjects,
           education: {
             university: context.university,
-            degree: context.degree,
-            branch: context.branch,
-            cgpa: context.cgpa || '8.5',
-            year: context.year,
+            degree: context.degree || 'B.Tech',
+            branch: context.branch || 'CSE (AI/ML)',
+            cgpa: cleanCgpa,
+            year: cleanYear,
           },
           achievements: context.achievements,
         },
