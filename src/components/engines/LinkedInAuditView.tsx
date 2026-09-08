@@ -1,9 +1,8 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef } from 'react';
 import { useStudentTwin } from '../../context/StudentTwinContext';
 import { useEngineJob } from '../../context/AIJobContext';
 import { AI_ENGINES } from '../../data/enginesData';
 import { EngineLayout } from './EngineLayout';
-import { buildStudentContext } from '../../lib/aiEngineService';
 import { AIProcessingCard } from './AIProcessingCard';
 import { generateAuditReportPDF } from '../../lib/pdfExportService';
 import { validateAndExtractLinkedInPdf, PdfValidationResult } from '../../lib/pdfTextExtractor';
@@ -28,6 +27,9 @@ import {
   Trash2,
   FileCheck2,
   AlertCircle,
+  ChevronDown,
+  ChevronUp,
+  Bug,
 } from 'lucide-react';
 
 interface LinkedInAuditViewProps {
@@ -44,28 +46,79 @@ export const LinkedInAuditView: React.FC<LinkedInAuditViewProps> = ({ onBackToHu
 
   // PDF Upload State (Exclusively PDF-based audit)
   const [uploadedPdfFile, setUploadedPdfFile] = useState<File | null>(null);
+  const [pdfBase64, setPdfBase64] = useState<string | null>(null);
   const [pdfValidation, setPdfValidation] = useState<PdfValidationResult | null>(null);
   const [pdfError, setPdfError] = useState<string | null>(null);
   const [isValidatingPdf, setIsValidatingPdf] = useState(false);
   const [isDragOver, setIsDragOver] = useState(false);
+  const [showDiagnostics, setShowDiagnostics] = useState(false);
+
+  const auditRunIdRef = useRef(0);
 
   const handleProcessPdfFile = async (file: File) => {
+    // Invalidate any ongoing audit run to prevent stale async responses
+    auditRunIdRef.current += 1;
     // Reset previous audit scorecard on new upload
     reset();
     setUploadedPdfFile(file);
+    setPdfBase64(null);
     setPdfError(null);
     setPdfValidation(null);
     setIsValidatingPdf(true);
 
     try {
-      const result = await validateAndExtractLinkedInPdf(file);
-      if (!result.isValid) {
-        setPdfError(result.error || 'Failed to validate PDF file.');
-        setPdfValidation(null);
-      } else {
-        setPdfValidation(result);
-        setPdfError(null);
+      if (!file.name.toLowerCase().endsWith('.pdf') && file.type !== 'application/pdf') {
+        setPdfError('Please upload an authentic LinkedIn profile export PDF.');
+        setIsValidatingPdf(false);
+        return;
       }
+
+      // Convert file to Base64 for direct Gemini multimodal document analysis
+      const base64 = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => {
+          const res = reader.result as string;
+          const b64 = res.split(',')[1] || '';
+          resolve(b64);
+        };
+        reader.onerror = () => reject(new Error('Failed to read PDF file'));
+        reader.readAsDataURL(file);
+      });
+
+      if (!base64) {
+        setPdfError('Failed to encode PDF data. Please try again.');
+        setIsValidatingPdf(false);
+        return;
+      }
+
+      setPdfBase64(base64);
+
+      const sizeFormatted = file.size > 1024 * 1024
+        ? `${(file.size / (1024 * 1024)).toFixed(2)} MB`
+        : `${(file.size / 1024).toFixed(1)} KB`;
+
+      // Run client-side extraction to display instant pre-validation signals
+      let validationDetails: PdfValidationResult | null = null;
+      try {
+        validationDetails = await validateAndExtractLinkedInPdf(file);
+      } catch {
+        // Non-blocking fallback; Gemini will perform direct document analysis
+      }
+
+      setPdfValidation({
+        isValid: true,
+        fileSizeFormatted: sizeFormatted,
+        extractedText: validationDetails?.extractedText || '',
+        rawExtractedText: validationDetails?.rawExtractedText || '',
+        normalizedText: validationDetails?.normalizedText || '',
+        detectedSections: validationDetails?.detectedSections || ['Document Attached'],
+        missingSections: validationDetails?.missingSections || [],
+        candidateName: validationDetails?.candidateName || '',
+        candidateHeadline: validationDetails?.candidateHeadline || '',
+        candidateLocation: validationDetails?.candidateLocation || '',
+        debugInfo: validationDetails?.debugInfo,
+      });
+      setPdfError(null);
     } catch (err: any) {
       setPdfError(err?.message || 'Error parsing PDF document.');
     } finally {
@@ -90,8 +143,10 @@ export const LinkedInAuditView: React.FC<LinkedInAuditViewProps> = ({ onBackToHu
   };
 
   const handleClearPdf = () => {
+    auditRunIdRef.current += 1;
     reset();
     setUploadedPdfFile(null);
+    setPdfBase64(null);
     setPdfValidation(null);
     setPdfError(null);
   };
@@ -119,86 +174,64 @@ export const LinkedInAuditView: React.FC<LinkedInAuditViewProps> = ({ onBackToHu
   };
 
   const handleRunAudit = async () => {
-    if (!profile || isRunning || !pdfValidation) return;
+    if (isRunning || !pdfBase64) return;
 
-    const studentContext = buildStudentContext(
-      profile,
-      skills,
-      projects,
-      achievements,
-      careerGoals[0]
-    );
+    const currentRunId = ++auditRunIdRef.current;
 
     const inputs: Record<string, any> = {
-      profileText: pdfValidation.extractedText,
+      pdfBase64,
       fileName: uploadedPdfFile?.name || 'linkedin_profile.pdf',
-      fileSize: pdfValidation.fileSizeFormatted,
-      detectedSections: pdfValidation.detectedSections,
-      candidateName: pdfValidation.candidateName || profile.name,
-      candidateHeadline: pdfValidation.candidateHeadline,
-      candidateLocation: pdfValidation.candidateLocation,
+      fileSize: pdfValidation?.fileSizeFormatted || `${(((uploadedPdfFile?.size || 0) / 1024)).toFixed(1)} KB`,
+      rawExtractedText: pdfValidation?.rawExtractedText || pdfValidation?.extractedText || '',
     };
 
     await execute({
       engineId: 'linkedin-audit',
-      studentContext,
       userInputs: inputs,
     });
+
+    // Discard result if a newer PDF upload superseded this run
+    if (auditRunIdRef.current !== currentRunId) {
+      reset();
+    }
   };
 
   const auditData = job?.result?.data;
   const rawText = job?.rawText;
 
-  const profileInfo = auditData?.profile || {
-    name: pdfValidation?.candidateName || profile?.fullName || profile?.name || 'Student Candidate',
-    headline: pdfValidation?.candidateHeadline || `Student @ ${profile?.university || 'Engineering University'} | Aspiring ${profile?.targetRole || 'Software Development Engineer'}`,
-    location: auditData?.profile?.location || pdfValidation?.candidateLocation || 'Verified Profile',
+  const profileInfo = {
+    name: auditData?.profile?.name || auditData?.candidate?.name || 'Candidate',
+    headline: auditData?.profile?.headline || auditData?.candidate?.headline || '',
+    location: auditData?.profile?.location || auditData?.candidate?.location || '',
   };
 
-  const rawBreakdown = auditData?.breakdown ?? [
-    { label: 'Headline Impact', score: 12, max: 15 },
-    { label: 'About Section Depth', score: 19, max: 25 },
-    { label: 'Experience & Career Progression', score: 16, max: 20 },
-    { label: 'Education & Certifications', score: 16, max: 20 },
-    { label: 'Skills & Professional Positioning', score: 17, max: 20 },
-  ];
+  const rawBreakdown = auditData?.breakdown ?? [];
 
   // Mathematical single source of truth: overall score derived deterministically from breakdown
   const scoreResult = useMemo(() => {
+    if (!rawBreakdown || rawBreakdown.length === 0) {
+      return { overallScore: 0, evaluation: 'Pending Audit', breakdown: [] };
+    }
     return calculateLinkedInAuditScore(rawBreakdown);
   }, [rawBreakdown]);
 
-  const overallScore = scoreResult.overallScore;
-  const evaluation = scoreResult.evaluation;
-  const breakdown = scoreResult.breakdown;
+  const overallScore = auditData ? scoreResult.overallScore : 0;
+  const evaluation = auditData ? scoreResult.evaluation : 'Pending Audit';
+  const breakdown = auditData ? scoreResult.breakdown : [];
 
-  const strengths = auditData?.strengths ?? [
-    `Strong educational credentials at ${profile?.university || 'University'} with clear graduation timeline`,
-    'Good alignment with core software engineering stacks (TypeScript, Python, Distributed Systems)',
-    'Demonstrable commitment to full-stack engineering and verified project depth',
-  ];
+  const strengths = auditData?.strengths ?? [];
+  const gaps = auditData?.gaps ?? [];
+  const headlineVariations = auditData?.headlineVariations ?? [];
+  const adjustments = auditData?.recommendations ?? [];
+  const searchOptimization = auditData?.searchOptimization ?? '';
 
-  const gaps = auditData?.gaps ?? [
-    'Headline is currently generic; lacks high-converting recruiter keyword density',
-    'About narrative lacks quantifiable engineering accomplishments and latency metrics',
-    'Featured media section is currently empty without pinned repository proof',
-  ];
-
-  const headlineVariations = auditData?.headlineVariations || [
-    `${profileInfo.name} | Aspiring ${profile?.targetRole || 'Software Engineer'} @ ${profile?.university || 'University'} | TypeScript • React • Python • Cloud Systems | Open to Internships`,
-    `CS Scholar @ ${profile?.university || 'University'} | Building Full-Stack AI Systems & High-Throughput APIs | TypeScript • Go • PostgreSQL`,
-    `Software Engineering Scholar | ${profile?.targetRole || 'Full-Stack Developer'} | AST Verified Systems Builder | Available for 2026 Opportunities`,
-  ];
-
-  const adjustments = auditData?.recommendations || [
-    { priority: 1, title: 'Upgrade Professional Headline', desc: 'Adopt one of the market-calibrated headline variations below to pass recruiter keyword Boolean searches.' },
-    { priority: 2, title: 'Quantify About Narrative', desc: 'Highlight latency reductions, user scale, or algorithmic complexity in your career summary.' },
-    { priority: 3, title: 'Attach Featured Proof-of-Work', desc: 'Add direct links to top GitHub repositories and live interactive deployments in Featured Media.' },
-  ];
-
-  const searchOptimization =
-    auditData?.searchOptimization ||
-    'Optimize headline and skills endorsements for recruiter Boolean filters: REST APIs, TypeScript, Distributed Systems, Python, React, and Docker.';
+  const getInitials = (name: string) => {
+    const clean = (name || '').trim().replace(/[^a-zA-Z\s]/g, '');
+    const parts = clean.split(/\s+/).filter(Boolean);
+    if (parts.length === 0) return 'LI';
+    if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+    return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+  };
 
   const handleCopy = (text: string, idx: number) => {
     navigator.clipboard.writeText(text);
@@ -314,6 +347,82 @@ export const LinkedInAuditView: React.FC<LinkedInAuditViewProps> = ({ onBackToHu
                   </div>
                 </div>
 
+                {/* PDF Extraction Diagnostics (Requirement 9: verify detected Name, Headline, About, Skills, Certs, Edu, Exp) */}
+                {(auditData?.debugInfo || pdfValidation?.debugInfo) && (
+                  <div className="rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-black/20 overflow-hidden">
+                    <button
+                      type="button"
+                      onClick={() => setShowDiagnostics(!showDiagnostics)}
+                      className="w-full px-4 py-2.5 text-left text-xs font-mono font-semibold flex items-center justify-between text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-white/5 transition-colors cursor-pointer"
+                    >
+                      <div className="flex items-center gap-2">
+                        <Bug className="w-3.5 h-3.5 text-indigo-500" />
+                        <span>PDF Extraction Diagnostics</span>
+                        <span className="text-[10px] px-2 py-0.5 rounded bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400">
+                          Field Verification
+                        </span>
+                      </div>
+                      {showDiagnostics ? <ChevronUp className="w-4 h-4 text-slate-400" /> : <ChevronDown className="w-4 h-4 text-slate-400" />}
+                    </button>
+                    {showDiagnostics && (
+                      <div className="p-4 border-t border-slate-100 dark:border-white/5 space-y-2.5 text-xs font-mono">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                          <div className="p-2.5 rounded-lg bg-slate-50 dark:bg-white/5">
+                            <span className="text-[10px] uppercase font-bold text-slate-400 block">Detected Name</span>
+                            <span className="font-semibold text-slate-800 dark:text-slate-200">
+                              {auditData?.debugInfo?.detectedName || pdfValidation?.debugInfo?.detectedName || 'None'}
+                            </span>
+                          </div>
+                          <div className="p-2.5 rounded-lg bg-slate-50 dark:bg-white/5">
+                            <span className="text-[10px] uppercase font-bold text-slate-400 block">Detected Headline</span>
+                            <span className="font-semibold text-slate-800 dark:text-slate-200 break-words">
+                              {auditData?.debugInfo?.detectedHeadline || pdfValidation?.debugInfo?.detectedHeadline || 'None'}
+                            </span>
+                          </div>
+                        </div>
+                        <div className="p-2.5 rounded-lg bg-slate-50 dark:bg-white/5">
+                          <span className="text-[10px] uppercase font-bold text-slate-400 block">Detected About / Summary</span>
+                          <span className="text-slate-700 dark:text-slate-300">
+                            {auditData?.debugInfo?.detectedAbout || pdfValidation?.debugInfo?.detectedAbout || 'None'}
+                          </span>
+                        </div>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                          <div className="p-2.5 rounded-lg bg-slate-50 dark:bg-white/5">
+                            <span className="text-[10px] uppercase font-bold text-slate-400 block">
+                              Detected Skills ({((auditData?.debugInfo?.detectedSkills || pdfValidation?.debugInfo?.detectedSkills) || []).length})
+                            </span>
+                            <span className="text-slate-700 dark:text-slate-300 break-words">
+                              {((auditData?.debugInfo?.detectedSkills || pdfValidation?.debugInfo?.detectedSkills) || []).join(', ') || 'None detected'}
+                            </span>
+                          </div>
+                          <div className="p-2.5 rounded-lg bg-slate-50 dark:bg-white/5">
+                            <span className="text-[10px] uppercase font-bold text-slate-400 block">
+                              Detected Certifications ({((auditData?.debugInfo?.detectedCertifications || pdfValidation?.debugInfo?.detectedCertifications) || []).length})
+                            </span>
+                            <span className="text-slate-700 dark:text-slate-300 break-words">
+                              {((auditData?.debugInfo?.detectedCertifications || pdfValidation?.debugInfo?.detectedCertifications) || []).join('; ') || 'None detected'}
+                            </span>
+                          </div>
+                        </div>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                          <div className="p-2.5 rounded-lg bg-slate-50 dark:bg-white/5">
+                            <span className="text-[10px] uppercase font-bold text-slate-400 block">Detected Education</span>
+                            <span className="text-slate-700 dark:text-slate-300">
+                              {auditData?.debugInfo?.detectedEducation || pdfValidation?.debugInfo?.detectedEducation || 'None'}
+                            </span>
+                          </div>
+                          <div className="p-2.5 rounded-lg bg-slate-50 dark:bg-white/5">
+                            <span className="text-[10px] uppercase font-bold text-slate-400 block">Detected Experience</span>
+                            <span className="text-slate-700 dark:text-slate-300">
+                              {auditData?.debugInfo?.detectedExperience || pdfValidation?.debugInfo?.detectedExperience || 'None'}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+
                 {/* Validation Error Notice if any */}
                 {pdfError && (
                   <div className="p-3.5 rounded-xl bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800/50 text-xs text-red-700 dark:text-red-300 flex items-center gap-2">
@@ -404,7 +513,7 @@ export const LinkedInAuditView: React.FC<LinkedInAuditViewProps> = ({ onBackToHu
                 <div className="space-y-3">
                   <div className="flex items-start gap-4">
                     <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-blue-600 to-indigo-700 text-white font-bold text-lg flex items-center justify-center shrink-0 shadow-sm">
-                      {(profileInfo.name || 'Candidate').split(' ').map((n: string) => n[0]).join('').slice(0, 2).toUpperCase()}
+                      {getInitials(profileInfo.name)}
                     </div>
                     <div className="space-y-1 min-w-0">
                       <div className="flex items-center gap-2 flex-wrap">
@@ -430,8 +539,8 @@ export const LinkedInAuditView: React.FC<LinkedInAuditViewProps> = ({ onBackToHu
                 </div>
 
                 <div className="pt-3 border-t border-slate-100 dark:border-white/5 flex items-center justify-between text-xs text-slate-500 font-mono">
-                  <span>Target Role: {profile?.targetRole || 'Software Development Engineer'}</span>
-                  <span>{profile?.university || 'Verified Academic Profile'}</span>
+                  <span>Location: {profileInfo.location || 'Not specified in profile'}</span>
+                  <span>{auditData?.detectedSections?.length ? `${auditData.detectedSections.length} Sections Verified` : 'PDF Grounded'}</span>
                 </div>
               </div>
 

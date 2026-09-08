@@ -1181,9 +1181,9 @@ function parseStructuredData(
     const rawBreakdown = (baseModel as any)?.breakdown || [
       { label: 'Headline Impact', score: 12, max: 15 },
       { label: 'About Section Depth', score: 19, max: 25 },
-      { label: 'Technical Positioning', score: 17, max: 20 },
-      { label: 'Experience & Project Relevance', score: 16, max: 20 },
-      { label: 'Recruiter Search Discoverability', score: 18, max: 20 },
+      { label: 'Experience & Career Progression', score: 0, max: 20 },
+      { label: 'Education & Certifications', score: 16, max: 20 },
+      { label: 'Skills & Professional Positioning', score: 17, max: 20 },
     ];
 
     const validated = calculateDeterministicCategoryScore(rawBreakdown, text);
@@ -1193,7 +1193,7 @@ function parseStructuredData(
       overallScore: validated.overallScore,
       evaluation: validated.evaluation,
       breakdown: validated.breakdown,
-      source: userInputs?.auditMode === 'pdf' ? 'pdf' : 'url',
+      source: 'pdf',
       timestamp: new Date().toISOString(),
     };
   }
@@ -1506,30 +1506,72 @@ ${gpd.searchOptimization || 'Pin top proof-of-work repositories with relevant te
       const lower = pdfText.toLowerCase();
       const detectedSections = userInputs?.detectedSections || [];
       const fileName = userInputs?.fileName || 'linkedin_profile.pdf';
-      const candidateName = userInputs?.candidateName || context.name || 'Candidate';
+      const candidateName = userInputs?.candidateName || 'Candidate';
       const candidateHeadline = userInputs?.candidateHeadline || '';
 
-      const hasHeadline = !!candidateHeadline || lower.includes('headline') || detectedSections.includes('Headline');
-      const hasAbout = lower.includes('about') || lower.includes('summary') || detectedSections.includes('About');
-      const hasExperience = lower.includes('experience') || lower.includes('employment') || detectedSections.includes('Experience');
+      const hasHeadline = !!candidateHeadline || (candidateHeadline && candidateHeadline.length > 5) || lower.includes('headline') || detectedSections.includes('Headline');
+      const hasAbout = lower.includes('about') || lower.includes('summary') || detectedSections.includes('About') || detectedSections.includes('Summary');
+      const hasFormalExperience =
+        (detectedSections.includes('Experience') && /\b(?:work experience|employment history)\b/i.test(pdfText)) ||
+        /\b(?:experience|work experience)\b[\s\S]{1,100}\b(?:20\d\d\s*[-–—]\s*(?:present|20\d\d))\b/i.test(pdfText);
       const hasEducation = lower.includes('education') || lower.includes('bachelor') || lower.includes('b.tech') || detectedSections.includes('Education');
-      const hasSkills = lower.includes('skills') || lower.includes('languages') || detectedSections.includes('Skills');
+      const hasCerts = lower.includes('certification') || lower.includes('simulation') || lower.includes('internship') || detectedSections.includes('Certifications');
+      const hasSkills = lower.includes('skills') || lower.includes('top skills') || detectedSections.includes('Skills');
 
-      // Deterministic category scoring
-      let headlineScore = hasHeadline ? 11 : 4;
-      if (candidateHeadline && candidateHeadline.length > 25) headlineScore += 3;
+      // 1. Headline Impact (max 15)
+      let headlineScore = 0;
+      if (candidateHeadline && candidateHeadline.length > 5) {
+        headlineScore += 6;
+        if (candidateHeadline.length > 25) headlineScore += 3;
+        if (/engineer|developer|architect|full-stack|software|backend|frontend|data|ai|ml|student/i.test(candidateHeadline)) headlineScore += 3;
+        if (/\||•|@|at\s+/i.test(candidateHeadline) || /c\+\+|python|react|sql/i.test(candidateHeadline)) headlineScore += 3;
+      } else if (hasHeadline) {
+        headlineScore += 7;
+      }
 
-      let aboutScore = hasAbout ? 17 : 5;
-      if (pdfText.length > 800) aboutScore += 5;
+      // 2. About Section Depth (max 25)
+      let aboutScore = 0;
+      if (hasAbout) {
+        aboutScore += 10;
+        if (pdfText.length > 350) aboutScore += 5;
+        if (/ai\/ml|full-stack|c\+\+|python|react|typescript|sql|algorithms|data structures/i.test(lower)) aboutScore += 5;
+        if (/project|deployed|engineered|built|twin|system|platform/i.test(lower)) aboutScore += 5;
+      }
 
-      let experienceScore = hasExperience ? 14 : 5;
-      if (lower.includes('developer') || lower.includes('engineer') || lower.includes('intern')) experienceScore += 3;
+      // 3. Experience & Career Progression (max 20)
+      let experienceScore = 0;
+      if (hasFormalExperience) {
+        experienceScore += 10;
+        if (/intern|developer|engineer|lead|assistant|founder|analyst/i.test(lower)) experienceScore += 5;
+        if (/responsibilities|achieved|implemented|designed|created/i.test(lower)) experienceScore += 5;
+      } else {
+        experienceScore = 0; // Early career / student without formal employment tenure
+      }
 
-      let educationScore = hasEducation ? 15 : 6;
-      if (lower.includes('b.tech') || lower.includes('computer science') || lower.includes('engineering')) educationScore += 3;
+      // 4. Education & Certifications (max 20)
+      let educationScore = 0;
+      if (hasEducation) {
+        educationScore += 5;
+        if (/computer science|engineering|artificial intelligence|machine learning/i.test(lower)) educationScore += 4;
+        if (/\b(20\d\d)\b/.test(pdfText)) educationScore += 3;
+      }
+      if (hasCerts) {
+        educationScore += 4;
+        const certMatches = (lower.match(/simulation|internship|python|c\+\+|aws|google|meta|microsoft|deloitte|tata/g) || []).length;
+        if (certMatches >= 3) educationScore += 4;
+      }
 
-      let skillsScore = hasSkills ? 15 : 5;
-      if (lower.includes('python') || lower.includes('javascript') || lower.includes('react') || lower.includes('java')) skillsScore += 3;
+      // 5. Skills & Professional Positioning (max 20)
+      let skillsScore = 0;
+      if (hasSkills) skillsScore += 6;
+      const techMatches = ['git', 'github', 'algorithms', 'data structures', 'c++', 'python', 'react', 'sql', 'typescript', 'java', 'docker', 'aws']
+        .filter((t) => lower.includes(t));
+      if (techMatches.length >= 6) skillsScore += 8;
+      else if (techMatches.length >= 3) skillsScore += 5;
+      else if (techMatches.length >= 1) skillsScore += 3;
+
+      if (lower.includes('git') || lower.includes('github') || lower.includes('algorithms')) skillsScore += 4;
+      if (hasSkills && techMatches.length >= 4) skillsScore += 2;
 
       headlineScore = Math.min(headlineScore, 15);
       aboutScore = Math.min(aboutScore, 25);
@@ -1553,7 +1595,7 @@ ${gpd.searchOptimization || 'Pin top proof-of-work repositories with relevant te
       const strengths = [
         hasEducation ? 'Authentic academic credentials verified from LinkedIn PDF export.' : 'Valid profile documentation extracted.',
         hasSkills ? 'Core technical skill taxonomy detected and aligned with engineering roles.' : 'Professional positioning framework identified.',
-        hasExperience ? 'Real-world project and experience history present in profile export.' : 'Baseline technical profile established.',
+        hasFormalExperience ? 'Real-world project and experience history present in profile export.' : 'Baseline technical profile established.',
       ];
 
       const gaps = [
@@ -1604,8 +1646,8 @@ ${searchOptimization}`;
         fileName,
         profile: {
           name: candidateName,
-          headline: candidateHeadline || `Student Scholar | Aspiring ${context.targetRole || 'Software Engineer'}`,
-          location: userInputs?.candidateLocation || 'Verified Profile',
+          headline: candidateHeadline || '',
+          location: userInputs?.candidateLocation || '',
         },
         breakdown: categoryBreakdown,
         strengths,
