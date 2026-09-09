@@ -1,6 +1,7 @@
 import { GoogleGenAI } from '@google/genai';
 import { EngineAiRequest, EngineAiResponse } from '../types/engines';
 import { validateGitHubProfileUrl } from './githubValidator';
+import { evaluateUploadedResumeATS } from './resumePdfExtractor';
 
 let aiClient: GoogleGenAI | null = null;
 
@@ -962,6 +963,31 @@ GROUNDING & FORMATTING RULES:
 6. LINKS: Real URLs only. If valid URL exists, show it. If not, omit completely. Never output broken placeholders like "GitHub !— • Live Demo !—" or "github.com/candidate".`;
 
     case 'resume-ats':
+      if (userInputs?.isUploadedResume) {
+        return `EVALUATE UPLOADED RESUME PDF AGAINST TARGET JOB DESCRIPTION
+File Name: ${userInputs?.fileName || 'Uploaded Resume.pdf'}
+
+Target Job Description:
+"""
+${userInputs?.jobDescription || 'Standard Software Engineer / Systems Developer Job Description'}
+"""
+
+Extracted Candidate Resume Text:
+"""
+${userInputs?.resumeText || ''}
+"""
+
+GROUNDING & ISOLATION MANDATES:
+- Analyze ONLY the uploaded resume text provided above.
+- Do NOT use Demo Mode data, Student Twin profile, or imaginary candidate credentials.
+- Evaluate:
+  1. ATS Compatibility Score (0-100)
+  2. Role Alignment & Keyword Match Density
+  3. Presentation Strengths present in the uploaded text
+  4. Missing High-Priority Keywords (present in JD, absent in resume)
+  5. Structural, Formatting, or ATS Scanner Deficiencies
+  6. Actionable ATS Priority Fixes`;
+      }
       return `${baseContext}
 RESUME & ATS ANALYSIS INPUTS:
 Target Job Description:
@@ -1814,6 +1840,11 @@ ${context.achievements.map((a) => `• ${a.title} — ${a.issuer}${a.date ? ` ($
     }
 
     case 'resume-ats': {
+      if (userInputs?.isUploadedResume && userInputs?.extractedDetails) {
+        const evaluated = evaluateUploadedResumeATS(userInputs.extractedDetails, userInputs?.jobDescription || '');
+        return { text: evaluated.rawText, data: evaluated };
+      }
+
       const score = 79;
       const evaluation = getEvaluationLabel(score);
       const text = `### Resume & ATS Compatibility Diagnostic

@@ -1,11 +1,14 @@
-import React, { useState } from 'react';
-import { useStudentTwin } from '../../context/StudentTwinContext';
+import React, { useState, useRef } from 'react';
 import { useEngineJob } from '../../context/AIJobContext';
 import { AI_ENGINES } from '../../data/enginesData';
 import { EngineLayout } from './EngineLayout';
-import { buildStudentContext } from '../../lib/aiEngineService';
 import { AIProcessingCard } from './AIProcessingCard';
 import { generateStyledPDF } from '../../lib/pdfExportService';
+import {
+  validateResumePdfFile,
+  extractResumePdfData,
+  ResumeExtractedData,
+} from '../../lib/resumePdfExtractor';
 import {
   FileSearch,
   CheckCircle2,
@@ -17,9 +20,12 @@ import {
   CheckCircle,
   AlertTriangle,
   Sliders,
-  Layers,
   FileText,
   Zap,
+  Upload,
+  RefreshCw,
+  Trash2,
+  FileCheck2,
 } from 'lucide-react';
 
 interface ResumeATSAnalyzerViewProps {
@@ -28,35 +34,146 @@ interface ResumeATSAnalyzerViewProps {
 
 export const ResumeATSAnalyzerView: React.FC<ResumeATSAnalyzerViewProps> = ({ onBackToHub }) => {
   const engine = AI_ENGINES.find((e) => e.id === 'resume-ats')!;
-  const { profile, skills, projects, achievements, careerGoals } = useStudentTwin();
-  const { job, isRunning, isError, rawText, structuredData, execute, retry } = useEngineJob('resume-ats');
+  const { job, isRunning, isError, rawText, structuredData, execute, reset, retry } = useEngineJob('resume-ats');
 
   const [targetJobDescription, setTargetJobDescription] = useState(
     'Seeking a Software Development Engineer with strong proficiency in TypeScript, React, Node.js, distributed databases, REST APIs, and automated testing. Experience with cloud deployments (Docker, AWS/GCP) and CI/CD pipelines preferred.'
   );
-  const [resumeSnippet, setResumeSnippet] = useState('');
+
+  // File upload state
+  const [uploadedFile, setUploadedFile] = useState<File | null>(null);
+  const [isDragOver, setIsDragOver] = useState(false);
+  const [isValidatingFile, setIsValidatingFile] = useState(false);
+  const [fileError, setFileError] = useState<string | null>(null);
+  const [extractionError, setExtractionError] = useState<string | null>(null);
+  const [analyzedFileFingerprint, setAnalyzedFileFingerprint] = useState<string | null>(null);
+
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [copied, setCopied] = useState(false);
   const [exportingPdf, setExportingPdf] = useState(false);
   const [viewMode, setViewMode] = useState<'structured' | 'raw'>('structured');
 
+  const getFileFingerprint = (file: File) => `${file.name}_${file.size}_${file.lastModified}`;
+
+  const handleFileSelection = async (file: File) => {
+    // Clear previous analysis immediately to prevent stale results
+    reset();
+    setAnalyzedFileFingerprint(null);
+    setExtractionError(null);
+    setFileError(null);
+    setUploadedFile(file);
+    setIsValidatingFile(true);
+
+    try {
+      const validation = await validateResumePdfFile(file);
+      if (!validation.isValid) {
+        setFileError(validation.error || 'Invalid PDF file. Please select a valid PDF resume.');
+      } else {
+        setFileError(null);
+      }
+    } catch (err: any) {
+      setFileError(err?.message || 'Error validating file.');
+    } finally {
+      setIsValidatingFile(false);
+    }
+  };
+
+  const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (files && files.length > 0) {
+      handleFileSelection(files[0]);
+    }
+    // Reset input value so re-uploading the same file works
+    if (e.target) {
+      e.target.value = '';
+    }
+  };
+
+  const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    setIsDragOver(false);
+    const files = e.dataTransfer.files;
+    if (files && files.length > 0) {
+      handleFileSelection(files[0]);
+    }
+  };
+
+  const handleRemoveFile = () => {
+    setUploadedFile(null);
+    setFileError(null);
+    setExtractionError(null);
+    setAnalyzedFileFingerprint(null);
+    reset();
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
+
+  const handleReplaceFile = () => {
+    if (fileInputRef.current) {
+      fileInputRef.current.click();
+    }
+  };
+
   const handleRunAnalysis = async () => {
-    if (!profile || isRunning) return;
+    if (!uploadedFile || isRunning || fileError || isValidatingFile) return;
 
-    const studentContext = buildStudentContext(
-      profile,
-      skills,
-      projects,
-      achievements,
-      careerGoals[0]
-    );
+    setExtractionError(null);
+    const currentFingerprint = getFileFingerprint(uploadedFile);
 
+    // 1. Extract text and structure from the uploaded PDF
+    let extracted: ResumeExtractedData;
+    try {
+      extracted = await extractResumePdfData(uploadedFile);
+    } catch (err: any) {
+      setExtractionError(`Failed to process PDF: ${err?.message || 'Extraction failed'}. No fabricated result will be displayed.`);
+      reset();
+      return;
+    }
+
+    // 2. Validate extracted text
+    if (!extracted.isValid || !extracted.extractedText || extracted.extractedText.length < 30) {
+      setExtractionError(
+        extracted.error ||
+          'The uploaded PDF does not contain extractable resume text. Please ensure it is a text-based PDF and not a scanned image.'
+      );
+      reset();
+      return;
+    }
+
+    // 3. Mark the active file fingerprint
+    setAnalyzedFileFingerprint(currentFingerprint);
+
+    // 4. Send ONLY the uploaded resume text and target JD to the AI engine pipeline
     await execute({
       engineId: 'resume-ats',
-      studentContext,
+      studentContext: {
+        name: extracted.candidateName || 'Candidate',
+        targetRole: 'Target Role (from Job Description)',
+        degree: '',
+        branch: '',
+        university: '',
+        year: '',
+        cgpa: '',
+        readinessScore: 0,
+        skills: extracted.skillsList.map((s) => ({ name: s, level: 'intermediate', category: 'Core' })),
+        projects: [],
+        achievements: [],
+      },
       userInputs: {
         jobDescription: targetJobDescription,
-        resumeText: resumeSnippet || 'Evaluate synthesized Student Twin profile & repositories against the target JD.',
-        targetRole: profile?.targetRole || 'Software Development Engineer',
+        resumeText: extracted.extractedText,
+        fileName: uploadedFile.name,
+        fileSize: uploadedFile.size,
+        fileType: uploadedFile.type || 'application/pdf',
+        isUploadedResume: true,
+        extractedDetails: extracted,
+      },
+      documentText: extracted.extractedText,
+      documentMeta: {
+        fileName: uploadedFile.name,
+        fileType: 'pdf',
+        fileSize: uploadedFile.size,
       },
     });
   };
@@ -69,30 +186,33 @@ export const ResumeATSAnalyzerView: React.FC<ResumeATSAnalyzerViewProps> = ({ on
   };
 
   const handleExportPDF = async () => {
-    if (!profile) return;
+    if (!structuredData && !rawText) return;
     setExportingPdf(true);
 
     try {
       const data = structuredData || {};
-      const score = data.score || 79;
-      const matched = data.matchedKeywords || ['TypeScript', 'React', 'Data Structures', 'REST APIs'];
-      const missing = data.missingKeywords || ['Docker', 'CI/CD Pipelines', 'Unit Testing'];
+      const score = data.score ?? 0;
+      const candidateName = data.candidateName || 'Candidate';
+      const targetRole = data.targetRole || 'Target Role (from Job Description)';
+      const matched = data.matchedKeywords || [];
+      const missing = data.missingKeywords || [];
       const recs = data.recommendations || [];
 
       await generateStyledPDF(
         {
           title: 'ATS RESUME COMPATIBILITY & KEYWORD DIAGNOSTIC',
-          subtitle: `Candidate: ${profile.name}  •  Target Role: ${profile.targetRole || 'Software Development Engineer'}`,
-          studentName: profile.name,
+          subtitle: `Candidate: ${candidateName}  •  File: ${data.fileName || uploadedFile?.name || 'Uploaded Resume'}`,
+          studentName: candidateName,
           engineName: 'Engine 7 • Resume ATS Analyzer',
           score,
           sections: [
             {
               heading: '1. Executive Diagnostic Summary',
               items: [
-                { label: 'Candidate Name', value: profile.name },
-                { label: 'Target Evaluation Role', value: profile.targetRole || 'Software Development Engineer' },
-                { label: 'ATS Readiness Score', value: `${score} / 100 (${data.evaluation || 'Needs Polish'})` },
+                { label: 'Candidate Name', value: candidateName },
+                { label: 'Uploaded Resume', value: data.fileName || uploadedFile?.name || 'Resume.pdf' },
+                { label: 'Target Evaluation Role', value: targetRole },
+                { label: 'ATS Compatibility Score', value: `${score} / 100 (${data.evaluation || 'Analyzed'})` },
               ],
             },
             {
@@ -112,7 +232,7 @@ export const ResumeATSAnalyzerView: React.FC<ResumeATSAnalyzerViewProps> = ({ on
             },
           ],
         },
-        `${profile.name.replace(/\s+/g, '_')}_ATS_Diagnostic.pdf`
+        `${candidateName.replace(/\s+/g, '_')}_ATS_Diagnostic.pdf`
       );
     } catch (err) {
       console.error('Failed to export PDF:', err);
@@ -121,44 +241,27 @@ export const ResumeATSAnalyzerView: React.FC<ResumeATSAnalyzerViewProps> = ({ on
     }
   };
 
+  // Ensure results only display when they belong to the current uploaded file
+  const currentFileFingerprint = uploadedFile ? getFileFingerprint(uploadedFile) : null;
+  const isResultStale = analyzedFileFingerprint !== null && currentFileFingerprint !== analyzedFileFingerprint;
+
   const data = structuredData || {};
-  const score = data.score ?? 79;
+  const score = data.score ?? 0;
   const evaluation = data.evaluation || (score >= 85 ? 'Excellent Alignment' : score >= 70 ? 'Competitive with Minor Gaps' : 'Needs Optimization');
-  const breakdown = data.breakdown || [
-    { label: 'Target Role Match', score: 21, max: 25 },
-    { label: 'Keyword Match Density', score: 19, max: 25 },
-    { label: 'Layout Parseability', score: 18, max: 20 },
-    { label: 'Skills Alignment', score: 12, max: 15 },
-    { label: 'Project Relevance', score: 13, max: 15 },
-  ];
-  const matchedKeywords: string[] = data.matchedKeywords || [
-    ...skills.slice(0, 4).map((s) => s.name),
-    'Data Structures',
-    'REST APIs',
-    'Database Design',
-    'Git Version Control',
-  ];
-  const missingKeywords: string[] = data.missingKeywords || [
-    'CI/CD Pipelines',
-    'Unit Testing / TDD',
-    'Docker Containerization',
-    'Microservices Architecture',
-    'Load Balancing',
-  ];
-  const strengths: string[] = data.strengths || [
-    'High ATS parseability score with clean semantic single-column structure',
-    'Strong verified project evidence matching core technology expectations',
-    'Academic credentials and GPA prominently structured for automated scanners',
-  ];
-  const gaps: string[] = data.gaps || [
-    'Missing automated testing and containerization keywords in skills section',
-    'Impact quantification needs more numerical telemetry metrics (XYZ format)',
-  ];
-  const recommendations: Array<{ priority: number; title: string; desc: string }> = data.recommendations || [
-    { priority: 1, title: 'Incorporate Missing Keywords', desc: 'Add Docker, CI/CD, and Unit Testing to Skills & Project bullet points.' },
-    { priority: 2, title: 'Quantify Accomplishments', desc: 'Use the XYZ formula: "Accomplished [X] as measured by [Y] by doing [Z]".' },
-    { priority: 3, title: 'Single-Column Semantic Flow', desc: 'Ensure standard heading hierarchy (Education, Skills, Experience, Projects).' },
-  ];
+  const breakdown: Array<{ label: string; score: number; max: number }> = data.breakdown || [];
+  const matchedKeywords: string[] = data.matchedKeywords || [];
+  const missingKeywords: string[] = data.missingKeywords || [];
+  const strengths: string[] = data.strengths || [];
+  const gaps: string[] = data.gaps || [];
+  const recommendations: Array<{ priority: number; title: string; desc: string }> = data.recommendations || [];
+  const candidateName = data.candidateName || 'Candidate';
+  const detectedSectionsList = data.extractedSections?.detected ? data.extractedSections.detected.split(', ') : [];
+
+  const formatSize = (bytes: number) => {
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+    return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
+  };
 
   return (
     <EngineLayout
@@ -166,11 +269,11 @@ export const ResumeATSAnalyzerView: React.FC<ResumeATSAnalyzerViewProps> = ({ on
       onBackToHub={onBackToHub}
       isRunning={isRunning}
       onRunEngine={handleRunAnalysis}
-      resultText={rawText || undefined}
+      resultText={rawText && !isResultStale ? rawText : undefined}
     >
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         
-        {/* JD & Resume Input Column */}
+        {/* Upload Resume & JD Column */}
         <div className="lg:col-span-5 space-y-5">
           
           <div className="p-6 rounded-xl bg-white dark:bg-[#0d1117] border border-slate-200 dark:border-white/10 shadow-sm space-y-4 transition-colors">
@@ -188,38 +291,141 @@ export const ResumeATSAnalyzerView: React.FC<ResumeATSAnalyzerViewProps> = ({ on
                 value={targetJobDescription}
                 onChange={(e) => setTargetJobDescription(e.target.value)}
                 placeholder="Paste the recruiter's job description or internship requirements..."
-                rows={5}
-                className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 text-xs text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:border-blue-500 transition-colors font-mono"
-              />
-            </div>
-
-            {/* Custom Resume Text (Optional) */}
-            <div className="space-y-1.5">
-              <label className="text-xs font-mono text-slate-500 dark:text-slate-400 uppercase font-semibold">
-                Resume Content (Optional)
-              </label>
-              <textarea
-                value={resumeSnippet}
-                onChange={(e) => setResumeSnippet(e.target.value)}
-                placeholder="Leave blank to use verified Student Twin profile, or paste existing resume draft..."
                 rows={4}
                 className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 text-xs text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:border-blue-500 transition-colors font-mono"
               />
             </div>
 
+            {/* Resume Upload Control */}
+            <div className="space-y-2">
+              <label className="text-xs font-mono text-slate-500 dark:text-slate-400 uppercase font-semibold flex items-center justify-between">
+                <span>Upload Resume (PDF)</span>
+                <span className="text-[10px] text-slate-400 font-normal">Max 10MB</span>
+              </label>
+
+              {/* Hidden file input */}
+              <input
+                ref={fileInputRef}
+                id="resume-pdf-upload-input"
+                type="file"
+                accept=".pdf,application/pdf"
+                className="hidden"
+                onChange={handleFileInputChange}
+              />
+
+              {!uploadedFile ? (
+                /* Dropzone when no file is selected */
+                <div
+                  onDragOver={(e) => {
+                    e.preventDefault();
+                    setIsDragOver(true);
+                  }}
+                  onDragLeave={() => setIsDragOver(false)}
+                  onDrop={handleDrop}
+                  onClick={() => fileInputRef.current?.click()}
+                  className={`p-6 sm:p-7 border-2 border-dashed rounded-xl text-center transition-all cursor-pointer ${
+                    isDragOver
+                      ? 'border-blue-500 bg-blue-50/50 dark:bg-blue-900/10'
+                      : 'border-slate-300 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02] hover:border-blue-400'
+                  }`}
+                >
+                  <div className="w-10 h-10 rounded-xl bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-cyan-400 flex items-center justify-center mx-auto mb-2.5">
+                    <Upload className="w-5 h-5" />
+                  </div>
+                  <h4 className="text-xs font-bold text-slate-900 dark:text-white mb-1">
+                    Upload your resume PDF
+                  </h4>
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400 max-w-xs mx-auto mb-2.5">
+                    Drag and drop your PDF resume here, or click to browse.
+                  </p>
+                  <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white dark:bg-white/10 text-[11px] font-mono font-semibold text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-white/10 shadow-2xs">
+                    <FileText className="w-3 h-3 text-blue-500" />
+                    <span>Select PDF Resume</span>
+                  </div>
+                </div>
+              ) : (
+                /* File Selected Metadata Card with Replace / Remove */
+                <div className="p-4 rounded-xl bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 space-y-3">
+                  <div className="flex items-start gap-3">
+                    <div className="w-9 h-9 rounded-lg bg-blue-600 text-white flex items-center justify-center shrink-0">
+                      <FileText className="w-4 h-4" />
+                    </div>
+                    <div className="min-w-0 flex-1 space-y-1">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="text-xs font-bold text-slate-900 dark:text-white truncate max-w-[220px]" title={uploadedFile.name}>
+                          {uploadedFile.name}
+                        </span>
+                        {!fileError && !isValidatingFile && (
+                          <span className="px-2 py-0.5 rounded-full bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 text-[10px] font-mono font-bold flex items-center gap-1 border border-emerald-200 dark:border-emerald-800">
+                            <FileCheck2 className="w-3 h-3" />
+                            <span>Valid PDF</span>
+                          </span>
+                        )}
+                        {isValidatingFile && (
+                          <span className="px-2 py-0.5 rounded-full bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 text-[10px] font-mono font-bold">
+                            Validating...
+                          </span>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-3 text-[11px] text-slate-500 dark:text-slate-400 font-mono flex-wrap">
+                        <span>Type: {uploadedFile.type || 'application/pdf'}</span>
+                        <span>•</span>
+                        <span>Size: {formatSize(uploadedFile.size)}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Actions: Replace / Remove */}
+                  <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-200/60 dark:border-white/5">
+                    <button
+                      type="button"
+                      onClick={handleReplaceFile}
+                      disabled={isRunning}
+                      className="px-2.5 py-1.5 rounded-lg border border-slate-200 dark:border-white/10 text-[11px] font-mono text-slate-600 dark:text-slate-300 hover:text-blue-600 dark:hover:text-cyan-400 hover:border-blue-300 dark:hover:border-blue-700/50 flex items-center gap-1.5 transition-colors cursor-pointer"
+                    >
+                      <RefreshCw className="w-3 h-3" />
+                      <span>Replace</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleRemoveFile}
+                      disabled={isRunning}
+                      className="px-2.5 py-1.5 rounded-lg border border-slate-200 dark:border-white/10 text-[11px] font-mono text-slate-600 dark:text-slate-400 hover:text-red-500 dark:hover:text-red-400 hover:border-red-200 dark:hover:border-red-900/50 flex items-center gap-1.5 transition-colors cursor-pointer"
+                    >
+                      <Trash2 className="w-3 h-3" />
+                      <span>Remove</span>
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Validation or Extraction Error Notice */}
+              {(fileError || extractionError) && (
+                <div className="p-3 rounded-xl bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900/50 text-red-700 dark:text-red-400 text-xs flex items-start gap-2">
+                  <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+                  <div className="space-y-0.5">
+                    <span className="font-bold font-mono">Error: </span>
+                    <span>{fileError || extractionError}</span>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Explicit Analyze Resume Button */}
             <button
+              id="btn-analyze-resume-action"
               onClick={handleRunAnalysis}
-              disabled={isRunning}
-              className="w-full py-3 rounded-xl bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white text-xs font-bold font-mono uppercase tracking-wider shadow-sm transition-all flex items-center justify-center gap-2 cursor-pointer"
+              disabled={isRunning || !uploadedFile || isValidatingFile || !!fileError}
+              className="w-full py-3 rounded-xl bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white text-xs font-bold font-mono uppercase tracking-wider shadow-sm transition-all flex items-center justify-center gap-2 cursor-pointer disabled:cursor-not-allowed"
             >
               <Sparkles className="w-4 h-4" />
-              <span>{isRunning ? 'Evaluating ATS Density...' : 'Analyze ATS Compatibility'}</span>
+              <span>{isRunning ? 'Analyzing Resume ATS Compatibility...' : 'Analyze Resume'}</span>
             </button>
           </div>
 
         </div>
 
-        {/* ATS Diagnostic Report */}
+        {/* ATS Diagnostic Report Column */}
         <div className="lg:col-span-7 space-y-5">
           
           {/* Universal Step-Based Processing Card */}
@@ -232,7 +438,7 @@ export const ResumeATSAnalyzerView: React.FC<ResumeATSAnalyzerViewProps> = ({ on
           )}
 
           {/* Results Display */}
-          {rawText ? (
+          {rawText && !isResultStale && !isRunning ? (
             <div className="p-6 sm:p-8 rounded-xl bg-white dark:bg-[#0d1117] border border-slate-200 dark:border-white/10 shadow-sm space-y-5 min-h-[500px] flex flex-col justify-between transition-colors">
               <div className="space-y-5">
                 {/* Header Action Bar */}
@@ -242,7 +448,7 @@ export const ResumeATSAnalyzerView: React.FC<ResumeATSAnalyzerViewProps> = ({ on
                       ATS Compatibility & Keyword Diagnostic
                     </span>
                     <div className="text-[10px] font-mono text-emerald-600 dark:text-emerald-400 flex items-center gap-1 font-semibold mt-0.5">
-                      <CheckCircle2 className="w-3.5 h-3.5" /> High-Accuracy Parsing
+                      <CheckCircle2 className="w-3.5 h-3.5" /> High-Accuracy Parsing • {uploadedFile?.name || data.fileName || 'Uploaded Resume'}
                     </div>
                   </div>
 
@@ -308,39 +514,61 @@ export const ResumeATSAnalyzerView: React.FC<ResumeATSAnalyzerViewProps> = ({ on
                         </div>
                       </div>
 
-                      <div className="text-xs font-mono text-slate-500 text-right sm:max-w-xs">
-                        Target Role: <strong className="text-slate-800 dark:text-slate-200">{profile?.targetRole || 'Software Engineer'}</strong>
+                      <div className="text-xs font-mono text-slate-500 text-right sm:max-w-xs space-y-0.5">
+                        <div>Candidate: <strong className="text-slate-800 dark:text-slate-200">{candidateName}</strong></div>
+                        <div className="text-[11px] text-slate-400">File: {uploadedFile?.name || data.fileName || 'Resume.pdf'}</div>
                       </div>
                     </div>
 
-                    {/* Breakdown Matrix */}
-                    <div className="space-y-2.5">
-                      <h4 className="text-xs font-mono font-bold uppercase text-slate-500 dark:text-slate-400 flex items-center gap-1.5">
-                        <Sliders className="w-3.5 h-3.5 text-blue-500" />
-                        <span>ATS Evaluation Breakdown</span>
-                      </h4>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                        {breakdown.map((item: any, i: number) => {
-                          const pct = Math.round((item.score / item.max) * 100);
-                          return (
-                            <div key={i} className="p-3 rounded-xl bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 space-y-1.5">
-                              <div className="flex items-center justify-between text-xs font-medium">
-                                <span className="text-slate-800 dark:text-slate-200">{item.label}</span>
-                                <span className="font-mono text-[11px] text-slate-500">
-                                  {item.score}/{item.max} ({pct}%)
-                                </span>
-                              </div>
-                              <div className="w-full h-1.5 rounded-full bg-slate-200 dark:bg-white/10 overflow-hidden">
-                                <div
-                                  className="h-full bg-blue-600 dark:bg-cyan-400 rounded-full transition-all duration-500"
-                                  style={{ width: `${pct}%` }}
-                                />
-                              </div>
-                            </div>
-                          );
-                        })}
+                    {/* Detected Sections Badge Row */}
+                    {detectedSectionsList.length > 0 && (
+                      <div className="p-3 rounded-xl bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 space-y-1.5">
+                        <div className="text-[10px] font-mono uppercase font-bold text-slate-400">
+                          Extracted Resume Sections Detected:
+                        </div>
+                        <div className="flex flex-wrap gap-1.5">
+                          {detectedSectionsList.map((sec, i) => (
+                            <span
+                              key={i}
+                              className="px-2 py-0.5 rounded text-[10px] font-mono font-semibold bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800/40"
+                            >
+                              ✓ {sec}
+                            </span>
+                          ))}
+                        </div>
                       </div>
-                    </div>
+                    )}
+
+                    {/* Breakdown Matrix */}
+                    {breakdown.length > 0 && (
+                      <div className="space-y-2.5">
+                        <h4 className="text-xs font-mono font-bold uppercase text-slate-500 dark:text-slate-400 flex items-center gap-1.5">
+                          <Sliders className="w-3.5 h-3.5 text-blue-500" />
+                          <span>ATS Evaluation Breakdown</span>
+                        </h4>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                          {breakdown.map((item, i) => {
+                            const pct = item.max > 0 ? Math.round((item.score / item.max) * 100) : 0;
+                            return (
+                              <div key={i} className="p-3 rounded-xl bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 space-y-1.5">
+                                <div className="flex items-center justify-between text-xs font-medium">
+                                  <span className="text-slate-800 dark:text-slate-200">{item.label}</span>
+                                  <span className="font-mono text-[11px] text-slate-500">
+                                    {item.score}/{item.max} ({pct}%)
+                                  </span>
+                                </div>
+                                <div className="w-full h-1.5 rounded-full bg-slate-200 dark:bg-white/10 overflow-hidden">
+                                  <div
+                                    className="h-full bg-blue-600 dark:bg-cyan-400 rounded-full transition-all duration-500"
+                                    style={{ width: `${pct}%` }}
+                                  />
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
 
                     {/* Keywords Section: Matched vs Missing */}
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -353,14 +581,18 @@ export const ResumeATSAnalyzerView: React.FC<ResumeATSAnalyzerViewProps> = ({ on
                           </h4>
                         </div>
                         <div className="flex flex-wrap gap-1.5">
-                          {matchedKeywords.map((kw, i) => (
-                            <span
-                              key={i}
-                              className="px-2 py-0.5 rounded text-[11px] font-mono bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/50"
-                            >
-                              ✓ {kw}
-                            </span>
-                          ))}
+                          {matchedKeywords.length > 0 ? (
+                            matchedKeywords.map((kw, i) => (
+                              <span
+                                key={i}
+                                className="px-2 py-0.5 rounded text-[11px] font-mono bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/50"
+                              >
+                                ✓ {kw}
+                              </span>
+                            ))
+                          ) : (
+                            <span className="text-xs text-slate-400 font-mono">No target keywords matched yet.</span>
+                          )}
                         </div>
                       </div>
 
@@ -373,14 +605,18 @@ export const ResumeATSAnalyzerView: React.FC<ResumeATSAnalyzerViewProps> = ({ on
                           </h4>
                         </div>
                         <div className="flex flex-wrap gap-1.5">
-                          {missingKeywords.map((kw, i) => (
-                            <span
-                              key={i}
-                              className="px-2 py-0.5 rounded text-[11px] font-mono bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800/50"
-                            >
-                              + {kw}
-                            </span>
-                          ))}
+                          {missingKeywords.length > 0 ? (
+                            missingKeywords.map((kw, i) => (
+                              <span
+                                key={i}
+                                className="px-2 py-0.5 rounded text-[11px] font-mono bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800/50"
+                              >
+                                + {kw}
+                              </span>
+                            ))
+                          ) : (
+                            <span className="text-xs text-slate-400 font-mono">No critical keyword deficits identified.</span>
+                          )}
                         </div>
                       </div>
                     </div>
@@ -421,32 +657,34 @@ export const ResumeATSAnalyzerView: React.FC<ResumeATSAnalyzerViewProps> = ({ on
                     </div>
 
                     {/* Prioritized Recommendations */}
-                    <div className="space-y-2.5">
-                      <h4 className="text-xs font-mono font-bold uppercase text-slate-500 dark:text-slate-400 flex items-center gap-1.5">
-                        <Zap className="w-3.5 h-3.5 text-blue-500" />
-                        <span>Actionable ATS Optimization Fixes</span>
-                      </h4>
-                      <div className="space-y-2">
-                        {recommendations.map((rec, i) => (
-                          <div
-                            key={i}
-                            className="p-3 rounded-xl bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 flex items-start gap-3"
-                          >
-                            <span className="px-2 py-0.5 rounded bg-blue-600 text-white font-mono text-[10px] font-bold shrink-0">
-                              #{rec.priority}
-                            </span>
-                            <div className="space-y-0.5">
-                              <div className="text-xs font-bold text-slate-900 dark:text-white">
-                                {rec.title}
+                    {recommendations.length > 0 && (
+                      <div className="space-y-2.5">
+                        <h4 className="text-xs font-mono font-bold uppercase text-slate-500 dark:text-slate-400 flex items-center gap-1.5">
+                          <Zap className="w-3.5 h-3.5 text-blue-500" />
+                          <span>Actionable ATS Optimization Fixes</span>
+                        </h4>
+                        <div className="space-y-2">
+                          {recommendations.map((rec, i) => (
+                            <div
+                              key={i}
+                              className="p-3 rounded-xl bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 flex items-start gap-3"
+                            >
+                              <span className="px-2 py-0.5 rounded bg-blue-600 text-white font-mono text-[10px] font-bold shrink-0">
+                                #{rec.priority}
+                              </span>
+                              <div className="space-y-0.5">
+                                <div className="text-xs font-bold text-slate-900 dark:text-white">
+                                  {rec.title}
+                                </div>
+                                <p className="text-xs text-slate-600 dark:text-slate-400">
+                                  {rec.desc}
+                                </p>
                               </div>
-                              <p className="text-xs text-slate-600 dark:text-slate-400">
-                                {rec.desc}
-                              </p>
                             </div>
-                          </div>
-                        ))}
+                          ))}
+                        </div>
                       </div>
-                    </div>
+                    )}
                   </div>
                 ) : (
                   <div className="text-xs sm:text-sm text-slate-800 dark:text-slate-200 leading-relaxed font-sans whitespace-pre-wrap max-h-[550px] overflow-y-auto p-4 rounded-xl bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 font-mono">
@@ -456,7 +694,7 @@ export const ResumeATSAnalyzerView: React.FC<ResumeATSAnalyzerViewProps> = ({ on
               </div>
 
               <div className="pt-4 border-t border-slate-100 dark:border-white/5 text-xs text-slate-500 font-mono flex items-center justify-between">
-                <span>Calibrates formatting to pass modern Enterprise ATS engines.</span>
+                <span>Calibrates formatting and keyword density to pass enterprise ATS scanners.</span>
               </div>
             </div>
           ) : !isRunning && !isError ? (
@@ -468,7 +706,7 @@ export const ResumeATSAnalyzerView: React.FC<ResumeATSAnalyzerViewProps> = ({ on
                 ATS Resume & Job Description Matcher
               </h4>
               <p className="text-xs text-slate-500 dark:text-slate-400 max-w-md">
-                Paste a real recruiter job description and receive immediate keyword scoring, missing technical phrases, and prioritized bullet point fixes.
+                Upload your resume PDF and click <strong className="text-slate-700 dark:text-slate-300">"Analyze Resume"</strong> to extract real contact, skill, project, and keyword data against the target job description.
               </p>
             </div>
           ) : null}
