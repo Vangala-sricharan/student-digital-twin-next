@@ -659,12 +659,21 @@ export async function generateRoadmapPDF(data: {
   targetRole: string;
   candidateName: string;
   timeline: string;
+  domain?: string;
+  goal?: string;
   phases: Array<{
     phase: string;
     theme: string;
     focus: string;
     milestones: string[];
     deliverables?: string[];
+    tasks?: Array<{
+      title: string;
+      description?: string;
+      completed: boolean;
+      type?: string;
+      estimatedHours?: number;
+    }>;
   }>;
 }, filename?: string): Promise<void> {
   const sections: PDFExportOptions['sections'] = [
@@ -674,13 +683,21 @@ export async function generateRoadmapPDF(data: {
         { label: 'Target Engineering Role', value: data.targetRole },
         { label: 'Scholar Candidate', value: data.candidateName },
         { label: 'Sprint Horizon', value: data.timeline },
+        ...(data.domain ? [{ label: 'Core Domain', value: data.domain }] : []),
+        ...(data.goal ? [{ label: 'Primary Target Goal', value: data.goal }] : []),
       ],
     },
     ...data.phases.map((p, idx) => ({
       heading: `${idx + 2}. ${p.phase.toUpperCase()}: ${p.theme.toUpperCase()}`,
       content: `Focus Domain: ${p.focus}`,
       items: [
-        ...p.milestones.map((m) => ({ label: 'Milestone', value: m })),
+        ...p.milestones.map((m) => ({ label: 'Key Milestone', value: m })),
+        ...(p.tasks && p.tasks.length > 0
+          ? p.tasks.map((t) => ({
+              label: `[${t.completed ? 'COMPLETED' : 'IN PROGRESS'}] (${t.type || 'Task'} • ${t.estimatedHours || 6}h)`,
+              value: `${t.title}${t.description ? ` — ${t.description}` : ''}`,
+            }))
+          : []),
         ...(p.deliverables ? p.deliverables.map((d) => ({ label: 'Deliverable', value: d })) : []),
       ],
     })),

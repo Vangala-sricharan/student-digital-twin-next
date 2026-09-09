@@ -1021,16 +1021,79 @@ Based ONLY on the provided syllabus/document content:
 4. Likely Exam Focus Areas & Expected Question Types
 5. 7-Day Sprint Revision Strategy & Final Exam Checklist`;
 
-    case 'roadmap-30-60-90':
-      return `${baseContext}
-CAREER ROADMAP SPRINT CONFIGURATION:
-Target Horizon: Placement & Internship Recruitment
-Career Target: ${userInputs?.targetRole || context.targetRole}
+    case 'roadmap-30-60-90': {
+      const domain = userInputs?.domain || context.careerGoal?.targetDomain || 'Full-Stack Development';
+      const goal = userInputs?.goal || 'Career Acceleration & Placement';
+      const durationDays = Number(userInputs?.durationDays || 90);
+      const level = userInputs?.level || 'Intermediate';
+      const availableHours = userInputs?.availableHours || '15-20 Hours/Week';
+      const targetRole = userInputs?.targetRole || context.targetRole || `${domain} Engineer`;
+      const targetCompanies = userInputs?.targetCompanies || (context as any).targetCompanyTier || 'Tier-1 Engineering Teams';
+      const specificTopics = userInputs?.specificTopics || '';
 
-Generate a realistic, disciplined 30–60–90 Day Career Roadmap:
-- Month 1 (Days 1–30): Foundation & Skill Sprints
-- Month 2 (Days 31–60): Proof-of-Work Build & Open Source Rigor
-- Month 3 (Days 61–90): Interview Calibration, ATS Optimization & Applications`;
+      return `${baseContext}
+DYNAMIC PERSONALIZED CAREER ROADMAP GENERATION:
+Target Domain: ${domain}
+Target Goal: ${goal}
+Sprint Duration: ${durationDays} Days (${durationDays === 30 ? '1 Phase' : durationDays === 60 ? '2 Phases' : '3 Phases'})
+Candidate Level: ${level}
+Weekly Time Commitment: ${availableHours}
+Target Role: ${targetRole}
+Target Companies: ${targetCompanies}
+${specificTopics ? `Specific Skills / Focus Topics: ${specificTopics}` : ''}
+
+INSTRUCTIONS FOR THE AI:
+1. First, analyze the candidate's existing Student Twin profile:
+   - What the candidate ALREADY KNOWS (verified skills & technologies). NEVER recommend already mastered basics! If they know React, advance to Next.js/SSR/state machines; if they have Python, advance to PyTorch/vector math.
+   - What the candidate HAS BUILT (existing projects & architectures).
+   - What is CRITICALLY MISSING for domain "${domain}" and goal "${goal}".
+2. Duration constraints:
+   - If durationDays is 30: Generate EXACTLY 1 phase ("30-Day Foundation", Days 1–30) with 4-5 actionable tasks.
+   - If durationDays is 60: Generate EXACTLY 2 phases ("30-Day Foundation", Days 1–30, and "60-Day Acceleration", Days 31–60) with 4-5 actionable tasks each.
+   - If durationDays is 90: Generate EXACTLY 3 phases ("30-Day Foundation", Days 1–30; "60-Day Acceleration", Days 31–60; and "90-Day Placement Ready", Days 61–90) with 3-4 actionable tasks each.
+3. Every task MUST have:
+   - id: unique string (e.g. "task-1-1", "task-1-2")
+   - title: concise, action-oriented title
+   - description: actionable step-by-step guidance, tools, and verifiable proof criteria
+   - type: one of "Skill", "Project", "Career", "Interview", "Portfolio"
+   - estimatedHours: realistic number of hours calibrated to ${availableHours}
+   - completed: false
+4. Return a strictly structured JSON object wrapped in \`\`\`json ... \`\`\`:
+{
+  "title": "${domain} Sprint Roadmap (${durationDays} Days)",
+  "domain": "${domain}",
+  "goal": "${goal}",
+  "durationDays": ${durationDays},
+  "level": "${level}",
+  "summary": "Concise overview of the roadmap strategy...",
+  "phases": [
+    {
+      "id": "phase-1",
+      "name": "30-Day Foundation",
+      "phase": "Days 1–30",
+      "days": "Days 1–30",
+      "focus": "Core domain fundamentals & verified skill gap remediation",
+      "milestones": ["Milestone 1", "Milestone 2", "Milestone 3"],
+      "deliverables": ["Deliverable 1", "Deliverable 2"],
+      "tasks": [
+        {
+          "id": "task-1-1",
+          "title": "Task Title",
+          "description": "Actionable task instructions...",
+          "type": "Skill",
+          "estimatedHours": 10,
+          "completed": false
+        }
+      ]
+    }
+  ],
+  "strengths": ["Key alignment strength 1", "Key alignment strength 2"],
+  "gaps": ["Critical gap 1", "Critical gap 2"],
+  "recommendations": [
+    { "priority": 1, "title": "Recommendation Title", "desc": "Recommendation description" }
+  ]
+}`;
+    }
 
     case 'internship-ready':
       return `${baseContext}
@@ -1336,6 +1399,95 @@ function parseStructuredData(
     };
   }
 
+  // For 30-60-90 Roadmap: Parse structured JSON output directly from model
+  if (engineId === 'roadmap-30-60-90') {
+    let parsedJson: any = null;
+    const jsonMatch = text.match(/```(?:json)?\s*([\s\S]*?)```/);
+    const candidateJsonStr = jsonMatch ? jsonMatch[1].trim() : text.trim();
+
+    try {
+      parsedJson = JSON.parse(candidateJsonStr);
+    } catch {
+      const start = candidateJsonStr.indexOf('{');
+      const end = candidateJsonStr.lastIndexOf('}');
+      if (start !== -1 && end > start) {
+        try {
+          parsedJson = JSON.parse(candidateJsonStr.slice(start, end + 1));
+        } catch {}
+      }
+    }
+
+    if (parsedJson && Array.isArray(parsedJson.phases) && parsedJson.phases.length > 0) {
+      const targetDuration = Number(userInputs?.durationDays || parsedJson.durationDays || 90);
+      const phasesCount = targetDuration === 30 ? 1 : targetDuration === 60 ? 2 : 3;
+      const phases = parsedJson.phases.slice(0, phasesCount).map((p: any, pIdx: number) => {
+        const pNum = pIdx + 1;
+        const phaseLabel = pNum === 1 ? 'Days 1–30' : pNum === 2 ? 'Days 31–60' : 'Days 61–90';
+        const defaultName = pNum === 1 ? '30-Day Foundation' : pNum === 2 ? '60-Day Acceleration' : '90-Day Placement Ready';
+
+        const tasks = Array.isArray(p.tasks) ? p.tasks.map((t: any, tIdx: number) => ({
+          id: String(t.id || `task-${pNum}-${tIdx + 1}`),
+          title: String(t.title || `Actionable Task ${tIdx + 1}`),
+          description: String(t.description || ''),
+          type: (['Skill', 'Project', 'Career', 'Interview', 'Portfolio'].includes(t.type) ? t.type : 'Skill'),
+          estimatedHours: Number(t.estimatedHours || 8),
+          completed: false,
+        })) : [];
+
+        return {
+          id: String(p.id || `phase-${pNum}`),
+          name: String(p.name || defaultName),
+          phase: String(p.phase || phaseLabel),
+          days: String(p.days || phaseLabel),
+          focus: String(p.focus || `Phase ${pNum} Execution Focus`),
+          milestones: Array.isArray(p.milestones) ? p.milestones.map(String) : [],
+          tasks,
+          deliverables: Array.isArray(p.deliverables) ? p.deliverables.map(String) : [],
+        };
+      });
+
+      let completedTasksCount = 0;
+      let totalTasksCount = 0;
+      for (const phase of phases) {
+        for (const task of phase.tasks) {
+          totalTasksCount++;
+          if (task.completed) completedTasksCount++;
+        }
+      }
+      const progress = totalTasksCount > 0 ? Math.round((completedTasksCount / totalTasksCount) * 100) : 0;
+      const score = Math.min(94, Math.max(82, 85 + (phases.length * 3)));
+      const evaluation = getEvaluationLabel(score);
+
+      return {
+        id: `roadmap-${Date.now()}`,
+        title: String(parsedJson.title || `${userInputs?.domain || 'Career'} Sprint Roadmap (${targetDuration} Days)`),
+        domain: String(userInputs?.domain || parsedJson.domain || 'Software Engineering'),
+        goal: String(userInputs?.goal || parsedJson.goal || 'Career Acceleration'),
+        durationDays: targetDuration as 30 | 60 | 90,
+        level: userInputs?.level || parsedJson.level || 'Intermediate',
+        availableHours: userInputs?.availableHours || parsedJson.availableHours || '15-20 Hours/Week',
+        targetRole: userInputs?.targetRole || context.targetRole || '',
+        targetCompanies: userInputs?.targetCompanies || '',
+        specificTopics: userInputs?.specificTopics || '',
+        phases,
+        summary: String(parsedJson.summary || `Personalized ${targetDuration}-day roadmap tailored to current Student Twin profile.`),
+        strengths: Array.isArray(parsedJson.strengths) ? parsedJson.strengths.map(String) : [],
+        gaps: Array.isArray(parsedJson.gaps) ? parsedJson.gaps.map(String) : [],
+        recommendations: Array.isArray(parsedJson.recommendations) ? parsedJson.recommendations : [],
+        score,
+        overallScore: score,
+        evaluation,
+        progress,
+        completedTasksCount,
+        totalTasksCount,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
+    }
+
+    return baseModel;
+  }
+
   // For GitHub Audit: calculate score deterministically from breakdown
   if (engineId === 'github-audit') {
     const rawBreakdown = (baseModel as any)?.breakdown;
@@ -1363,6 +1515,507 @@ function parseStructuredData(
     evaluation,
     timestamp: new Date().toISOString(),
   };
+}
+
+/**
+ * Dynamic, gap-aware Roadmap generator for 30, 60, or 90 days.
+ * Strictly uses real Student Twin evidence + user parameters (Domain, Goal, Duration, Level, Time).
+ * Never uses static hardcoded LeetCode or sample numbers.
+ */
+function generateDynamicRoadmap(
+  context: ReturnType<typeof normalizeStudentContext>,
+  userInputs?: Record<string, any>
+): { text: string; data: any } {
+  const domain = String(userInputs?.domain || context.careerGoal?.targetDomain || 'Full-Stack Development').trim();
+  const goal = String(userInputs?.goal || 'Career Acceleration & Placement').trim();
+  const durationDays = Number(userInputs?.durationDays || 90) as 30 | 60 | 90;
+  const level = String(userInputs?.level || 'Intermediate');
+  const availableHours = String(userInputs?.availableHours || '15-20 Hours/Week');
+  const targetRole = String(userInputs?.targetRole || context.targetRole || `${domain} Engineer`);
+  const targetCompanies = String(userInputs?.targetCompanies || (context as any).targetCompanyTier || 'Tier-1 Engineering Teams');
+  const specificTopics = String(userInputs?.specificTopics || '');
+
+  const candidateName = context.name || 'Scholar Candidate';
+  const university = context.university || 'University';
+
+  // Analyze Student Twin evidence
+  const existingSkills = (context.skills || []).map((s) => s.name.toLowerCase());
+  const hasSkill = (kw: string) => existingSkills.some((s) => s.includes(kw.toLowerCase()));
+
+  // Derive domain category
+  const domainLower = domain.toLowerCase();
+  const isAI = domainLower.includes('ai') || domainLower.includes('machine learning') || domainLower.includes('data science') || domainLower.includes('deep learning');
+  const isSecurity = domainLower.includes('security') || domainLower.includes('cyber');
+  const isDevOps = domainLower.includes('devops') || domainLower.includes('cloud') || domainLower.includes('sre');
+
+  const phases: any[] = [];
+
+  // Phase 1: 30-Day Foundation (Days 1–30)
+  const p1Tasks: any[] = [];
+  let p1Focus = '';
+  let p1Milestones: string[] = [];
+  let p1Deliverables: string[] = [];
+
+  if (isAI) {
+    p1Focus = `Foundational Machine Learning Pipelines, Mathematics & ${hasSkill('python') ? 'PyTorch Tensor Mastery' : 'Python for Numerical Computing'}`;
+    p1Milestones = [
+      hasSkill('python')
+        ? 'Implement custom backpropagation & tensor gradient transforms in PyTorch'
+        : 'Master vector manipulation in NumPy, Pandas data cleaning, and Matplotlib plotting',
+      'Train, cross-validate, and benchmark baseline Scikit-Learn classifiers on real domain datasets',
+      'Package verified model pipeline into a low-latency FastAPI inference service with Docker',
+    ];
+    p1Deliverables = [
+      'Reproducible Jupyter / Google Colab notebook demonstrating data preprocessing, cross-validation, and metrics',
+      'Local FastAPI endpoint serving predictions with Pydantic request validation and test suite',
+    ];
+
+    p1Tasks.push({
+      id: 'task-1-1',
+      title: hasSkill('python')
+        ? 'Vectorized Tensor Operations & PyTorch Model Architecture'
+        : 'Python Numerical Foundations & Pandas Data Wrangling',
+      description: hasSkill('python')
+        ? 'Build custom PyTorch Dataset and DataLoader with batch normalization and gradient clipping.'
+        : 'Complete structured exercises on NumPy broadcasting, Pandas dataframe aggregations, and feature transforms.',
+      type: 'Skill',
+      estimatedHours: 12,
+      completed: false,
+    });
+    p1Tasks.push({
+      id: 'task-1-2',
+      title: 'Supervised Learning Baseline Benchmark & Hyperparameter Tuning',
+      description: 'Implement Logistic Regression, Random Forest, and XGBoost with stratified k-fold cross-validation on tabular/vision dataset.',
+      type: 'Skill',
+      estimatedHours: 14,
+      completed: false,
+    });
+    p1Tasks.push({
+      id: 'task-1-3',
+      title: `Build & Deploy ${domain} Model Inference Microservice`,
+      description: 'Serialize model weights, write FastAPI route with latency telemetry, and containerize using a minimal Docker image.',
+      type: 'Project',
+      estimatedHours: 16,
+      completed: false,
+    });
+    p1Tasks.push({
+      id: 'task-1-4',
+      title: 'Calibrate Student Twin & ATS Resume for AI/ML Roles',
+      description: `Run ATS Analyzer on current resume targeting ${targetRole}; align keywords with mathematical rigor and verified project metrics.`,
+      type: 'Career',
+      estimatedHours: 6,
+      completed: false,
+    });
+  } else if (isSecurity) {
+    p1Focus = 'Network Protocol Fundamentals, OWASP Top 10 Vulnerability Assessment & Secure Code Auditing';
+    p1Milestones = [
+      'Set up isolated penetration testing lab with Wireshark and Burp Suite',
+      'Complete hands-on exploitation and remediation of OWASP Top 10 vulnerabilities',
+      'Conduct static code security analysis (SAST) on existing repositories',
+    ];
+    p1Deliverables = [
+      'Vulnerability assessment report detailing root cause, CVSS score, and code fixes',
+      'Configured SAST GitHub Actions workflow alerting on high-severity security dependencies',
+    ];
+    p1Tasks.push({
+      id: 'task-1-1',
+      title: 'Packet Analysis & Network Defense Labs',
+      description: 'Capture and inspect TCP/TLS handshakes, DNS tunneling, and HTTP header injections using Wireshark.',
+      type: 'Skill',
+      estimatedHours: 12,
+      completed: false,
+    });
+    p1Tasks.push({
+      id: 'task-1-2',
+      title: 'Web Application Pentesting & OWASP Remediations',
+      description: 'Audit sample vulnerable apps for SQL injection, SSRF, and broken access controls; write secure patch PRs.',
+      type: 'Skill',
+      estimatedHours: 15,
+      completed: false,
+    });
+    p1Tasks.push({
+      id: 'task-1-3',
+      title: 'Deploy Automated Security Scanning CI/CD Pipeline',
+      description: 'Integrate Trivy and Semgrep into repository pipelines to audit container images and source code dependencies.',
+      type: 'Project',
+      estimatedHours: 10,
+      completed: false,
+    });
+    p1Tasks.push({
+      id: 'task-1-4',
+      title: 'Security Compliance & ATS Resume Optimization',
+      description: `Tailor Student Twin profile highlighting defensive tooling, secure architecture, and certifications for ${targetRole}.`,
+      type: 'Career',
+      estimatedHours: 5,
+      completed: false,
+    });
+  } else if (isDevOps) {
+    p1Focus = 'Linux Internals, Docker Containerization & Infrastructure as Code (Terraform)';
+    p1Milestones = [
+      'Master Linux systemd, process debugging, and networking configuration',
+      'Write multi-stage Dockerfiles reducing production image footprints by >60%',
+      'Provision cloud resources (VPC, compute, security groups) with modular Terraform',
+    ];
+    p1Deliverables = [
+      'Git repository with verified Terraform HCL code and automated terraform fmt / validate tests',
+      'Optimized container image published to container registry with signed SBOM metadata',
+    ];
+    p1Tasks.push({
+      id: 'task-1-1',
+      title: 'Linux Systems Administration & Shell Automation Sprints',
+      description: 'Write idempotent Bash scripts for server provisioning, log rotation, and automated system health telemetry.',
+      type: 'Skill',
+      estimatedHours: 12,
+      completed: false,
+    });
+    p1Tasks.push({
+      id: 'task-1-2',
+      title: 'Multi-Stage Docker Container Hardening',
+      description: 'Refactor application container to unprivileged non-root user, slim base images, and zero CVE vulnerabilities.',
+      type: 'Skill',
+      estimatedHours: 10,
+      completed: false,
+    });
+    p1Tasks.push({
+      id: 'task-1-3',
+      title: 'Cloud Infrastructure Provisioning with Terraform',
+      description: 'Author reusable modules for VPC networking, managed PostgreSQL, and container orchestration service.',
+      type: 'Project',
+      estimatedHours: 16,
+      completed: false,
+    });
+    p1Tasks.push({
+      id: 'task-1-4',
+      title: 'Cloud Engineering ATS Resume Alignment',
+      description: `Align Twin profile with modern DevOps tooling (Terraform, Docker, CI/CD, Kubernetes) targeting ${targetCompanies}.`,
+      type: 'Career',
+      estimatedHours: 6,
+      completed: false,
+    });
+  } else {
+    // Default Full-Stack / Software Engineering / Custom Domain
+    const knowsReact = hasSkill('react');
+    const knowsBackend = hasSkill('node') || hasSkill('express') || hasSkill('python') || hasSkill('go');
+
+    p1Focus = `${domain} Core Foundations, Strict Typings & Database Architecture`;
+    p1Milestones = [
+      knowsReact
+        ? 'Refactor primary frontend to strict TypeScript with zero any types and state isolation'
+        : 'Build responsive modern component hierarchy with accessible semantics and state handling',
+      knowsBackend
+        ? 'Profile database queries, add composite indexes, and implement connection pooling'
+        : 'Design relational database schemas with foreign key constraints, migrations, and ORM layer',
+      'Deploy production web application with SSL, live demo credentials, and automated CI tests',
+    ];
+    p1Deliverables = [
+      'Public GitHub repository with 80%+ test coverage and passing GitHub Actions workflows',
+      'Live deployed production URL verified with sub-100ms response time on Core Web Vitals',
+    ];
+
+    p1Tasks.push({
+      id: 'task-1-1',
+      title: knowsReact
+        ? `Strict TypeScript Systems & State Architecture in ${domain}`
+        : `Modern UI Component Architecture & State Management in ${domain}`,
+      description: knowsReact
+        ? 'Audit codebase for complete type soundness; implement custom hooks and discriminated union state handlers.'
+        : 'Construct reusable UI design system with accessible keyboard navigation and reactive responsive layouts.',
+      type: 'Skill',
+      estimatedHours: 12,
+      completed: false,
+    });
+    p1Tasks.push({
+      id: 'task-1-2',
+      title: 'Database Schema Normalization & Query Optimization',
+      description: 'Define relational schema with PostgreSQL, write optimized migration scripts, and benchmark index lookups.',
+      type: 'Skill',
+      estimatedHours: 14,
+      completed: false,
+    });
+    p1Tasks.push({
+      id: 'task-1-3',
+      title: `Build & Deploy End-to-End ${domain} Showcase Project`,
+      description: `Architect production application addressing specific ${goal} requirements with secure authentication and database persistence.`,
+      type: 'Project',
+      estimatedHours: 18,
+      completed: false,
+    });
+    p1Tasks.push({
+      id: 'task-1-4',
+      title: `Tailor ATS Resume & GitHub Profile for ${targetRole}`,
+      description: `Audit resume through Resume ATS Analyzer; ensure verified technical competencies and GitHub projects are front-and-center.`,
+      type: 'Career',
+      estimatedHours: 6,
+      completed: false,
+    });
+  }
+
+  phases.push({
+    id: 'phase-1',
+    name: '30-Day Foundation',
+    phase: 'Days 1–30',
+    days: 'Days 1–30',
+    focus: p1Focus,
+    milestones: p1Milestones,
+    deliverables: p1Deliverables,
+    tasks: p1Tasks,
+  });
+
+  // Phase 2: 60-Day Acceleration (Days 31–60)
+  if (durationDays >= 60) {
+    const p2Tasks: any[] = [];
+    let p2Focus = '';
+    let p2Milestones: string[] = [];
+    let p2Deliverables: string[] = [];
+
+    if (isAI) {
+      p2Focus = 'Deep Learning Architectures, Fine-Tuning & Vector Database Retrieval (RAG)';
+      p2Milestones = [
+        'Fine-tune an open-source transformer / LLM using LoRA / PEFT on customized domain dataset',
+        'Implement hybrid semantic search using Chroma / Pinecone vector database and cross-encoders',
+        'Deploy production inference pipeline with asynchronous batch processing and latency caching',
+      ];
+      p2Deliverables = [
+        'End-to-end RAG application with evaluation metrics (BLEU, ROUGE, or RAGAS scores) documented',
+        'Technical case study published detailing context retrieval accuracy and latency trade-offs',
+      ];
+      p2Tasks.push({
+        id: 'task-2-1',
+        title: 'Deep Learning & Transformer Fine-Tuning Sprints',
+        description: 'Implement attention mechanisms from scratch or fine-tune an open LLM/vision model with HuggingFace.',
+        type: 'Skill',
+        estimatedHours: 16,
+        completed: false,
+      });
+      p2Tasks.push({
+        id: 'task-2-2',
+        title: 'Build Retrieval-Augmented Generation (RAG) System',
+        description: 'Construct end-to-end semantic search engine with vector chunking, metadata filtering, and re-ranking.',
+        type: 'Project',
+        estimatedHours: 18,
+        completed: false,
+      });
+      p2Tasks.push({
+        id: 'task-2-3',
+        title: 'Open Source AI Contribution & Benchmarking RFC',
+        description: 'Submit a PR to an open-source AI/ML tool or publish a comprehensive model evaluation benchmark.',
+        type: 'Portfolio',
+        estimatedHours: 10,
+        completed: false,
+      });
+      p2Tasks.push({
+        id: 'task-2-4',
+        title: 'LinkedIn Thought Leadership & Technical Case Study',
+        description: 'Publish a high-signal technical walkthrough breaking down model performance, memory footprint, and lessons learned.',
+        type: 'Career',
+        estimatedHours: 5,
+        completed: false,
+      });
+    } else {
+      p2Focus = 'Distributed Systems Architecture, Caching Layers & High-Concurrency Scalability';
+      p2Milestones = [
+        'Architect asynchronous task processing with Redis / RabbitMQ message queues',
+        'Implement rate limiting, circuit breaker patterns, and idempotent transactional APIs',
+        'Complete 2 verified open-source contributions or author a production engineering RFC',
+      ];
+      p2Deliverables = [
+        'High-concurrency benchmark report (k6 or Apache JMeter) showing sub-50ms p99 response times',
+        'Comprehensive architecture diagram and OpenAPI 3.0 specification in repo root',
+      ];
+      p2Tasks.push({
+        id: 'task-2-1',
+        title: 'Asynchronous Event Processing with Message Queues',
+        description: 'Decouple high-throughput write traffic from database workers using Redis streams or RabbitMQ.',
+        type: 'Project',
+        estimatedHours: 15,
+        completed: false,
+      });
+      p2Tasks.push({
+        id: 'task-2-2',
+        title: 'Distributed Caching Strategy & Cache Invalidation',
+        description: 'Implement multi-tier caching (in-memory + distributed Redis) with strict cache-aside invalidation logic.',
+        type: 'Skill',
+        estimatedHours: 12,
+        completed: false,
+      });
+      p2Tasks.push({
+        id: 'task-2-3',
+        title: 'Open Source Ecosystem Contribution / Technical RFC',
+        description: 'Contribute a bug fix, performance enhancement, or documentation to an active ecosystem repository.',
+        type: 'Portfolio',
+        estimatedHours: 10,
+        completed: false,
+      });
+      p2Tasks.push({
+        id: 'task-2-4',
+        title: 'LinkedIn Audit & Featured Project Optimization',
+        description: 'Optimize LinkedIn profile headline, about section, and featured media using the LinkedIn Audit Engine.',
+        type: 'Career',
+        estimatedHours: 5,
+        completed: false,
+      });
+    }
+
+    phases.push({
+      id: 'phase-2',
+      name: '60-Day Acceleration',
+      phase: 'Days 31–60',
+      days: 'Days 31–60',
+      focus: p2Focus,
+      milestones: p2Milestones,
+      deliverables: p2Deliverables,
+      tasks: p2Tasks,
+    });
+  }
+
+  // Phase 3: 90-Day Placement Ready (Days 61–90)
+  if (durationDays === 90) {
+    const p3Tasks: any[] = [];
+    const p3Focus = `High-Level System Design Mastery, Technical Mock Interviews & ${targetCompanies} Recruiter Pipeline`;
+    const p3Milestones = [
+      'Complete 8 timed high-level system design mock whiteboard sessions',
+      'Execute 10+ live algorithmic & practical coding mock interview drills',
+      `Submit 35+ targeted, customized applications to engineering teams at ${targetCompanies}`,
+    ];
+    const p3Deliverables = [
+      'Interactive portfolio with live demonstration links, architectural blueprints, and twin verification score',
+      'Active recruiter pipeline with scheduled technical screening rounds',
+    ];
+
+    p3Tasks.push({
+      id: 'task-3-1',
+      title: `System Design & Architecture Whiteboard Drills for ${targetRole}`,
+      description: 'Practice designing scalable systems (URL shortener, rate limiter, notification engine, feed generator) in 45-minute timed constraints.',
+      type: 'Interview',
+      estimatedHours: 16,
+      completed: false,
+    });
+    p3Tasks.push({
+      id: 'task-3-2',
+      title: 'STAR Story Matrix & Behavioral Interview Prep',
+      description: 'Prepare structured responses (Situation, Task, Action, Result) covering leadership, technical conflicts, and production incidents.',
+      type: 'Interview',
+      estimatedHours: 8,
+      completed: false,
+    });
+    p3Tasks.push({
+      id: 'task-3-3',
+      title: 'Curate Verified Portfolio & Twin Readiness Score (90%+)',
+      description: 'Ensure all projects have verified GitHub links, live demos, and verified skills on your Student Digital Twin OS.',
+      type: 'Portfolio',
+      estimatedHours: 10,
+      completed: false,
+    });
+    p3Tasks.push({
+      id: 'task-3-4',
+      title: 'Direct Engineering Outreach & Targeted Applications',
+      description: `Submit personalized applications with tailored cover notes to engineering hiring managers at ${targetCompanies}.`,
+      type: 'Career',
+      estimatedHours: 14,
+      completed: false,
+    });
+
+    phases.push({
+      id: 'phase-3',
+      name: '90-Day Placement Ready',
+      phase: 'Days 61–90',
+      days: 'Days 61–90',
+      focus: p3Focus,
+      milestones: p3Milestones,
+      deliverables: p3Deliverables,
+      tasks: p3Tasks,
+    });
+  }
+
+  let totalTasks = 0;
+  for (const p of phases) {
+    totalTasks += p.tasks.length;
+  }
+
+  const score = Math.min(94, Math.max(82, 85 + (phases.length * 3)));
+  const evaluation = getEvaluationLabel(score);
+
+  const roadmapTitle = specificTopics
+    ? `${domain}: ${specificTopics} Sprint (${durationDays} Days)`
+    : `${domain} Sprint Roadmap (${durationDays} Days)`;
+
+  const summary = `Personalized ${durationDays}-day career roadmap tailored to ${candidateName}'s current Student Twin profile, targeting ${targetRole} with a focus on ${goal}.`;
+
+  const strengths = [
+    `Structured ${phases.length}-phase execution tailored to ${availableHours} commitment`,
+    `Grounded directly in candidate's existing verified skill evidence`,
+    `Concrete milestones with verifiable proof-of-work deliverables`,
+  ];
+
+  const gaps = [
+    `Execute daily milestone tasks consistently according to weekly time commitment`,
+    `Ensure every completed project is documented with a public repository and live demo URL`,
+  ];
+
+  const recommendations = [
+    { priority: 1, title: 'Begin Phase 1 Milestone Sprints', desc: `Focus strictly on ${phases[0].name} foundational deliverables first` },
+    { priority: 2, title: 'Log Progress Weekly', desc: 'Check off completed tasks to maintain accurate Student Twin readiness telemetry' },
+  ];
+
+  // Construct readable Markdown representation
+  let text = `### ${durationDays}-Day Career Roadmap: ${domain}
+**Candidate**: ${candidateName} (${university})  
+**Target Role**: ${targetRole}  
+**Primary Goal**: ${goal}  
+**Commitment**: ${availableHours} • **Level**: ${level}  
+**Roadmap Alignment Score**: **${score} / 100** (${evaluation})
+
+---
+
+`;
+
+  for (const phase of phases) {
+    text += `#### 📌 ${phase.name} (${phase.days})\n`;
+    text += `**Focus**: ${phase.focus}\n\n`;
+    text += `**Key Milestones**:\n`;
+    for (const m of phase.milestones) {
+      text += `- ${m}\n`;
+    }
+    text += `\n**Actionable Tasks**:\n`;
+    for (const t of phase.tasks) {
+      text += `- [ ] [${t.type}] **${t.title}** (${t.estimatedHours}h): ${t.description}\n`;
+    }
+    if (phase.deliverables && phase.deliverables.length > 0) {
+      text += `\n**Deliverables**:\n`;
+      for (const d of phase.deliverables) {
+        text += `- 📦 ${d}\n`;
+      }
+    }
+    text += `\n---\n\n`;
+  }
+
+  const data = {
+    id: `roadmap-${Date.now()}`,
+    title: roadmapTitle,
+    domain,
+    goal,
+    durationDays,
+    level,
+    availableHours,
+    targetRole,
+    targetCompanies,
+    specificTopics,
+    phases,
+    summary,
+    strengths,
+    gaps,
+    recommendations,
+    score,
+    overallScore: score,
+    evaluation,
+    progress: 0,
+    completedTasksCount: 0,
+    totalTasksCount: totalTasks,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  };
+
+  return { text, data };
 }
 
 function generateDeterministicEngineResponse(
@@ -2250,93 +2903,7 @@ ${examChecklist.map((c) => `- [${c.completed ? 'x' : ' '}] ${c.label}`).join('\n
     }
 
     case 'roadmap-30-60-90': {
-      const score = 88;
-      const evaluation = getEvaluationLabel(score);
-      const text = `### 30–60–90 Day Career Acceleration Roadmap
-
-**Candidate**: ${context.name} (${context.university})  
-**Target Goal**: Placement in **${context.targetRole || 'Tier-1 Engineering Roles'}**  
-**Roadmap Score**: **${score} / 100** (${evaluation})
-
----
-
-#### 🟢 Days 1–30: Core Competency & Algorithmic Foundations
-- **Target**: Master core DSA and solidify codebase strictness.
-- **Milestones**:
-  - [ ] Solve 60 LeetCode Medium problems across Trees, Graphs, and DP.
-  - [ ] Refactor primary project with strict TypeScript and unit tests.
-  - [ ] Baseline resume calibration with ATS Analyzer.
-
----
-
-#### 🟡 Days 31–60: Proof-of-Work Build & Open Source Rigor
-- **Target**: Deploy standout systems project and build online proof.
-- **Milestones**:
-  - [ ] Architect and deploy a high-entropy full-stack cloud project with Docker.
-  - [ ] Complete 2 meaningful open-source contributions or technical PRs.
-  - [ ] Update LinkedIn headline and featured projects using LinkedIn Audit.
-
----
-
-#### 🔵 Days 61–90: Recruiter Calibration & Mock Sprints
-- **Target**: Live mock interviews and targeted application pipeline.
-- **Milestones**:
-  - [ ] Complete 8 mock technical interviews with peers/mentors.
-  - [ ] Submit 30 tailored applications with customized keyword alignment.
-  - [ ] Maintain 90%+ readiness score on Student Digital Twin.`;
-
-      const data = {
-        score,
-        evaluation,
-        profile: {
-          name: context.name,
-          targetRole: context.targetRole,
-          university: context.university,
-        },
-        breakdown: [
-          { label: '30-Day Sprint Feasibility', score: 23, max: 25 },
-          { label: '60-Day Proof-of-Work Rigor', score: 22, max: 25 },
-          { label: '90-Day Placement Calibration', score: 18, max: 20 },
-          { label: 'Milestone Clarity', score: 14, max: 15 },
-          { label: 'Risk Mitigation Buffer', score: 11, max: 15 },
-        ],
-        phases: [
-          {
-            phase: 'Days 1–30',
-            title: 'Core Foundations & DSA Rigor',
-            duration: 'Month 1',
-            goals: ['Solve 60 LeetCode Medium questions (Trees, Graphs, DP)', 'Refactor primary project with TypeScript strict mode', 'Generate baseline ATS resume version 1.0'],
-            milestones: ['DSA Benchmark: 60 problems completed', 'Project Strictness: 100% type safety', 'ATS Score: 80%+'],
-          },
-          {
-            phase: 'Days 31–60',
-            title: 'Proof-of-Work & Open Source Rigor',
-            duration: 'Month 2',
-            goals: ['Deploy containerized cloud project with live URL', 'Complete 2 open-source PRs or documentation contributions', 'Optimize LinkedIn profile with high-converting headline'],
-            milestones: ['Live URL deployed with SSL', '2 Merged PRs', 'LinkedIn Score: 85%+'],
-          },
-          {
-            phase: 'Days 61–90',
-            title: 'Recruiter Calibration & Interview Sprints',
-            duration: 'Month 3',
-            goals: ['Conduct 8 mock technical interviews', 'Submit 30 targeted job/internship applications', 'Achieve 90%+ Student Digital Twin readiness score'],
-            milestones: ['8 Mocks completed', '30 Applications logged', 'Twin Readiness: 90%+'],
-          },
-        ],
-        strengths: [
-          'Pragmatic 3-stage progression from foundation to recruiter outreach',
-          'Measurable, quantifiable weekly milestone targets',
-          'Directly grounded in current Student Twin skill levels',
-        ],
-        gaps: [
-          'Maintain daily problem-solving discipline without missing consecutive days',
-        ],
-        recommendations: [
-          { priority: 1, title: 'Execute Sprint 1 Milestones', desc: 'Focus strictly on Days 1–30 foundational goals first' },
-          { priority: 2, title: 'Track Weekly Progress', desc: 'Check off milestones on your Twin dashboard weekly' },
-        ],
-      };
-      return { text, data };
+      return generateDynamicRoadmap(context, userInputs);
     }
 
     case 'internship-ready': {

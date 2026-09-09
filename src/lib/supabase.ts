@@ -212,4 +212,35 @@ CREATE POLICY "Users can manage career goals through student profile"
     SELECT 1 FROM public.student_profiles sp
     WHERE sp.id = career_goals.student_profile_id AND sp.user_id = auth.uid()
   ));
+
+-- 7. User Custom Roadmaps (30-60-90 Engine)
+CREATE TABLE IF NOT EXISTS public.user_roadmaps (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  user_id UUID REFERENCES auth.users ON DELETE CASCADE NOT NULL,
+  student_profile_id UUID REFERENCES public.student_profiles ON DELETE CASCADE,
+  title TEXT NOT NULL,
+  domain TEXT NOT NULL,
+  goal TEXT NOT NULL,
+  duration_days INT NOT NULL DEFAULT 90,
+  level TEXT DEFAULT 'Intermediate',
+  available_hours TEXT,
+  target_role TEXT,
+  target_companies TEXT,
+  specific_topics TEXT,
+  phases JSONB NOT NULL DEFAULT '[]'::jsonb,
+  summary TEXT,
+  recommendations JSONB DEFAULT '[]'::jsonb,
+  completed_tasks_count INT DEFAULT 0,
+  total_tasks_count INT DEFAULT 0,
+  progress INT DEFAULT 0,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+ALTER TABLE public.user_roadmaps ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Users can manage their own roadmaps"
+  ON public.user_roadmaps FOR ALL
+  USING (auth.uid() = user_id)
+  WITH CHECK (auth.uid() = user_id);
 `;
