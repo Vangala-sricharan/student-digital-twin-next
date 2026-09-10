@@ -155,11 +155,11 @@ export const TimepassQuiz: React.FC = () => {
         let msg = json?.error;
         if (!msg) {
           if (code === 'RATE_LIMIT' || res.status === 429) {
-            msg = 'AI service rate limit reached. Please wait a moment before trying again.';
+            msg = 'The AI service encountered a temporary hiccup or rate limit.';
           } else if (code === 'TIMEOUT' || res.status === 504) {
             msg = 'Quiz generation timed out. Please try again.';
           } else if (code === 'SERVICE_UNAVAILABLE' || res.status === 503) {
-            msg = 'AI service is temporarily unavailable. Please try again.';
+            msg = 'The AI service encountered a temporary hiccup or rate limit.';
           } else {
             msg = "Couldn't generate the quiz. Please try again.";
           }

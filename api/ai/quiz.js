@@ -1,4 +1,4 @@
-import { GoogleGenAI, Type, ThinkingLevel } from '@google/genai';
+import { GoogleGenAI, Type } from '@google/genai';
 
 let aiClient = null;
 
@@ -71,15 +71,22 @@ function parseAndValidateQuestions(rawText, expectedCount) {
   try {
     parsed = JSON.parse(rawText);
   } catch {
-    const jsonMatch = rawText.match(/\{[\s\S]*\}/);
-    if (jsonMatch) {
-      try {
-        parsed = JSON.parse(jsonMatch[0]);
-      } catch {
+    const jsonMatch = rawText.match(/```(?:json)?\s*([\s\S]*?)```/);
+    const candidateStr = jsonMatch ? jsonMatch[1].trim() : rawText.trim();
+    try {
+      parsed = JSON.parse(candidateStr);
+    } catch {
+      const start = candidateStr.indexOf('{');
+      const end = candidateStr.lastIndexOf('}');
+      if (start !== -1 && end > start) {
+        try {
+          parsed = JSON.parse(candidateStr.slice(start, end + 1));
+        } catch {
+          return null;
+        }
+      } else {
         return null;
       }
-    } else {
-      return null;
     }
   }
 
@@ -119,32 +126,14 @@ function parseAndValidateQuestions(rawText, expectedCount) {
   return validQuestions.slice(0, expectedCount);
 }
 
-async function requestGeminiQuiz(ai, modelName, prompt, systemInstruction) {
-  const response = await ai.models.generateContent({
-    model: modelName,
-    contents: prompt,
-    config: {
-      systemInstruction,
-      temperature: 0.3,
-      thinkingConfig: {
-        thinkingLevel: ThinkingLevel.MINIMAL,
-      },
-      responseMimeType: 'application/json',
-      responseSchema: quizResponseSchema,
-    },
-  });
-  return response?.text || '';
-}
-
 /**
- * Handles AI-powered quiz question generation for Demo Mode Timepass Quiz.
+ * Handles AI-powered quiz question generation for Timepass Quiz.
  * Strict reliability constraints:
- * - Minimal context: topic + difficulty + questionCount only.
- * - Compact structured JSON schema.
- * - Fastest suitable Gemini model configured in V4 (gemini-3.1-flash-lite, fallback gemini-3.8-flash).
- * - Exactly ONE AI request attempt from the client.
- * - Single bounded retry on server for transient 429 (exponential backoff) or malformed responses.
- * - Distinct, user-friendly HTTP error codes (429, 504, 503, 422, 500).
+ * 1. Use the fastest suitable Gemini model already configured in V4 (gemini-3.8-flash).
+ * 2. Make exactly ONE AI request per quiz generation attempt (no automatic retry loops).
+ * 3. Compact structured JSON only with minimal schema.
+ * 4. Send only minimal required context: topic + difficulty + questionCount.
+ * 5. Distinct, descriptive error codes (RATE_LIMIT, TIMEOUT, SERVICE_UNAVAILABLE, GENERAL).
  */
 export async function handleQuizRequest(req, res) {
   if (req.method !== 'POST') {
@@ -155,7 +144,7 @@ export async function handleQuizRequest(req, res) {
   }
 
   const body = req.body || {};
-  const topic = String(body.topic || 'Data Structures').trim().slice(0, 100);
+  const topic = String(body.topic || 'Data Structures').trim().slice(0, 80);
   const difficulty = ['Easy', 'Medium', 'Hard'].includes(body.difficulty)
     ? body.difficulty
     : 'Medium';
@@ -179,81 +168,69 @@ export async function handleQuizRequest(req, res) {
   }
 
   const systemInstruction =
-    'Output valid JSON only matching the schema. Exactly 4 options per question. correctAnswerIndex must be 0, 1, 2, or 3. Any currency must be in Indian Rupees (₹), never USD ($).';
+    'You are a high-speed quiz generator. Output only valid JSON matching the schema. Exactly 4 options per question. correctAnswerIndex must be 0, 1, 2, or 3. Any pricing or currency must strictly use Indian Rupees (₹), never USD ($).';
 
-  const prompt = `Generate a ${questionCount}-question multiple-choice quiz on "${topic}" (${difficulty} difficulty). Provide clear questions with exactly 4 distinct options and one correct answer.`;
+  const prompt = `Generate a ${questionCount}-question multiple-choice quiz on "${topic}" (${difficulty} difficulty). Provide clear, concise questions with 4 distinct options and one correct answer.`;
 
-  const primaryModel = 'gemini-3.1-flash-lite';
-  const fallbackModel = 'gemini-3.8-flash';
+  // Use fastest suitable model configured in V4
+  const modelName = 'gemini-3.8-flash';
 
-  let rawText = '';
-  let lastError = null;
-
-  // Primary attempt
   try {
-    rawText = await requestGeminiQuiz(ai, primaryModel, prompt, systemInstruction);
-  } catch (err) {
-    lastError = err;
-  }
+    // Exactly ONE AI request attempt
+    const response = await ai.models.generateContent({
+      model: modelName,
+      contents: prompt,
+      config: {
+        systemInstruction,
+        temperature: 0.2,
+        responseMimeType: 'application/json',
+        responseSchema: quizResponseSchema,
+      },
+    });
 
-  let questions = parseAndValidateQuestions(rawText, questionCount);
+    const rawText = response?.text || '';
+    const questions = parseAndValidateQuestions(rawText, questionCount);
 
-  // If primary attempt failed or returned malformed JSON, perform AT MOST ONE bounded retry
-  if (!questions) {
-    const isRateLimit = lastError && isRateLimitError(lastError);
-    const isTimeout = lastError && isTimeoutError(lastError);
-
-    if (isTimeout) {
-      res.statusCode = 504;
+    if (!questions || questions.length === 0) {
+      res.statusCode = 422;
       res.setHeader('Content-Type', 'application/json');
       res.end(
         JSON.stringify({
           status: 'error',
-          code: 'TIMEOUT',
-          error: 'Quiz generation timed out. Please try again.',
+          code: 'MALFORMED_RESPONSE',
+          error: "Couldn't generate the quiz. Please try again.",
         })
       );
       return;
     }
 
-    if (isRateLimit) {
-      // Short bounded backoff for rate limit before single retry
-      await new Promise((r) => setTimeout(r, 1200));
-      try {
-        rawText = await requestGeminiQuiz(ai, primaryModel, prompt, systemInstruction);
-        questions = parseAndValidateQuestions(rawText, questionCount);
-      } catch (retryErr) {
-        lastError = retryErr;
-      }
-    } else {
-      // Malformed JSON or transient 5xx error: single retry with fallback model
-      const retryModel = lastError ? fallbackModel : primaryModel;
-      await new Promise((r) => setTimeout(r, 600));
-      try {
-        rawText = await requestGeminiQuiz(ai, retryModel, prompt, systemInstruction);
-        questions = parseAndValidateQuestions(rawText, questionCount);
-      } catch (retryErr) {
-        lastError = retryErr;
-      }
-    }
-  }
-
-  // Final check after at most ONE retry
-  if (!questions || questions.length === 0) {
-    if (lastError && isRateLimitError(lastError)) {
+    res.statusCode = 200;
+    res.setHeader('Content-Type', 'application/json');
+    res.end(
+      JSON.stringify({
+        status: 'success',
+        data: {
+          topic,
+          difficulty,
+          questions,
+        },
+      })
+    );
+  } catch (err) {
+    if (isRateLimitError(err)) {
       res.statusCode = 429;
       res.setHeader('Content-Type', 'application/json');
       res.end(
         JSON.stringify({
           status: 'error',
           code: 'RATE_LIMIT',
-          error: 'AI service rate limit reached. Please wait a moment before trying again.',
+          error: 'The AI service encountered a temporary hiccup or rate limit.',
         })
       );
       return;
     }
 
-    if (lastError && isTimeoutError(lastError)) {
+    if (isTimeoutError(err)) {
       res.statusCode = 504;
       res.setHeader('Content-Type', 'application/json');
       res.end(
@@ -266,45 +243,16 @@ export async function handleQuizRequest(req, res) {
       return;
     }
 
-    if (lastError) {
-      res.statusCode = 503;
-      res.setHeader('Content-Type', 'application/json');
-      res.end(
-        JSON.stringify({
-          status: 'error',
-          code: 'SERVICE_UNAVAILABLE',
-          error: 'AI service is temporarily unavailable. Please try again.',
-        })
-      );
-      return;
-    }
-
-    // No exception thrown, but AI returned unparseable/empty data even after retry
-    res.statusCode = 422;
+    res.statusCode = 500;
     res.setHeader('Content-Type', 'application/json');
     res.end(
       JSON.stringify({
         status: 'error',
-        code: 'MALFORMED_RESPONSE',
-        error: "Couldn't generate valid questions for this topic. Please try again or choose another topic.",
+        code: 'GENERAL',
+        error: "Couldn't generate the quiz. Please try again.",
       })
     );
-    return;
   }
-
-  // Success
-  res.statusCode = 200;
-  res.setHeader('Content-Type', 'application/json');
-  res.end(
-    JSON.stringify({
-      status: 'success',
-      data: {
-        topic,
-        difficulty,
-        questions,
-      },
-    })
-  );
 }
 
 export default async function handler(req, res) {

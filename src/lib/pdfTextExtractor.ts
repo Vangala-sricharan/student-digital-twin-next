@@ -247,7 +247,7 @@ export function extractPdfDebugInfo(text: string, profile: { candidateName?: str
  * Decodes PDF hex encoded strings (<48656c6c6f>), including UTF-16BE with or without BOM,
  * and Windows-1252 bullets and dashes.
  */
-function decodePdfHexString(cleanHex: string): string {
+export function decodePdfHexString(cleanHex: string): string {
   cleanHex = cleanHex.replace(/\s+/g, '');
   if (cleanHex.length === 0) return '';
   if (cleanHex.length % 2 !== 0) cleanHex += '0';
@@ -294,7 +294,7 @@ function decodePdfHexString(cleanHex: string): string {
 /**
  * Decompresses a FlateDecode (zlib/deflate) byte buffer using synchronous pako.
  */
-function decompressFlate(bytes: Uint8Array): string {
+export function decompressFlate(bytes: Uint8Array): string {
   if (!bytes || bytes.length === 0) return '';
   try {
     const decompressed = inflate(bytes);
@@ -313,7 +313,7 @@ function decompressFlate(bytes: Uint8Array): string {
  * Extracts text operators ((text) Tj, <hex> Tj, [(text) 12 <hex>] TJ, and newline operators) from PDF stream text.
  * Accurately handles horizontal spacing (space ' ') vs vertical line breaks ('\n').
  */
-function extractTextFromOperators(streamContent: string): string[] {
+export function extractTextFromOperators(streamContent: string): string[] {
   const parts: string[] = [];
 
   const regex = /(?:([-\d.]+)\s+([-\d.]+)\s+(Td|TD))|\[([\s\S]*?)\]\s*TJ|\(((?:[^()\\]|\\.)*)\)\s*(?:Tj|['"])|<([0-9a-fA-F\s]+)>\s*(?:Tj|['"])|\b(T\*|ET)\b/g;

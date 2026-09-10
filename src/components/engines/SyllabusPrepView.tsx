@@ -1,10 +1,10 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { useStudentTwin } from '../../context/StudentTwinContext';
 import { useEngineJob } from '../../context/AIJobContext';
 import { AI_ENGINES } from '../../data/enginesData';
 import { EngineLayout } from './EngineLayout';
 import { buildStudentContext } from '../../lib/aiEngineService';
-import { parseAcademicDocument, ParsedDocument, validateAcademicDocument } from '../../lib/documentParser';
+import { parseAcademicDocument, ParsedDocument, validateAcademicDocument, validateAcademicDocumentContent } from '../../lib/documentParser';
 import { AIProcessingCard } from './AIProcessingCard';
 import { generateStyledPDF } from '../../lib/pdfExportService';
 import {
@@ -37,25 +37,106 @@ interface SyllabusPrepViewProps {
   onBackToHub?: () => void;
 }
 
+const SYLLABUS_STORAGE_KEY = 'sdt_syllabus_prep_state';
+
 export const SyllabusPrepView: React.FC<SyllabusPrepViewProps> = ({ onBackToHub }) => {
   const engine = AI_ENGINES.find((e) => e.id === 'syllabus-prep')!;
   const { profile, skills, projects, achievements, careerGoals } = useStudentTwin();
-  const { job, isRunning, isError, rawText, structuredData, execute, retry } = useEngineJob('syllabus-prep');
+  const { job, isRunning, isError, rawText, structuredData, execute, reset, retry } = useEngineJob('syllabus-prep');
 
-  const [parsedDoc, setParsedDoc] = useState<ParsedDocument | null>(null);
+  const [parsedDoc, setParsedDoc] = useState<ParsedDocument | null>(() => {
+    try {
+      const saved = localStorage.getItem(SYLLABUS_STORAGE_KEY);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        return parsed.parsedDoc || null;
+      }
+    } catch {}
+    return null;
+  });
+
   const [parsingDoc, setParsingDoc] = useState(false);
   const [parseError, setParseError] = useState<string | null>(null);
-  const [pastedSyllabus, setPastedSyllabus] = useState('');
+  const [parseErrorSupportingText, setParseErrorSupportingText] = useState<string | null>(null);
+
+  const [pastedSyllabus, setPastedSyllabus] = useState<string>(() => {
+    try {
+      const saved = localStorage.getItem(SYLLABUS_STORAGE_KEY);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        return parsed.pastedSyllabus || '';
+      }
+    } catch {}
+    return '';
+  });
+
   const [activeTab, setActiveTab] = useState<'overview' | 'topics' | 'strategy' | 'questions' | 'checklist'>('overview');
   const [expandedQuestions, setExpandedQuestions] = useState<Record<string, boolean>>({ q1: true });
-  const [checklistState, setChecklistState] = useState<Record<string, boolean>>({ c1: true, c2: true });
-  const [completedUnitTopics, setCompletedUnitTopics] = useState<Record<string, boolean>>({});
-  const [unitProgressOverrides, setUnitProgressOverrides] = useState<Record<string, number>>({});
+
+  const [checklistState, setChecklistState] = useState<Record<string, boolean>>(() => {
+    try {
+      const saved = localStorage.getItem(SYLLABUS_STORAGE_KEY);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed.checklistState) return parsed.checklistState;
+      }
+    } catch {}
+    return { c1: true, c2: true };
+  });
+
+  const [completedUnitTopics, setCompletedUnitTopics] = useState<Record<string, boolean>>(() => {
+    try {
+      const saved = localStorage.getItem(SYLLABUS_STORAGE_KEY);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed.completedUnitTopics) return parsed.completedUnitTopics;
+      }
+    } catch {}
+    return {};
+  });
+
+  const [unitProgressOverrides, setUnitProgressOverrides] = useState<Record<string, number>>(() => {
+    try {
+      const saved = localStorage.getItem(SYLLABUS_STORAGE_KEY);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed.unitProgressOverrides) return parsed.unitProgressOverrides;
+      }
+    } catch {}
+    return {};
+  });
+
   const [copied, setCopied] = useState(false);
   const [exportingPdf, setExportingPdf] = useState(false);
   const [customQuestion, setCustomQuestion] = useState('');
-  const [qaEntries, setQaEntries] = useState<Array<{ id: string; question: string; answer: string; citation: string }>>([]);
+
+  const [qaEntries, setQaEntries] = useState<Array<{ id: string; question: string; answer: string; citation: string }>>(() => {
+    try {
+      const saved = localStorage.getItem(SYLLABUS_STORAGE_KEY);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed.qaEntries)) return parsed.qaEntries;
+      }
+    } catch {}
+    return [];
+  });
+
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Sync state to localStorage for persistence across navigation/refresh
+  useEffect(() => {
+    try {
+      const stateToSave = {
+        parsedDoc,
+        pastedSyllabus,
+        checklistState,
+        completedUnitTopics,
+        unitProgressOverrides,
+        qaEntries,
+      };
+      localStorage.setItem(SYLLABUS_STORAGE_KEY, JSON.stringify(stateToSave));
+    } catch {}
+  }, [parsedDoc, pastedSyllabus, checklistState, completedUnitTopics, unitProgressOverrides, qaEntries]);
 
   const handleAskDocumentQuestion = (queryText?: string) => {
     const q = (queryText || customQuestion).trim();
@@ -120,18 +201,25 @@ export const SyllabusPrepView: React.FC<SyllabusPrepViewProps> = ({ onBackToHub 
 
     const validation = validateAcademicDocument(file);
     if (!validation.valid) {
-      setParseError(validation.error || 'Invalid file format.');
+      setParsedDoc(null);
+      setParseError(validation.error || 'Please upload the correct PPT/PDF of a subject.');
+      setParseErrorSupportingText('This document does not appear to contain academic subject material for Syllabus Prep.');
+      if (fileInputRef.current) fileInputRef.current.value = '';
       return;
     }
 
     setParsingDoc(true);
     setParseError(null);
+    setParseErrorSupportingText(null);
 
     try {
       const doc = await parseAcademicDocument(file);
       setParsedDoc(doc);
     } catch (err: any) {
-      setParseError(err?.message || 'Failed to parse academic document.');
+      setParsedDoc(null);
+      setParseError(err?.message || 'Please upload the correct PPT/PDF of a subject.');
+      setParseErrorSupportingText(err?.supportingText || 'This document does not appear to contain academic subject material for Syllabus Prep.');
+      if (fileInputRef.current) fileInputRef.current.value = '';
     } finally {
       setParsingDoc(false);
     }
@@ -144,18 +232,25 @@ export const SyllabusPrepView: React.FC<SyllabusPrepViewProps> = ({ onBackToHub 
 
     const validation = validateAcademicDocument(file);
     if (!validation.valid) {
-      setParseError(validation.error || 'Invalid file format.');
+      setParsedDoc(null);
+      setParseError(validation.error || 'Please upload the correct PPT/PDF of a subject.');
+      setParseErrorSupportingText('This document does not appear to contain academic subject material for Syllabus Prep.');
+      if (fileInputRef.current) fileInputRef.current.value = '';
       return;
     }
 
     setParsingDoc(true);
     setParseError(null);
+    setParseErrorSupportingText(null);
 
     try {
       const doc = await parseAcademicDocument(file);
       setParsedDoc(doc);
     } catch (err: any) {
-      setParseError(err?.message || 'Failed to parse academic document.');
+      setParsedDoc(null);
+      setParseError(err?.message || 'Please upload the correct PPT/PDF of a subject.');
+      setParseErrorSupportingText(err?.supportingText || 'This document does not appear to contain academic subject material for Syllabus Prep.');
+      if (fileInputRef.current) fileInputRef.current.value = '';
     } finally {
       setParsingDoc(false);
     }
@@ -163,6 +258,7 @@ export const SyllabusPrepView: React.FC<SyllabusPrepViewProps> = ({ onBackToHub 
 
   const loadDemoSyllabus = (type: 'dsa' | 'os') => {
     setParseError(null);
+    setParseErrorSupportingText(null);
     if (type === 'dsa') {
       setPastedSyllabus(
         `Course: CS301 Data Structures & Algorithms
@@ -194,6 +290,29 @@ Unit 4: Storage & File Systems
   const handleGeneratePrepGuide = async () => {
     if (!profile || isRunning) return;
 
+    const textToAnalyze = (parsedDoc?.extractedText || pastedSyllabus || '').trim();
+    if (!textToAnalyze) {
+      setParseError('Please upload the correct PPT/PDF of a subject.');
+      setParseErrorSupportingText('This document does not appear to contain academic subject material for Syllabus Prep.');
+      return;
+    }
+
+    const validation = validateAcademicDocumentContent(textToAnalyze, {
+      fileName: parsedDoc?.fileName,
+      fileType: parsedDoc?.fileType,
+      slideCount: parsedDoc?.pageOrSlideCount,
+      isSlideDeck: parsedDoc?.fileType === 'ppt' || parsedDoc?.fileType === 'pptx',
+    });
+
+    if (!validation.isValid) {
+      setParseError(validation.rejectionReason || 'Please upload the correct PPT/PDF of a subject.');
+      setParseErrorSupportingText(validation.supportingText || 'This document does not appear to contain academic subject material for Syllabus Prep.');
+      return;
+    }
+
+    setParseError(null);
+    setParseErrorSupportingText(null);
+
     const studentContext = buildStudentContext(
       profile,
       skills,
@@ -211,6 +330,7 @@ Unit 4: Storage & File Systems
             fileName: parsedDoc.fileName,
             fileType: parsedDoc.fileType,
             fileSize: parsedDoc.fileSize,
+            pageOrSlideCount: parsedDoc.pageOrSlideCount,
           }
         : undefined,
       userInputs: {
@@ -220,7 +340,19 @@ Unit 4: Storage & File Systems
   };
 
   const handleClearDoc = () => {
+    reset();
     setParsedDoc(null);
+    setPastedSyllabus('');
+    setParseError(null);
+    setParseErrorSupportingText(null);
+    setQaEntries([]);
+    setCustomQuestion('');
+    setChecklistState({ c1: true, c2: true });
+    setCompletedUnitTopics({});
+    setUnitProgressOverrides({});
+    try {
+      localStorage.removeItem(SYLLABUS_STORAGE_KEY);
+    } catch {}
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
@@ -232,11 +364,42 @@ Unit 4: Storage & File Systems
     setChecklistState((prev) => ({ ...prev, [id]: !prev[id] }));
   };
 
-  const handleCopy = () => {
-    if (!rawText) return;
-    navigator.clipboard.writeText(rawText);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+  const handleCopy = async () => {
+    const textToCopy = rawText || (structuredData ? JSON.stringify(structuredData, null, 2) : '');
+    if (!textToCopy) return;
+    try {
+      if (navigator?.clipboard?.writeText) {
+        await navigator.clipboard.writeText(textToCopy);
+      } else {
+        const textarea = document.createElement('textarea');
+        textarea.value = textToCopy;
+        textarea.style.position = 'fixed';
+        textarea.style.opacity = '0';
+        document.body.appendChild(textarea);
+        textarea.focus();
+        textarea.select();
+        document.execCommand('copy');
+        document.body.removeChild(textarea);
+      }
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      try {
+        const textarea = document.createElement('textarea');
+        textarea.value = textToCopy;
+        textarea.style.position = 'fixed';
+        textarea.style.opacity = '0';
+        document.body.appendChild(textarea);
+        textarea.focus();
+        textarea.select();
+        document.execCommand('copy');
+        document.body.removeChild(textarea);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+      } catch (err) {
+        console.warn('Copy failed:', err);
+      }
+    }
   };
 
   const handleExportPDF = async () => {
@@ -438,7 +601,7 @@ Unit 4: Storage & File Systems
       onBackToHub={onBackToHub}
       isRunning={isRunning || parsingDoc}
       onRunEngine={handleGeneratePrepGuide}
-      resultText={rawText || undefined}
+      resultText={rawText || (structuredData ? JSON.stringify(structuredData, null, 2) : undefined)}
     >
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         
@@ -534,9 +697,16 @@ Unit 4: Storage & File Systems
             )}
 
             {parseError && (
-              <div className="p-3 rounded-xl bg-red-500/10 border border-red-500/20 text-red-600 dark:text-red-400 text-xs flex items-center gap-2">
-                <AlertCircle className="w-4 h-4 shrink-0" />
-                <span>{parseError}</span>
+              <div className="p-3.5 rounded-xl bg-red-500/10 border border-red-500/20 text-red-600 dark:text-red-400 text-xs space-y-1">
+                <div className="flex items-center gap-2 font-semibold">
+                  <AlertCircle className="w-4 h-4 shrink-0" />
+                  <span>{parseError}</span>
+                </div>
+                {parseErrorSupportingText && (
+                  <p className="text-[11px] text-red-600/80 dark:text-red-400/80 pl-6 leading-relaxed">
+                    {parseErrorSupportingText}
+                  </p>
+                )}
               </div>
             )}
 
@@ -600,7 +770,7 @@ Unit 4: Storage & File Systems
           )}
 
           {/* Results Display */}
-          {rawText ? (
+          {(rawText || structuredData) ? (
             <div className="space-y-5">
               
               {/* Header Score & Action Card */}

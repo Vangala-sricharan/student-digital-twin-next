@@ -36,11 +36,23 @@ export interface EngineAiRequest {
     branch: string;
     university: string;
     year: string;
+    semester?: string;
     cgpa?: number | string;
     readinessScore: number;
     skills: Array<{ name: string; category: string; proficiency: number; verified: boolean }>;
-    projects: Array<{ title: string; techStack: string[]; description: string; astDepth?: string; entropyScore?: number }>;
-    achievements: Array<{ title: string; issuer: string; date: string; category: string }>;
+    projects: Array<{
+      title: string;
+      techStack: string[];
+      description: string;
+      astDepth?: string;
+      entropyScore?: number;
+      githubUrl?: string;
+      liveUrl?: string;
+      role?: string;
+      status?: string;
+    }>;
+    achievements: Array<{ title: string; issuer: string; date: string; category: string; verified?: boolean }>;
+    certifications?: Array<{ title: string; issuer: string; issueDate?: string; verified?: boolean; credentialUrl?: string }>;
     careerGoal?: { targetRole: string; targetDomain?: string; targetTimeline?: string };
     githubUrl?: string;
     linkedinUrl?: string;

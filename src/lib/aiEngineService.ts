@@ -1,5 +1,5 @@
 import { EngineAiRequest, EngineAiResponse, EngineId } from '../types/engines';
-import { StudentProfile, SkillItem, ProjectItem, AchievementItem, CareerGoal } from '../types';
+import { StudentProfile, SkillItem, ProjectItem, AchievementItem, CertificationItem, CareerGoal } from '../types';
 import { processEngineAiRequest } from './serverAiHandler';
 
 /**
@@ -10,7 +10,8 @@ export function buildStudentContext(
   skills: SkillItem[],
   projects: ProjectItem[],
   achievements: AchievementItem[],
-  careerGoal?: CareerGoal
+  careerGoal?: CareerGoal,
+  certifications?: CertificationItem[]
 ): EngineAiRequest['studentContext'] {
   return {
     name: profile.fullName || profile.name || '',
@@ -18,7 +19,8 @@ export function buildStudentContext(
     degree: profile.degree || '',
     branch: profile.branch || '',
     university: profile.university || '',
-    year: profile.year || '',
+    year: profile.year || profile.yearOfStudy || '',
+    semester: profile.semester || '',
     cgpa: profile.cgpa || profile.currentGpa || '',
     readinessScore: profile.readinessScore ?? 0,
     skills: skills.map((s) => ({
@@ -43,6 +45,14 @@ export function buildStudentContext(
       issuer: a.issuer,
       date: a.date,
       category: a.category,
+      verified: a.verified,
+    })),
+    certifications: (certifications || []).map((c) => ({
+      title: c.title,
+      issuer: c.issuer,
+      issueDate: c.issueDate,
+      verified: c.verified,
+      credentialUrl: c.credentialUrl,
     })),
     careerGoal: careerGoal
       ? {

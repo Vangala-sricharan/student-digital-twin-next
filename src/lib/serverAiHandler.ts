@@ -2,6 +2,7 @@ import { GoogleGenAI } from '@google/genai';
 import { EngineAiRequest, EngineAiResponse } from '../types/engines';
 import { validateGitHubProfileUrl } from './githubValidator';
 import { evaluateUploadedResumeATS } from './resumePdfExtractor';
+import { validateAcademicDocumentContent } from './documentParser';
 
 let aiClient: GoogleGenAI | null = null;
 
@@ -268,7 +269,8 @@ async function callGeminiWithResilience(
   ai: GoogleGenAI,
   prompt: string,
   systemInstruction: string,
-  engineId: string
+  engineId: string,
+  responseMimeType?: string
 ): Promise<string | null> {
   // Official, high-availability Gemini models: low-latency high-throughput flash-lite first, then flash models
   const candidateModels = [
@@ -287,8 +289,9 @@ async function callGeminiWithResilience(
       const t0 = Date.now();
       try {
         const config: any = {
-          temperature: 0.25,
+          temperature: 0.2,
           systemInstruction,
+          ...(responseMimeType ? { responseMimeType } : {}),
         };
 
         const generatePromise = ai.models.generateContent({
@@ -443,6 +446,7 @@ export function normalizeStudentContext(
     branch: safe.branch || '',
     university: safe.university || '',
     year: safe.year || '',
+    semester: safe.semester || '',
     cgpa: safe.cgpa || '',
     readinessScore: typeof safe.readinessScore === 'number' ? safe.readinessScore : 0,
     skills: Array.isArray(safe.skills)
@@ -466,6 +470,11 @@ export function normalizeStudentContext(
               : [],
             description: p?.description || '',
             astDepth: p?.astDepth || '',
+            entropyScore: typeof p?.entropyScore === 'number' ? p.entropyScore : undefined,
+            githubUrl: p?.githubUrl || '',
+            liveUrl: p?.liveUrl || '',
+            role: p?.role || '',
+            status: p?.status || '',
           }))
           .filter((p) => p.title.length > 0)
       : [],
@@ -476,8 +485,20 @@ export function normalizeStudentContext(
             issuer: a?.issuer || '',
             date: a?.date || '',
             category: a?.category || '',
+            verified: Boolean(a?.verified),
           }))
           .filter((a) => a.title.length > 0)
+      : [],
+    certifications: Array.isArray(safe.certifications)
+      ? safe.certifications
+          .map((c) => ({
+            title: c?.title || '',
+            issuer: c?.issuer || '',
+            issueDate: c?.issueDate || '',
+            verified: Boolean(c?.verified),
+            credentialUrl: c?.credentialUrl || '',
+          }))
+          .filter((c) => c.title.length > 0)
       : [],
     careerGoal: safe.careerGoal || null,
     githubUrl: safe.githubUrl || '',
@@ -598,6 +619,25 @@ export async function processEngineAiRequest(
         };
       }
       onStageUpdate?.(1, 'Analyzing LinkedIn PDF');
+    } else if (engineId === 'syllabus-prep') {
+      const syllabusContent = (documentText || userInputs?.pastedText || '').trim();
+      const contentValidation = validateAcademicDocumentContent(syllabusContent, {
+        fileName: documentMeta?.fileName,
+        fileType: documentMeta?.fileType,
+        slideCount: documentMeta?.pageOrSlideCount,
+        isSlideDeck: documentMeta?.fileType === 'ppt' || documentMeta?.fileType === 'pptx',
+      });
+
+      if (!contentValidation.isValid) {
+        return {
+          engineId,
+          timestamp: new Date().toISOString(),
+          status: 'error',
+          error: contentValidation.rejectionReason || 'Please upload the correct PPT/PDF of a subject.',
+          data: null,
+        };
+      }
+      onStageUpdate?.(1, 'Validating Academic Subject Content');
     } else if (documentText || documentMeta) {
       onStageUpdate?.(1, 'Parsing Document Evidence');
     } else {
@@ -625,7 +665,8 @@ You operate strictly on the provided Student Twin and verified profile data. Nev
 Provide structured, high-rigor, student-specific, and actionable guidance formatted in clean markdown.
 Format all pricing and CTC estimates strictly in Indian Rupees (₹) using the Indian numbering system. No dollar signs ($).`;
 
-        const generatedText = await callGeminiWithResilience(ai, prompt, systemInstruction, engineId);
+        const responseMimeType = engineId === 'internship-ready' ? 'application/json' : undefined;
+        const generatedText = await callGeminiWithResilience(ai, prompt, systemInstruction, engineId, responseMimeType);
 
         if (generatedText) {
           onStageUpdate?.(3, 'Finalizing Scorecard');
@@ -639,6 +680,26 @@ Format all pricing and CTC estimates strictly in Indian Rupees (₹) using the I
             documentMeta
           );
           
+          // For internship-ready, ensure structuredData is valid and genuine
+          if (engineId === 'internship-ready') {
+            const isDataValid = Boolean(
+              structuredData &&
+              typeof (structuredData as any).readinessScore === 'number' &&
+              Array.isArray((structuredData as any).breakdown) &&
+              (structuredData as any).breakdown.length > 0
+            );
+
+            if (!isDataValid) {
+              return {
+                engineId,
+                timestamp: new Date().toISOString(),
+                status: 'error',
+                error: 'Unable to complete the Internship Readiness analysis.',
+                data: null,
+              };
+            }
+          }
+
           // If github audit, ensure live fetched GitHub profile data is merged perfectly
           if (engineId === 'github-audit' && githubProfileData) {
             const sd = structuredData as any;
@@ -686,12 +747,14 @@ Format all pricing and CTC estimates strictly in Indian Rupees (₹) using the I
     }
 
     // Critical Engines: NEVER return a fake static answer if prerequisites or AI execution fails
-    if (engineId === 'career-assistant' || engineId === 'project-auditor') {
+    if (engineId === 'career-assistant' || engineId === 'project-auditor' || engineId === 'internship-ready') {
       return {
         engineId,
         timestamp: new Date().toISOString(),
         status: 'error',
-        error: engineId === 'project-auditor'
+        error: engineId === 'internship-ready'
+          ? 'Unable to complete the Internship Readiness analysis.'
+          : engineId === 'project-auditor'
           ? 'Project code audit could not be completed. Please ensure your project details are valid and try again.'
           : 'Career Assistant analysis could not be completed.',
         data: null,
@@ -786,25 +849,30 @@ function buildEnginePrompt(
   const context = normalizeStudentContext(rawContext);
   const skillsStr = (context.skills || []).map((s) => `${s.name} (${s.proficiency}%, ${s.verified ? 'Verified' : 'Unverified'})`).join(', ');
   const projectsStr = (context.projects || []).map((p) => {
-    const stack = Array.isArray(p.techStack) ? p.techStack.join(', ') : (p.techStack || 'Engineering Stack');
-    return `${p.title} [Stack: ${stack} | AST Depth: ${p.astDepth || 'Standard'}] - ${p.description || ''}`;
+    const stack = Array.isArray(p.techStack) ? p.techStack.join(', ') : (p.techStack || 'Not specified');
+    const live = p.liveUrl ? ` | Live: ${p.liveUrl}` : '';
+    const repo = p.githubUrl ? ` | Repo: ${p.githubUrl}` : '';
+    return `${p.title} [Stack: ${stack}${live}${repo}] - ${p.description || 'No description'}`;
   }).join('; ');
   const achievementsStr = (context.achievements || []).map((a) => `${a.title} (Issued by: ${a.issuer}, Date: ${a.date})`).join('; ');
+  const certsStr = (context.certifications || []).map((c) => `${c.title} (Issued by: ${c.issuer}, Date: ${c.issueDate})`).join('; ');
 
   const baseContext = `
 STUDENT DIGITAL TWIN CONTEXT:
-- Candidate Name: ${context.name}
-- Target Role: ${context.targetRole || 'Software Engineer'}
-- Degree & Branch: ${context.degree} in ${context.branch} (${context.year} Year)
-- University: ${context.university}
-- CGPA: ${context.cgpa || '8.5 / 10.0'}
+- Candidate Name: ${context.name || 'Student Candidate'}
+- Target Role: ${context.targetRole || 'Not specified'}
+- Degree & Branch: ${context.degree || 'Degree not specified'} in ${context.branch || 'Branch not specified'} (${context.year || 'Current'} Year, Semester: ${context.semester || 'Current'})
+- University: ${context.university || 'Not specified'}
+- CGPA: ${context.cgpa ? `${context.cgpa}` : 'Not recorded in profile'}
 - Overall Readiness Score: ${context.readinessScore}%
-- Verified Skills: ${skillsStr || 'Software Engineering Core, Data Structures, Algorithms'}
-- Proof-of-Work Projects: ${projectsStr || 'Verified Full-Stack Production Application'}
-- Verified Milestones & Achievements: ${achievementsStr || 'Academic Merit Distinction'}
-- Career Objective: ${context.careerGoal?.targetRole || context.targetRole} (${context.careerGoal?.targetDomain || 'Technology'})
+- Verified Skills: ${skillsStr || 'None recorded yet'}
+- Proof-of-Work Projects: ${projectsStr || 'None recorded yet (0 projects)'}
+- Certifications: ${certsStr || 'None recorded yet'}
+- Verified Milestones & Achievements: ${achievementsStr || 'None recorded yet'}
+- Career Objective: ${context.careerGoal?.targetRole || context.targetRole || 'Not specified'} (${context.careerGoal?.targetDomain || 'Technology'})
 - GitHub Profile: ${context.githubUrl || 'Not linked'}
 - LinkedIn Profile: ${context.linkedinUrl || 'Not linked'}
+- Portfolio: ${context.portfolioUrl || 'Not linked'}
 `;
 
   switch (engineId) {
@@ -1249,17 +1317,110 @@ INSTRUCTIONS FOR THE AI:
 }`;
     }
 
-    case 'internship-ready':
-      return `${baseContext}
-INTERNSHIP READINESS DIAGNOSTIC:
-Target Domain: ${userInputs?.targetRole || context.targetRole}
+    case 'internship-ready': {
+      const targetDomain = userInputs?.targetRole || context.targetRole || 'Tier-1 Software Engineering Internship';
+      const userProjects = context.projects || [];
+      const userSkills = context.skills || [];
+      const userCerts = context.certifications || [];
+      const userAchievements = context.achievements || [];
+      const liveProjects = userProjects.filter((p) => Boolean(p.liveUrl && String(p.liveUrl).trim().length > 0));
+      const repoProjects = userProjects.filter((p) => Boolean(p.githubUrl && String(p.githubUrl).trim().length > 0));
 
-Evaluate readiness for Tier-1 engineering internships:
-1. Internship Readiness Score (0-100)
-2. Core Technical Competency Strengths
-3. Proof-of-Work Readiness (Projects & Codebases)
-4. Critical Gaps & Blocker Signals
-5. 4-Week Pre-Application Action Plan`;
+      const projectSummary = userProjects.length > 0
+        ? userProjects.map((p, idx) => {
+            const stack = Array.isArray(p.techStack) ? p.techStack.join(', ') : (p.techStack || 'Not specified');
+            const live = p.liveUrl ? ` | Live Demo: ${p.liveUrl}` : ' | No Live Demo URL';
+            const repo = p.githubUrl ? ` | GitHub Repo: ${p.githubUrl}` : ' | No GitHub Repo URL';
+            return `${idx + 1}. "${p.title}" [Tech Stack: ${stack}${live}${repo}] - ${p.description || 'No description provided'}`;
+          }).join('\n')
+        : 'NO PROJECTS RECORDED (0 projects). The student has not logged any projects in their Student Twin yet.';
+
+      const skillSummary = userSkills.length > 0
+        ? userSkills.map((s) => `${s.name} (${s.proficiency}%, ${s.verified ? 'Verified' : 'Unverified'})`).join(', ')
+        : 'NO SKILLS RECORDED (0 skills).';
+
+      const certSummary = userCerts.length > 0
+        ? userCerts.map((c) => `${c.title} (Issued by: ${c.issuer}, Date: ${c.issueDate || 'N/A'})`).join('; ')
+        : 'None recorded yet';
+
+      const githubStatus = context.githubUrl ? `Connected: ${context.githubUrl}` : 'NOT CONNECTED (Missing public profile)';
+      const linkedinStatus = context.linkedinUrl ? `Connected: ${context.linkedinUrl}` : 'NOT CONNECTED (Missing public profile)';
+      const cgpaStatus = context.cgpa ? `${context.cgpa} / 10.0` : 'Not recorded in profile';
+
+      return `${baseContext}
+TIER-1 INTERNSHIP READINESS DIAGNOSTIC SPECIFICATION:
+Target Internship Domain: "${targetDomain}"
+
+DETAILED STUDENT EVIDENCE AUDIT:
+- Academic Standing: ${context.degree || 'Degree not specified'} in ${context.branch || 'Branch not specified'} (${context.year || 'Current'} Year, Semester: ${context.semester || 'Current'}) at ${context.university || 'University'}
+- CGPA: ${cgpaStatus}
+- Total Projects Logged: ${userProjects.length} (${liveProjects.length} with live demo URLs, ${repoProjects.length} with repository URLs)
+- Project List:
+${projectSummary}
+- Recorded Skills (${userSkills.length}): ${skillSummary}
+- Certifications (${userCerts.length}): ${certSummary}
+- GitHub Status: ${githubStatus}
+- LinkedIn Status: ${linkedinStatus}
+
+DIAGNOSTIC RIGOR & GROUNDING RULES (MANDATORY):
+1. EVALUATE ONLY AGAINST THE STUDENT'S ACTUAL EVIDENCE ABOVE. NEVER invent, assume, or hallucinate projects, skills, or achievements.
+2. Calculate the Internship Readiness Score (0-100) strictly from the 5 dimensions below:
+   - "Resume & ATS Compliance" (max 20): Based on academic completeness, degree, branch, CGPA, target role clarity, and ATS keywords.
+   - "Project Portfolio Depth & Code Verification" (max 25): Based on number of projects, tech stack relevance to "${targetDomain}", architecture depth, and presence of live demos. If 0 projects, score must be 0-4. If projects lack live demos, deduct points.
+   - "GitHub Activity & Proof of Work" (max 20): Based on connected GitHub profile, public repository links, and commit proof. If GitHub is not connected, score must be 0-5.
+   - "LinkedIn & Recruiter Discoverability" (max 15): Based on connected LinkedIn profile, headline keywords, and public discoverability. If LinkedIn is not connected, score must be 0-3.
+   - "Core Computer Science & Technical Foundation" (max 20): Based on number of recorded skills, proficiency, and verification relevant to "${targetDomain}". If 0 skills, score must be 0-3.
+3. DO NOT TELL THE USER TO DO SOMETHING THEY HAVE ALREADY COMPLETED:
+   - If a project already has a live demo URL (${liveProjects.length > 0 ? liveProjects.map(p => `"${p.title}"`).join(', ') : 'none'}), DO NOT tell them to deploy a live demo for that project.
+   - If their GitHub is already connected, DO NOT tell them to connect GitHub.
+   - If their LinkedIn is already connected, DO NOT tell them to connect LinkedIn.
+4. NEVER OUTPUT GENERIC HARDCODED BOILERPLATE.
+   - Do NOT say "Add 15 high-frequency LeetCode Medium problem solutions to a public DSA portfolio repo" or "Deploy live demo of flagship project on Cloud Run / Vercel with a public link" as generic fillers.
+   - Every single recommendation must be specifically tailored to "${targetDomain}" and directly address an actual, demonstrably missing gap in their profile.
+5. All pricing or compensation references must strictly use Indian Rupees (₹). Never use US Dollar ($).
+
+OUTPUT FORMAT:
+Respond with ONLY valid JSON (no markdown fences, no commentary):
+{
+  "readinessScore": <integer 0-100, exactly equal to the sum of the 5 dimension scores>,
+  "verdict": "<'Competitive for Tier-1 Internships' if score >= 80, 'Approaching Readiness with Minor Gaps' if score >= 50, or 'Foundational Phase • Baseline Evaluated' if score < 50>",
+  "breakdown": [
+    { "label": "Resume & ATS Compliance", "score": <0-20>, "max": 20 },
+    { "label": "Project Portfolio Depth & Code Verification", "score": <0-25>, "max": 25 },
+    { "label": "GitHub Activity & Proof of Work", "score": <0-20>, "max": 20 },
+    { "label": "LinkedIn & Recruiter Discoverability", "score": <0-15>, "max": 15 },
+    { "label": "Core Computer Science & Technical Foundation", "score": <0-20>, "max": 20 }
+  ],
+  "strengths": [
+    "<genuinely existing strength grounded in their actual data>",
+    "<another genuine strength>"
+  ],
+  "gaps": [
+    "<specific real gap or blocker actually missing from their profile>",
+    "<another real gap or blocker>"
+  ],
+  "recommendations": [
+    {
+      "priority": 1,
+      "title": "<Concise Action Title>",
+      "desc": "<Context explaining why this gap matters for ${targetDomain}>",
+      "action": "<Specific, actionable next step tailored to their actual gaps>"
+    },
+    {
+      "priority": 2,
+      "title": "<Concise Action Title>",
+      "desc": "<Context explaining why this gap matters>",
+      "action": "<Specific, actionable next step>"
+    },
+    {
+      "priority": 3,
+      "title": "<Concise Action Title>",
+      "desc": "<Context explaining why this gap matters>",
+      "action": "<Specific, actionable next step>"
+    }
+  ]
+}`;
+    }
 
     case 'career-simulator':
       return `${baseContext}
@@ -1835,28 +1996,44 @@ function parseStructuredData(
     }
 
     if (parsedJson && (typeof parsedJson.readinessScore === 'number' || typeof parsedJson.score === 'number' || Array.isArray(parsedJson.breakdown))) {
-      const score = typeof parsedJson.readinessScore === 'number'
-        ? Math.max(0, Math.min(100, Math.round(parsedJson.readinessScore)))
-        : typeof parsedJson.score === 'number'
-        ? Math.max(0, Math.min(100, Math.round(parsedJson.score)))
-        : (baseModel as any)?.score || 70;
+      let rawBreakdown: any[] = [];
+      if (Array.isArray(parsedJson.breakdown) && parsedJson.breakdown.length > 0) {
+        rawBreakdown = parsedJson.breakdown.map((b: any) => {
+          const maxVal = Math.max(1, Number(b.max || 20));
+          const scoreVal = Math.max(0, Math.min(maxVal, Math.round(Number(b.score || 0))));
+          return {
+            label: String(b.label || 'Dimension'),
+            score: scoreVal,
+            max: maxVal,
+          };
+        });
+      }
+
+      // Calculate score deterministically from breakdown if available
+      let score: number;
+      if (rawBreakdown.length > 0) {
+        const totalBreakdownScore = rawBreakdown.reduce((acc, b) => acc + b.score, 0);
+        const totalBreakdownMax = rawBreakdown.reduce((acc, b) => acc + b.max, 0);
+        score = totalBreakdownMax > 0
+          ? Math.max(0, Math.min(100, Math.round((totalBreakdownScore / totalBreakdownMax) * 100)))
+          : Math.max(0, Math.min(100, Math.round(Number(parsedJson.readinessScore ?? parsedJson.score ?? 0))));
+      } else {
+        score = typeof parsedJson.readinessScore === 'number'
+          ? Math.max(0, Math.min(100, Math.round(parsedJson.readinessScore)))
+          : typeof parsedJson.score === 'number'
+          ? Math.max(0, Math.min(100, Math.round(parsedJson.score)))
+          : 0;
+      }
+
       const evaluation = parsedJson.verdict || parsedJson.evaluation || getEvaluationLabel(score);
 
-      const rawBreakdown = Array.isArray(parsedJson.breakdown) && parsedJson.breakdown.length > 0
-        ? parsedJson.breakdown.map((b: any) => ({
-            label: String(b.label || 'Dimension'),
-            score: Math.max(0, Math.min(Number(b.max || 25), Math.round(Number(b.score || 0)))),
-            max: Number(b.max || 25),
-          }))
-        : (baseModel as any)?.breakdown;
-
       const strengths = Array.isArray(parsedJson.strengths) && parsedJson.strengths.length > 0
-        ? parsedJson.strengths.map((s: any) => (typeof s === 'string' ? s : s?.text || s?.desc || s?.title || JSON.stringify(s)))
-        : (baseModel as any)?.strengths || [];
+        ? parsedJson.strengths.map((s: any) => (typeof s === 'string' ? s : s?.text || s?.desc || s?.title || JSON.stringify(s))).filter(Boolean)
+        : [];
 
       const gaps = Array.isArray(parsedJson.gaps) && parsedJson.gaps.length > 0
-        ? parsedJson.gaps.map((g: any) => (typeof g === 'string' ? g : g?.text || g?.desc || g?.title || JSON.stringify(g)))
-        : (baseModel as any)?.gaps || [];
+        ? parsedJson.gaps.map((g: any) => (typeof g === 'string' ? g : g?.text || g?.desc || g?.title || JSON.stringify(g))).filter(Boolean)
+        : [];
 
       const recommendations = Array.isArray(parsedJson.recommendations) && parsedJson.recommendations.length > 0
         ? parsedJson.recommendations.map((r: any, idx: number) => ({
@@ -1865,7 +2042,22 @@ function parseStructuredData(
             desc: String(r.desc || r.action || ''),
             action: String(r.action || r.desc || r.title || `Action ${idx + 1}`),
           }))
-        : (baseModel as any)?.recommendations || [];
+        : [];
+
+      // Check if user already has live projects with URLs
+      const userLiveProjects = (context.projects || []).filter((p) => Boolean(p.liveUrl && String(p.liveUrl).trim().length > 0));
+      const filteredRecommendations = recommendations.map((rec) => {
+        // If user already has live projects, ensure recommendation doesn't blindly say "deploy a live demo"
+        if (userLiveProjects.length > 0 && rec.action.toLowerCase().includes('deploy live demo of flagship project on cloud run')) {
+          return {
+            ...rec,
+            title: 'Expand Architecture Documentation & Benchmarks',
+            desc: `Your flagship project already has an active live demo (${userLiveProjects[0].title}). Enhance the repository README with benchmark latency numbers and an architecture diagram.`,
+            action: `Add system architecture diagrams and load benchmark metrics to ${userLiveProjects[0].title} repository.`,
+          };
+        }
+        return rec;
+      });
 
       return {
         score,
@@ -1882,12 +2074,12 @@ function parseStructuredData(
         breakdown: rawBreakdown,
         strengths,
         gaps,
-        recommendations,
+        recommendations: filteredRecommendations,
         timestamp: new Date().toISOString(),
       };
     }
 
-    return baseModel;
+    return null;
   }
 
   const scoreMatch = text.match(/(?:Score|Probability|Rating|Readiness):\s*\*?([0-9]{1,3})%?/i);
@@ -2524,62 +2716,64 @@ function generateDynamicInternshipReadyResponse(
   if (context.projects.length === 0) {
     recommendations.push({
       priority: 1,
-      title: 'Build & Deploy Flagship Project',
-      desc: 'Develop a full-stack project with clean Git commit history, architecture README, and live URL.',
-      action: 'Build and deploy a flagship full-stack project with a public live link on Cloud Run / Vercel.',
+      title: `Build & Document ${targetDomain} Project`,
+      desc: `Tier-1 engineering recruiters require concrete codebase artifacts. Build a project directly relevant to ${targetDomain}.`,
+      action: `Build and publish an end-to-end ${targetDomain} project repository on GitHub with clean commits and documentation.`,
     });
   } else if (liveProjects.length === 0) {
+    const topProj = context.projects[0]?.title || 'flagship project';
     recommendations.push({
       priority: 1,
-      title: 'Deploy Live Demo Links',
-      desc: 'Deploy your top repository with a public URL so recruiters can test functionality instantly.',
-      action: 'Deploy live demo of flagship project on Cloud Run / Vercel with a public link.',
+      title: `Publish Live Demo for ${topProj}`,
+      desc: `Recruiters and hiring managers spend under 60 seconds reviewing submissions; an interactive URL allows immediate validation.`,
+      action: `Deploy an active public preview URL for "${topProj}" and record the live link in your Student Twin.`,
     });
   } else {
+    const liveProj = liveProjects[0]?.title || 'primary codebase';
     recommendations.push({
       priority: 1,
-      title: 'DSA & Core Problem Solving',
-      desc: 'Add 15 high-frequency LeetCode Medium problem solutions to a public DSA portfolio repo.',
-      action: 'Add 15 high-frequency LeetCode Medium problem solutions to a public DSA portfolio repo.',
+      title: 'System Architecture & Benchmark Documentation',
+      desc: `Your project "${liveProj}" already has a live demo. Next, document the technical decisions, architecture, and throughput benchmarks.`,
+      action: `Add system architecture diagrams and latency benchmarks to the "${liveProj}" repository README.`,
     });
   }
 
   if (context.skills.length < 5) {
     recommendations.push({
       priority: 2,
-      title: 'Record & Verify Core Skills',
-      desc: 'Add key languages, databases, and frameworks to your Student Twin for ATS keyword calibration.',
-      action: 'Record and verify core programming languages and frameworks in your Student Twin.',
+      title: `Index Core ${targetDomain} Competencies`,
+      desc: `Your Student Twin currently lists ${context.skills.length} skills. Expand your verified stack with primary languages, frameworks, and databases for ${targetDomain}.`,
+      action: `Add and verify core languages and tooling for ${targetDomain} in your Student Twin skills inventory.`,
     });
   } else if (!context.githubUrl) {
     recommendations.push({
       priority: 2,
-      title: 'Connect GitHub Profile',
-      desc: 'Link your public GitHub profile to showcase code commit consistency and repository health.',
+      title: 'Connect GitHub Engineering Profile',
+      desc: 'Connect your public GitHub account so engineering recruiters can audit commit frequency and pull request activity.',
       action: 'Link your public GitHub profile to your Student Twin for proof-of-work indexing.',
     });
   } else {
     recommendations.push({
       priority: 2,
-      title: 'Add Automated Test Suites',
-      desc: 'Implement Jest/Pytest automated unit test workflows on your primary repository.',
-      action: 'Implement automated unit test workflows and CI/CD status badges in top repositories.',
+      title: 'Automated CI/CD & Unit Test Suite',
+      desc: `Tier-1 internships evaluate engineering rigor. Implement automated test coverage for core business logic.`,
+      action: `Configure automated CI test workflows (e.g. GitHub Actions) with status badges in your top repository.`,
     });
   }
 
   if (!context.linkedinUrl) {
     recommendations.push({
       priority: 3,
-      title: 'Connect LinkedIn Profile',
-      desc: 'Add your LinkedIn profile to calibrate recruiter discoverability and headline keywords.',
-      action: 'Connect your LinkedIn profile with target role keywords for recruiter outreach.',
+      title: 'Link Professional LinkedIn Profile',
+      desc: 'Technical recruiters and talent partners source candidate pools primarily through structured LinkedIn searches.',
+      action: `Add your LinkedIn profile to your Student Twin and calibrate your headline for "${targetDomain}".`,
     });
   } else {
     recommendations.push({
       priority: 3,
-      title: 'Calibrate Recruiter Outreach',
-      desc: 'Update LinkedIn headline and craft concise proof-of-work blurbs with deployed project links.',
-      action: 'Update LinkedIn headline using calibrated AI-optimized variants and prepare project demo links.',
+      title: 'Calibrate Recruiter Discoverability Keywords',
+      desc: `Align your public profile headline and summary with the technical keywords sought for ${targetDomain} internship roles.`,
+      action: `Review and align your LinkedIn headline and experience bullet points with keywords for ${targetDomain}.`,
     });
   }
 
@@ -2665,6 +2859,54 @@ function generateDynamicSyllabusPrepResponse(
             fastTrackRecommendations: [],
             extraFocusAreas: [],
             studyApproachNote: 'Upload your syllabus document to calibrate pacing.',
+          },
+        },
+        units: [],
+        importantTopics: [],
+        studyPriority: [],
+        examStrategy: [],
+        topicExplanations: [],
+        revisionPlan: [],
+        practiceQuestions: [],
+        examChecklist: [],
+      },
+    };
+  }
+
+  // Validate CONTENT of the document before generating units, topics, or study plans
+  const contentValidation = validateAcademicDocumentContent(rawDoc, {
+    fileName: docName,
+    fileType: docMeta?.fileType,
+    slideCount: docMeta?.pageOrSlideCount,
+    isSlideDeck: docMeta?.fileType === 'ppt' || docMeta?.fileType === 'pptx',
+  });
+
+  if (!contentValidation.isValid) {
+    const text = `### Invalid Document Uploaded for Syllabus Prep
+
+**Notice**: ${contentValidation.rejectionReason}
+${contentValidation.supportingText}
+
+Please upload the syllabus, course structure, or lecture slides (PDF/PPT/PPTX) of an academic subject. Non-academic documents like resumes, LinkedIn profiles, job descriptions, or certificates cannot be used to generate exam study guides.`;
+    return {
+      text,
+      data: {
+        score: 0,
+        evaluation: 'Invalid Document',
+        documentSummary: {
+          subject: 'Invalid Document Type',
+          documentName: docName,
+          fileType,
+          pagesOrSlides: 0,
+          coverageOverview: 'Please upload the correct PPT/PDF of a subject.',
+          totalEstimatedStudyTime: '0 Hours',
+          difficultyLevel: 'N/A',
+          academicFit: 'Document rejected. Please upload the correct PPT/PDF of a subject.',
+          twinPersonalization: {
+            academicLevel: `${context.degree || 'Degree'} (${context.year || 'Undergraduate'})`,
+            fastTrackRecommendations: [],
+            extraFocusAreas: [],
+            studyApproachNote: 'No academic subject detected in uploaded document.',
           },
         },
         units: [],

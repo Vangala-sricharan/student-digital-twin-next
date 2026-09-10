@@ -31,7 +31,7 @@ interface InternshipReadyViewProps {
 
 export const InternshipReadyView: React.FC<InternshipReadyViewProps> = ({ onBackToHub }) => {
   const engine = AI_ENGINES.find((e) => e.id === 'internship-ready')!;
-  const { profile, skills, projects, achievements, careerGoals, isDemoMode, isTwinHydrating } = useStudentTwin();
+  const { profile, skills, projects, achievements, careerGoals, certifications, isDemoMode, isTwinHydrating } = useStudentTwin();
   const { job, isRunning, isError, rawText, structuredData, execute, retry } = useEngineJob('internship-ready');
 
   const [targetDomain, setTargetDomain] = useState(profile?.targetRole || 'Tier-1 Software Engineering Internship');
@@ -60,7 +60,8 @@ export const InternshipReadyView: React.FC<InternshipReadyViewProps> = ({ onBack
       skills,
       projects,
       achievements,
-      careerGoals[0]
+      careerGoals[0],
+      certifications
     );
 
     await execute({
@@ -72,19 +73,23 @@ export const InternshipReadyView: React.FC<InternshipReadyViewProps> = ({ onBack
     });
   };
 
-  const diagnosticData = job?.result?.data || structuredData;
+  // Diagnostic data comes strictly from the active job result, or structuredData if in demo mode
+  const diagnosticData = job?.result?.data || (isDemoMode ? structuredData : null);
   const candidateName = profile?.fullName || profile?.name || 'Student Candidate';
 
   // Determine if a real diagnostic has been completed or exists
   const hasDiagnostic = Boolean(
-    diagnosticData && (
+    !isError &&
+    diagnosticData &&
+    (
       typeof diagnosticData.readinessScore === 'number' ||
-      typeof diagnosticData.score === 'number' ||
-      Array.isArray(diagnosticData.breakdown)
-    )
+      typeof diagnosticData.score === 'number'
+    ) &&
+    Array.isArray(diagnosticData.breakdown) &&
+    diagnosticData.breakdown.length > 0
   );
 
-  const readinessScore = diagnosticData?.readinessScore ?? diagnosticData?.score ?? profile?.readinessScore ?? 0;
+  const readinessScore = diagnosticData?.readinessScore ?? diagnosticData?.score ?? 0;
   const verdict = getSafeString(
     diagnosticData?.verdict || diagnosticData?.evaluation,
     readinessScore >= 80
@@ -94,59 +99,30 @@ export const InternshipReadyView: React.FC<InternshipReadyViewProps> = ({ onBack
       : 'Foundational Phase • Baseline Evaluated'
   );
 
-  const pillars = Array.isArray(diagnosticData?.breakdown) && diagnosticData.breakdown.length > 0
+  const pillars = Array.isArray(diagnosticData?.breakdown)
     ? diagnosticData.breakdown.map((p: any) => ({
         label: getSafeString(p.label, 'Dimension'),
         score: Math.max(0, Number(p.score || 0)),
         max: Math.max(1, Number(p.max || 25)),
       }))
-    : [
-        { label: 'Resume & ATS Compliance', score: Math.min(20, Math.round(readinessScore * 0.2)), max: 20 },
-        { label: 'Project Portfolio Depth & Code Verification', score: Math.min(25, Math.round(readinessScore * 0.25)), max: 25 },
-        { label: 'GitHub Activity & Proof of Work', score: Math.min(20, Math.round(readinessScore * 0.2)), max: 20 },
-        { label: 'LinkedIn & Recruiter Discoverability', score: Math.min(15, Math.round(readinessScore * 0.15)), max: 15 },
-        { label: 'Core Computer Science & DSA Foundation', score: Math.min(20, Math.round(readinessScore * 0.2)), max: 20 },
-      ];
+    : [];
 
-  const readySignals: string[] = Array.isArray(diagnosticData?.strengths) && diagnosticData.strengths.length > 0
+  const readySignals: string[] = Array.isArray(diagnosticData?.strengths)
     ? diagnosticData.strengths.map((s: any) => getSafeString(s)).filter(Boolean)
-    : skills.length > 0
-    ? [`Demonstrated technical capabilities across ${skills.length} skills (${skills.slice(0, 3).map((s) => s.name).join(', ')}).`]
-    : ['Initial Student Twin profile initialized and ready for technical credential verification.'];
+    : [];
 
-  const blockers: string[] = Array.isArray(diagnosticData?.gaps) && diagnosticData.gaps.length > 0
+  const blockers: string[] = Array.isArray(diagnosticData?.gaps)
     ? diagnosticData.gaps.map((g: any) => getSafeString(g)).filter(Boolean)
-    : projects.length === 0
-    ? ['No verified project repositories attached to Student Twin; Tier-1 recruiters require at least 2 public codebases.']
-    : ['Expand automated testing and deployed demonstration links on primary repositories.'];
+    : [];
 
-  const sprintActions = Array.isArray(diagnosticData?.recommendations) && diagnosticData.recommendations.length > 0
+  const sprintActions = Array.isArray(diagnosticData?.recommendations)
     ? diagnosticData.recommendations.map((r: any, idx: number) => ({
         priority: Number(r.priority) || idx + 1,
         title: getSafeString(r.title, `Action ${idx + 1}`),
         desc: getSafeString(r.desc),
         action: getSafeString(r.action || r.desc || r.title, `Action ${idx + 1}`),
       }))
-    : [
-        {
-          priority: 1,
-          title: 'Document & Deploy Flagship Project',
-          desc: 'Ensure repository has a clear README and live demo URL.',
-          action: 'Deploy live demo of flagship project on Cloud Run / Vercel with a public link.',
-        },
-        {
-          priority: 2,
-          title: 'DSA & High-Frequency Patterns',
-          desc: 'Calibrate core problem solving in public DSA repository.',
-          action: 'Add 15 high-frequency LeetCode Medium problem solutions to a public DSA portfolio repo.',
-        },
-        {
-          priority: 3,
-          title: 'Optimize Recruiter Presence',
-          desc: 'Tune LinkedIn headline keywords for ATS search discoverability.',
-          action: 'Update LinkedIn headline using the calibrated AI-optimized headline variants.',
-        },
-      ];
+    : [];
 
   const handleCopy = () => {
     if (!rawText) return;

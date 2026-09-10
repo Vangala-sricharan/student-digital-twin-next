@@ -21,7 +21,17 @@ export const AIJobProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     const initial: Partial<Record<EngineId, AIJob>> = {};
     const engineIds = Object.keys(DEFAULT_ENGINE_STAGES) as EngineId[];
     engineIds.forEach((id) => {
-      initial[id] = createInitialJob(id);
+      let restored: AIJob | null = null;
+      try {
+        const saved = localStorage.getItem(`sdt_ai_job_${id}`);
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          if (parsed && parsed.status === 'completed' && parsed.result) {
+            restored = parsed;
+          }
+        }
+      } catch {}
+      initial[id] = restored || createInitialJob(id);
     });
     return initial as Record<EngineId, AIJob>;
   });
@@ -46,6 +56,9 @@ export const AIJobProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   const resetJob = useCallback((engineId: EngineId) => {
     clearJobTimers(engineId);
+    try {
+      localStorage.removeItem(`sdt_ai_job_${engineId}`);
+    } catch {}
     setJobs((prev) => ({
       ...prev,
       [engineId]: createInitialJob(engineId),
@@ -56,6 +69,9 @@ export const AIJobProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     Object.keys(jobTimers.current).forEach(clearJobTimers);
     const initial: Partial<Record<EngineId, AIJob>> = {};
     (Object.keys(DEFAULT_ENGINE_STAGES) as EngineId[]).forEach((id) => {
+      try {
+        localStorage.removeItem(`sdt_ai_job_${id}`);
+      } catch {}
       initial[id] = createInitialJob(id);
     });
     setJobs(initial as Record<EngineId, AIJob>);
@@ -167,21 +183,29 @@ export const AIJobProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           return response;
         }
 
+        const completedJob: AIJob = {
+          engineId,
+          status: 'completed',
+          stages,
+          currentStageIndex: stages.length - 1,
+          progress: 100,
+          startTime,
+          completedTime: Date.now(),
+          result: response,
+          rawText: response.rawText,
+          error: undefined,
+          inputsSnapshot: requestPayload.userInputs,
+        };
+
+        try {
+          localStorage.setItem(`sdt_ai_job_${engineId}`, JSON.stringify(completedJob));
+        } catch (e) {
+          console.warn('Could not persist job to localStorage:', e);
+        }
+
         setJobs((prev) => ({
           ...prev,
-          [engineId]: {
-            engineId,
-            status: 'completed',
-            stages,
-            currentStageIndex: stages.length - 1,
-            progress: 100,
-            startTime,
-            completedTime: Date.now(),
-            result: response,
-            rawText: response.rawText,
-            error: undefined,
-            inputsSnapshot: requestPayload.userInputs,
-          },
+          [engineId]: completedJob,
         }));
 
         return response;
