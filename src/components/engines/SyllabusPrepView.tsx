@@ -22,11 +22,15 @@ import {
   Award,
   HelpCircle,
   CheckSquare,
+  Square,
   Clock,
   ChevronDown,
   ChevronUp,
   FileCheck,
   Zap,
+  TrendingUp,
+  BarChart3,
+  RotateCcw,
 } from 'lucide-react';
 
 interface SyllabusPrepViewProps {
@@ -45,6 +49,8 @@ export const SyllabusPrepView: React.FC<SyllabusPrepViewProps> = ({ onBackToHub 
   const [activeTab, setActiveTab] = useState<'overview' | 'topics' | 'strategy' | 'questions' | 'checklist'>('overview');
   const [expandedQuestions, setExpandedQuestions] = useState<Record<string, boolean>>({ q1: true });
   const [checklistState, setChecklistState] = useState<Record<string, boolean>>({ c1: true, c2: true });
+  const [completedUnitTopics, setCompletedUnitTopics] = useState<Record<string, boolean>>({});
+  const [unitProgressOverrides, setUnitProgressOverrides] = useState<Record<string, number>>({});
   const [copied, setCopied] = useState(false);
   const [exportingPdf, setExportingPdf] = useState(false);
   const [customQuestion, setCustomQuestion] = useState('');
@@ -334,6 +340,98 @@ Unit 4: Storage & File Systems
 
   const completedCount = examChecklist.filter((c: any) => checklistState[c.id] ?? c.completed).length;
 
+  const getUnitProgress = (unit: any, idx: number) => {
+    const unitId = unit.unitNumber || `Unit ${idx + 1}`;
+    const topics: string[] = Array.isArray(unit.topics) ? unit.topics : [];
+    const totalCount = topics.length;
+
+    if (unitProgressOverrides[unitId] !== undefined) {
+      const percent = unitProgressOverrides[unitId];
+      const completedCount = totalCount > 0 ? Math.round((percent / 100) * totalCount) : (percent === 100 ? 1 : 0);
+      return {
+        percent,
+        completedCount,
+        totalCount,
+        status: percent === 100 ? ('completed' as const) : percent > 0 ? ('in-progress' as const) : ('not-started' as const),
+      };
+    }
+
+    if (totalCount === 0) {
+      return { percent: 0, completedCount: 0, totalCount: 0, status: 'not-started' as const };
+    }
+
+    let completedCount = 0;
+    topics.forEach((_, tIdx) => {
+      if (completedUnitTopics[`${unitId}_${tIdx}`]) {
+        completedCount++;
+      }
+    });
+
+    const percent = Math.round((completedCount / totalCount) * 100);
+    return {
+      percent,
+      completedCount,
+      totalCount,
+      status: percent === 100 ? ('completed' as const) : percent > 0 ? ('in-progress' as const) : ('not-started' as const),
+    };
+  };
+
+  const toggleUnitTopic = (unitId: string, topicIdx: number) => {
+    const key = `${unitId}_${topicIdx}`;
+    const nextChecked = !completedUnitTopics[key];
+
+    setUnitProgressOverrides((prev) => {
+      const next = { ...prev };
+      delete next[unitId];
+      return next;
+    });
+
+    setCompletedUnitTopics((prev) => ({
+      ...prev,
+      [key]: nextChecked,
+    }));
+  };
+
+  const setUnitProgressQuick = (unit: any, idx: number, targetPercent: number) => {
+    const unitId = unit.unitNumber || `Unit ${idx + 1}`;
+    const topics: string[] = Array.isArray(unit.topics) ? unit.topics : [];
+
+    setUnitProgressOverrides((prev) => ({
+      ...prev,
+      [unitId]: targetPercent,
+    }));
+
+    if (topics.length > 0) {
+      setCompletedUnitTopics((prev) => {
+        const next = { ...prev };
+        const itemsToMark = Math.round((targetPercent / 100) * topics.length);
+        topics.forEach((_, tIdx) => {
+          next[`${unitId}_${tIdx}`] = tIdx < itemsToMark;
+        });
+        return next;
+      });
+    }
+  };
+
+  const overallProgress = React.useMemo(() => {
+    if (!units || units.length === 0) return { percent: 0, completedUnits: 0, totalUnits: 0 };
+    let totalPercentSum = 0;
+    let completedUnits = 0;
+
+    units.forEach((u: any, idx: number) => {
+      const { percent } = getUnitProgress(u, idx);
+      totalPercentSum += percent;
+      if (percent === 100) completedUnits++;
+    });
+
+    const overallPercent = Math.round(totalPercentSum / units.length);
+    return {
+      percent: overallPercent,
+      completedUnits,
+      totalUnits: units.length,
+    };
+  }, [units, completedUnitTopics, unitProgressOverrides]);
+
   return (
     <EngineLayout
       engine={engine}
@@ -515,6 +613,11 @@ Unit 4: Storage & File Systems
                     <span className="text-xs font-mono text-emerald-600 dark:text-emerald-400 flex items-center gap-1 font-semibold">
                       <CheckCircle2 className="w-3.5 h-3.5" /> Strategy Generated
                     </span>
+                    {overallProgress.percent > 0 && (
+                      <span className="px-2 py-0.5 rounded-md bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-cyan-300 text-xs font-mono font-bold flex items-center gap-1">
+                        <TrendingUp className="w-3 h-3" /> {overallProgress.percent}% Mastered
+                      </span>
+                    )}
                   </div>
                   <h3 className="text-base font-bold text-slate-900 dark:text-white">
                     {docSummary?.documentName || parsedDoc?.fileName || 'Academic Exam Preparation Strategy'}
@@ -547,7 +650,7 @@ Unit 4: Storage & File Systems
               {/* Navigation Tabs */}
               <div className="flex items-center gap-2 border-b border-slate-200 dark:border-white/10 pb-2 overflow-x-auto text-xs font-mono">
                 {[
-                  { id: 'overview', label: 'Overview & Units', icon: Layers },
+                  { id: 'overview', label: `Roadmap & Units (${overallProgress.percent}%)`, icon: Layers },
                   { id: 'topics', label: 'High-Yield Topics', icon: Zap },
                   { id: 'strategy', label: 'Study Strategy', icon: Calendar },
                   { id: 'questions', label: 'Ask Questions & Practice', icon: HelpCircle },
@@ -574,52 +677,369 @@ Unit 4: Storage & File Systems
               {/* TAB 1: OVERVIEW & DETECTED UNITS */}
               {activeTab === 'overview' && (
                 <div className="space-y-4">
-                  
-                  {/* Units Matrix */}
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {units.map((u: any, idx: number) => (
-                      <div
-                        key={idx}
-                        className="p-5 rounded-2xl bg-white dark:bg-[#0d1117] border border-slate-200 dark:border-white/10 shadow-sm space-y-3"
-                      >
-                        <div className="flex items-start justify-between gap-2">
-                          <span className="px-2 py-0.5 rounded bg-blue-50 dark:bg-white/5 text-[10px] font-mono font-bold text-blue-600 dark:text-cyan-400">
-                            {u.unitNumber}
+                  {/* Subject Overview & Document Context */}
+                  {docSummary && (
+                    <div className="p-6 rounded-2xl bg-white dark:bg-[#0d1117] border border-slate-200 dark:border-white/10 shadow-sm space-y-4">
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 dark:border-white/5 pb-3">
+                        <div>
+                          <span className="text-[10px] font-mono font-bold uppercase text-blue-600 dark:text-cyan-400">
+                            Academic Curriculum Grounding
                           </span>
-                          <span
-                            className={`px-2 py-0.5 rounded text-[10px] font-mono font-bold ${
-                              u.priority === 'CRITICAL'
-                                ? 'bg-red-50 dark:bg-red-900/30 text-red-600 dark:text-red-400 border border-red-200 dark:border-red-800'
-                                : u.priority === 'HIGH'
-                                ? 'bg-amber-50 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400 border border-amber-200 dark:border-amber-800'
-                                : 'bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-300'
-                            }`}
-                          >
-                            {u.weight || '~25% Weight'} • {u.priority || 'High'}
+                          <h4 className="text-sm font-bold text-slate-900 dark:text-white mt-0.5">
+                            {docSummary.subject || 'Course Syllabus Analysis'}
+                          </h4>
+                        </div>
+                        <div className="flex items-center gap-2 flex-wrap">
+                          {docSummary.totalEstimatedStudyTime && (
+                            <span className="px-2.5 py-1 rounded-md bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-cyan-300 text-[11px] font-mono font-semibold">
+                              ⏱️ {docSummary.totalEstimatedStudyTime}
+                            </span>
+                          )}
+                          {docSummary.difficultyLevel && (
+                            <span className="px-2.5 py-1 rounded-md bg-amber-50 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 text-[11px] font-mono font-semibold">
+                              🎯 {docSummary.difficultyLevel}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+
+                      {docSummary.coverageOverview && (
+                        <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
+                          {docSummary.coverageOverview}
+                        </p>
+                      )}
+
+                      {/* Student Twin Alignment & Personalization */}
+                      {docSummary.twinPersonalization && (
+                        <div className="p-4 rounded-xl bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/5 space-y-2.5 text-xs">
+                          <div className="flex items-center justify-between">
+                            <span className="font-mono font-bold text-[10px] uppercase text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
+                              <Sparkles className="w-3.5 h-3.5 text-blue-600 dark:text-cyan-400" />
+                              <span>Student Twin Personalization Guidance</span>
+                            </span>
+                            {docSummary.twinPersonalization.academicLevel && (
+                              <span className="text-[10px] font-mono text-slate-500">
+                                {docSummary.twinPersonalization.academicLevel}
+                              </span>
+                            )}
+                          </div>
+
+                          {docSummary.twinPersonalization.studyApproachNote && (
+                            <p className="text-slate-600 dark:text-slate-400 italic text-[11px]">
+                              "{docSummary.twinPersonalization.studyApproachNote}"
+                            </p>
+                          )}
+
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-1">
+                            {docSummary.twinPersonalization.fastTrackRecommendations?.length > 0 && (
+                              <div className="space-y-1">
+                                <span className="text-[10px] font-mono uppercase font-bold text-emerald-600 dark:text-emerald-400">
+                                  ⚡ Fast-Track / Prior Foundation:
+                                </span>
+                                <ul className="space-y-1">
+                                  {docSummary.twinPersonalization.fastTrackRecommendations.map((ft: string, fIdx: number) => (
+                                    <li key={fIdx} className="text-[11px] text-slate-600 dark:text-slate-300 flex items-start gap-1.5">
+                                      <span className="text-emerald-500 font-bold">•</span>
+                                      <span>{ft}</span>
+                                    </li>
+                                  ))}
+                                </ul>
+                              </div>
+                            )}
+
+                            {docSummary.twinPersonalization.extraFocusAreas?.length > 0 && (
+                              <div className="space-y-1">
+                                <span className="text-[10px] font-mono uppercase font-bold text-amber-600 dark:text-amber-400">
+                                  🎯 Extra Focus / Known Gaps:
+                                </span>
+                                <ul className="space-y-1">
+                                  {docSummary.twinPersonalization.extraFocusAreas.map((ef: string, eIdx: number) => (
+                                    <li key={eIdx} className="text-[11px] text-slate-600 dark:text-slate-300 flex items-start gap-1.5">
+                                      <span className="text-amber-500 font-bold">•</span>
+                                      <span>{ef}</span>
+                                    </li>
+                                  ))}
+                                </ul>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Overall Syllabus Roadmap Completion Card */}
+                  <div className="p-5 rounded-2xl bg-gradient-to-br from-white to-slate-50 dark:from-[#0d1117] dark:to-[#161b22] border border-slate-200 dark:border-white/10 shadow-sm space-y-3.5">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-2">
+                          <span className="px-2 py-0.5 rounded bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-cyan-300 text-[10px] font-mono font-bold uppercase flex items-center gap-1">
+                            <BarChart3 className="w-3 h-3" /> Roadmap Mastery Tracker
+                          </span>
+                          <span className="text-[11px] font-mono text-slate-500 dark:text-slate-400">
+                            Live Progress
                           </span>
                         </div>
-
                         <h4 className="text-sm font-bold text-slate-900 dark:text-white">
-                          {u.title}
+                          Syllabus Completion & Unit Mastery
                         </h4>
-
-                        {u.topics && u.topics.length > 0 && (
-                          <div className="space-y-1 pt-1">
-                            <span className="text-[10px] font-mono uppercase text-slate-400 font-semibold">
-                              Covered Topics ({u.pageOrSlideRef || 'Syllabus'}):
-                            </span>
-                            <ul className="space-y-1">
-                              {u.topics.map((t: string, tIdx: number) => (
-                                <li key={tIdx} className="text-xs text-slate-600 dark:text-slate-300 flex items-center gap-1.5">
-                                  <span className="w-1.5 h-1.5 rounded-full bg-blue-500 shrink-0" />
-                                  <span>{t}</span>
-                                </li>
-                              ))}
-                            </ul>
-                          </div>
-                        )}
                       </div>
-                    ))}
+
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => {
+                            units.forEach((u: any, idx: number) => setUnitProgressQuick(u, idx, 100));
+                          }}
+                          className="px-2.5 py-1.5 rounded-lg bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800/40 text-emerald-700 dark:text-emerald-300 text-[11px] font-mono font-semibold hover:bg-emerald-100 dark:hover:bg-emerald-900/40 transition-colors flex items-center gap-1 cursor-pointer"
+                          title="Mark all topics and units complete"
+                        >
+                          <CheckCircle2 className="w-3 h-3" /> Mark All Done
+                        </button>
+                        <button
+                          onClick={() => {
+                            units.forEach((u: any, idx: number) => setUnitProgressQuick(u, idx, 0));
+                          }}
+                          className="px-2.5 py-1.5 rounded-lg bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 text-slate-600 dark:text-slate-400 text-[11px] font-mono font-semibold hover:bg-slate-200 dark:hover:bg-white/10 transition-colors flex items-center gap-1 cursor-pointer"
+                          title="Reset all progress to 0%"
+                        >
+                          <RotateCcw className="w-3 h-3" /> Reset
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Overall Progress Bar */}
+                    <div className="space-y-1.5">
+                      <div className="flex items-center justify-between text-xs font-mono">
+                        <span className="text-slate-600 dark:text-slate-400 font-semibold flex items-center gap-1.5">
+                          <TrendingUp className="w-3.5 h-3.5 text-blue-600 dark:text-cyan-400" />
+                          Overall Syllabus Progress
+                        </span>
+                        <span
+                          className={`font-bold ${
+                            overallProgress.percent === 100
+                              ? 'text-emerald-600 dark:text-emerald-400'
+                              : overallProgress.percent > 0
+                              ? 'text-blue-600 dark:text-cyan-400'
+                              : 'text-slate-400'
+                          }`}
+                        >
+                          {overallProgress.percent}% Completed ({overallProgress.completedUnits} of {overallProgress.totalUnits} Units Mastered)
+                        </span>
+                      </div>
+                      <div className="w-full h-3 bg-slate-100 dark:bg-white/10 rounded-full overflow-hidden p-0.5">
+                        <div
+                          className={`h-full rounded-full transition-all duration-500 ease-out ${
+                            overallProgress.percent === 100
+                              ? 'bg-emerald-500 shadow-sm shadow-emerald-500/30'
+                              : overallProgress.percent > 0
+                              ? 'bg-gradient-to-r from-blue-600 via-indigo-500 to-cyan-400'
+                              : 'bg-transparent'
+                          }`}
+                          style={{ width: `${overallProgress.percent}%` }}
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Units Matrix with Individual Visual Progress Bars */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {units.map((u: any, idx: number) => {
+                      const unitId = u.unitNumber || `Unit ${idx + 1}`;
+                      const progress = getUnitProgress(u, idx);
+                      const isComplete = progress.percent === 100;
+                      const inProgress = progress.percent > 0 && progress.percent < 100;
+
+                      return (
+                        <div
+                          key={idx}
+                          className={`p-5 rounded-2xl bg-white dark:bg-[#0d1117] border transition-all duration-200 shadow-sm space-y-4 ${
+                            isComplete
+                              ? 'border-emerald-200 dark:border-emerald-800/50 ring-1 ring-emerald-500/20'
+                              : inProgress
+                              ? 'border-blue-200 dark:border-blue-800/50'
+                              : 'border-slate-200 dark:border-white/10'
+                          }`}
+                        >
+                          {/* Unit Card Header */}
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className="px-2 py-0.5 rounded bg-blue-50 dark:bg-white/5 text-[10px] font-mono font-bold text-blue-600 dark:text-cyan-400">
+                                {u.unitNumber}
+                              </span>
+                              {/* Completion Status Badge */}
+                              <span
+                                className={`px-2 py-0.5 rounded text-[10px] font-mono font-bold flex items-center gap-1 ${
+                                  isComplete
+                                    ? 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800/50'
+                                    : inProgress
+                                    ? 'bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-cyan-400 border border-blue-200 dark:border-blue-800/50'
+                                    : 'bg-slate-100 dark:bg-white/5 text-slate-500 dark:text-slate-400'
+                                }`}
+                              >
+                                {isComplete ? (
+                                  <>
+                                    <CheckCircle2 className="w-3 h-3 text-emerald-500" />
+                                    <span>Mastered (100%)</span>
+                                  </>
+                                ) : inProgress ? (
+                                  <>
+                                    <span className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse" />
+                                    <span>{progress.percent}% In Progress</span>
+                                  </>
+                                ) : (
+                                  <span>Not Started (0%)</span>
+                                )}
+                              </span>
+                            </div>
+
+                            <span
+                              className={`px-2 py-0.5 rounded text-[10px] font-mono font-bold shrink-0 ${
+                                u.priority === 'CRITICAL'
+                                  ? 'bg-red-50 dark:bg-red-900/30 text-red-600 dark:text-red-400 border border-red-200 dark:border-red-800'
+                                  : u.priority === 'HIGH'
+                                  ? 'bg-amber-50 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400 border border-amber-200 dark:border-amber-800'
+                                  : 'bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-300'
+                              }`}
+                            >
+                              {u.weight || '~25% Weight'} • {u.priority || 'High'}
+                            </span>
+                          </div>
+
+                          {/* Unit Title */}
+                          <h4 className="text-sm font-bold text-slate-900 dark:text-white leading-snug">
+                            {u.title}
+                          </h4>
+
+                          {/* Visual Progress Bar Section */}
+                          <div className="space-y-1.5 pt-1">
+                            <div className="flex items-center justify-between text-[11px] font-mono">
+                              <span className="text-slate-600 dark:text-slate-400 font-semibold flex items-center gap-1.5">
+                                <TrendingUp className="w-3.5 h-3.5 text-blue-600 dark:text-cyan-400" />
+                                <span>Unit Progress</span>
+                              </span>
+                              <span
+                                className={`font-bold ${
+                                  isComplete
+                                    ? 'text-emerald-600 dark:text-emerald-400'
+                                    : inProgress
+                                    ? 'text-blue-600 dark:text-cyan-400'
+                                    : 'text-slate-400'
+                                }`}
+                              >
+                                {progress.percent}% ({progress.completedCount}/{progress.totalCount} Topics)
+                              </span>
+                            </div>
+
+                            {/* Visual Progress Bar Track and Animated Bar */}
+                            <div className="w-full h-2.5 bg-slate-100 dark:bg-white/10 rounded-full overflow-hidden p-0.5">
+                              <div
+                                className={`h-full rounded-full transition-all duration-300 ease-out ${
+                                  isComplete
+                                    ? 'bg-emerald-500 shadow-sm shadow-emerald-500/30'
+                                    : inProgress
+                                    ? 'bg-gradient-to-r from-blue-600 to-cyan-500'
+                                    : 'bg-transparent'
+                                }`}
+                                style={{ width: `${progress.percent}%` }}
+                              />
+                            </div>
+
+                            {/* Quick Progress Presets */}
+                            <div className="flex items-center justify-between pt-1 gap-1.5 text-[10px] font-mono">
+                              <span className="text-slate-400">Quick set:</span>
+                              <div className="flex items-center gap-1">
+                                {[0, 25, 50, 75, 100].map((preset) => (
+                                  <button
+                                    key={preset}
+                                    onClick={() => setUnitProgressQuick(u, idx, preset)}
+                                    className={`px-1.5 py-0.5 rounded cursor-pointer transition-all ${
+                                      progress.percent === preset
+                                        ? 'bg-blue-600 text-white font-bold'
+                                        : 'bg-slate-100 dark:bg-white/5 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-white/10'
+                                    }`}
+                                  >
+                                    {preset}%
+                                  </button>
+                                ))}
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Interactive Covered Topics List */}
+                          {u.topics && u.topics.length > 0 && (
+                            <div className="space-y-1.5 pt-1 border-t border-slate-100 dark:border-white/5">
+                              <div className="flex items-center justify-between text-[10px] font-mono uppercase text-slate-400 font-semibold">
+                                <span>Subtopics ({u.pageOrSlideRef || 'Syllabus'}):</span>
+                                <span className="text-[9px] lowercase font-normal text-slate-400">
+                                  click to check off
+                                </span>
+                              </div>
+                              <ul className="space-y-1.5">
+                                {u.topics.map((t: string, tIdx: number) => {
+                                  const isChecked = Boolean(completedUnitTopics[`${unitId}_${tIdx}`]);
+                                  return (
+                                    <li
+                                      key={tIdx}
+                                      onClick={() => toggleUnitTopic(unitId, tIdx)}
+                                      className={`text-xs p-2 rounded-xl border transition-all cursor-pointer flex items-center justify-between gap-2 select-none ${
+                                        isChecked
+                                          ? 'bg-emerald-50/50 dark:bg-emerald-950/20 border-emerald-200/80 dark:border-emerald-800/40 text-slate-800 dark:text-slate-200'
+                                          : 'bg-slate-50/70 dark:bg-white/5 border-slate-200/60 dark:border-white/5 text-slate-600 dark:text-slate-300 hover:border-blue-300 dark:hover:border-blue-700'
+                                      }`}
+                                    >
+                                      <div className="flex items-center gap-2 min-w-0">
+                                        {isChecked ? (
+                                          <CheckSquare className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                                        ) : (
+                                          <Square className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                                        )}
+                                        <span
+                                          className={`text-xs truncate ${
+                                            isChecked ? 'line-through opacity-75 text-slate-500 dark:text-slate-400' : ''
+                                          }`}
+                                        >
+                                          {t}
+                                        </span>
+                                      </div>
+                                      <span
+                                        className={`text-[10px] font-mono shrink-0 font-medium ${
+                                          isChecked ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-400'
+                                        }`}
+                                      >
+                                        {isChecked ? 'Done' : 'Pending'}
+                                      </span>
+                                    </li>
+                                  );
+                                })}
+                              </ul>
+                            </div>
+                          )}
+
+                          {/* Quick Bottom Actions */}
+                          <div className="flex items-center justify-between pt-1 border-t border-slate-100 dark:border-white/5 text-[11px] font-mono">
+                            <button
+                              onClick={() => setUnitProgressQuick(u, idx, isComplete ? 0 : 100)}
+                              className="text-blue-600 dark:text-cyan-400 hover:underline flex items-center gap-1 font-semibold cursor-pointer"
+                            >
+                              {isComplete ? (
+                                <>
+                                  <RotateCcw className="w-3 h-3" />
+                                  <span>Reset Unit</span>
+                                </>
+                              ) : (
+                                <>
+                                  <CheckCircle2 className="w-3 h-3 text-emerald-500" />
+                                  <span>Mark Complete</span>
+                                </>
+                              )}
+                            </button>
+                            <span className="text-[10px] text-slate-400 font-mono">
+                              {u.pageOrSlideRef || 'Syllabus Grounded'}
+                            </span>
+                          </div>
+                        </div>
+                      );
+                    })}
                   </div>
 
                   {/* What to study first sequence */}
@@ -630,32 +1050,56 @@ Unit 4: Storage & File Systems
                     </h4>
 
                     <div className="space-y-2.5">
-                      {studyPriority.map((item: any, idx: number) => (
-                        <div
-                          key={idx}
-                          className="p-3.5 rounded-xl bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/5 flex items-start gap-3"
-                        >
-                          <span className="w-6 h-6 rounded-lg bg-blue-600 text-white font-mono text-xs font-bold flex items-center justify-center shrink-0">
-                            {item.rank || idx + 1}
-                          </span>
-                          <div className="space-y-1 flex-1">
-                            <div className="flex items-center justify-between">
-                              <span className="text-xs font-bold text-slate-900 dark:text-white">
-                                {item.topicTitle}
-                              </span>
-                              <span className="text-[10px] font-mono text-blue-600 dark:text-cyan-400 font-bold">
-                                {item.estimatedTime}
+                      {studyPriority.map((item: any, idx: number) => {
+                        const matchingUnit = units.find(
+                          (u: any) =>
+                            (item.unit && u.unitNumber?.toLowerCase() === item.unit?.toLowerCase()) ||
+                            (u.title && item.topicTitle && (item.topicTitle.toLowerCase().includes(u.title.toLowerCase()) || u.title.toLowerCase().includes(item.topicTitle.toLowerCase())))
+                        );
+                        const unitProgress = matchingUnit ? getUnitProgress(matchingUnit, units.indexOf(matchingUnit)) : null;
+
+                        return (
+                          <div
+                            key={idx}
+                            className="p-3.5 rounded-xl bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/5 flex items-start gap-3"
+                          >
+                            <span className="w-6 h-6 rounded-lg bg-blue-600 text-white font-mono text-xs font-bold flex items-center justify-center shrink-0">
+                              {item.rank || idx + 1}
+                            </span>
+                            <div className="space-y-1 flex-1">
+                              <div className="flex items-center justify-between gap-2 flex-wrap">
+                                <div className="flex items-center gap-2">
+                                  <span className="text-xs font-bold text-slate-900 dark:text-white">
+                                    {item.topicTitle}
+                                  </span>
+                                  {unitProgress && (
+                                    <span
+                                      className={`px-1.5 py-0.5 rounded text-[10px] font-mono ${
+                                        unitProgress.percent === 100
+                                          ? 'bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300 font-semibold'
+                                          : unitProgress.percent > 0
+                                          ? 'bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-cyan-300 font-semibold'
+                                          : 'bg-slate-200 dark:bg-white/10 text-slate-500'
+                                      }`}
+                                    >
+                                      {unitProgress.percent}% Done
+                                    </span>
+                                  )}
+                                </div>
+                                <span className="text-[10px] font-mono text-blue-600 dark:text-cyan-400 font-bold">
+                                  {item.estimatedTime}
+                                </span>
+                              </div>
+                              <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
+                                {item.rationale}
+                              </p>
+                              <span className="inline-block text-[10px] font-mono text-slate-400">
+                                Ref: {item.sourceRef}
                               </span>
                             </div>
-                            <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
-                              {item.rationale}
-                            </p>
-                            <span className="inline-block text-[10px] font-mono text-slate-400">
-                              Ref: {item.sourceRef}
-                            </span>
                           </div>
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   </div>
 
@@ -776,6 +1220,18 @@ Unit 4: Storage & File Systems
                           {sprint.title} (Focus: {sprint.focusUnits})
                         </h4>
 
+                        {sprint.milestoneCheckpoint && (
+                          <div className="p-2 rounded-lg bg-blue-50/70 dark:bg-blue-950/20 border border-blue-200/60 dark:border-blue-800/40 text-[11px] font-mono text-blue-700 dark:text-cyan-300">
+                            {sprint.milestoneCheckpoint}
+                          </div>
+                        )}
+
+                        {sprint.twinAdjustment && (
+                          <p className="text-[11px] text-slate-500 dark:text-slate-400 italic">
+                            💡 {sprint.twinAdjustment}
+                          </p>
+                        )}
+
                         <div className="space-y-1.5 pt-1">
                           {sprint.actionItems?.map((act: string, aIdx: number) => (
                             <div key={aIdx} className="flex items-start gap-2 text-xs text-slate-600 dark:text-slate-300">
@@ -818,6 +1274,19 @@ Unit 4: Storage & File Systems
                                 </li>
                               ))}
                             </ul>
+
+                            {rev.quickFormulas?.length > 0 && (
+                              <div className="pt-2 border-t border-slate-200 dark:border-white/5 space-y-1">
+                                <span className="text-[10px] font-mono uppercase text-blue-600 dark:text-cyan-400 font-bold block">
+                                  Quick Formulas:
+                                </span>
+                                {rev.quickFormulas.map((qf: string, qIdx: number) => (
+                                  <div key={qIdx} className="font-mono text-[10px] text-slate-700 dark:text-slate-300 p-1 rounded bg-white dark:bg-white/5 truncate">
+                                    {qf}
+                                  </div>
+                                ))}
+                              </div>
+                            )}
                           </div>
                         ))}
                       </div>

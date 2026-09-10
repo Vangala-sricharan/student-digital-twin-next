@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   Sparkles,
   HelpCircle,
@@ -61,8 +61,14 @@ export const TimepassQuiz: React.FC = () => {
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState<number>(0);
   const [selectedAnswers, setSelectedAnswers] = useState<Record<number, number>>({});
   const [errorMessage, setErrorMessage] = useState<string>('');
+  const [errorCode, setErrorCode] = useState<string | null>(null);
+  const [isGenerating, setIsGenerating] = useState<boolean>(false);
   const [latestStreak, setLatestStreak] = useState<number>(currentStreak);
   const [statusLineIndex, setStatusLineIndex] = useState<number>(0);
+
+  // Guard refs to strictly prevent duplicate requests from double-clicks or re-renders
+  const isRequestActiveRef = useRef<boolean>(false);
+  const abortControllerRef = useRef<AbortController | null>(null);
 
   // Cycle short clean status messages during generation
   useEffect(() => {
@@ -76,6 +82,16 @@ export const TimepassQuiz: React.FC = () => {
     return () => clearInterval(interval);
   }, [status]);
 
+  // Clean up any pending in-flight request upon unmount
+  useEffect(() => {
+    return () => {
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+      }
+      isRequestActiveRef.current = false;
+    };
+  }, []);
+
   const activeTopicName = isCustom && customTopic.trim() ? customTopic.trim() : selectedTopic;
 
   const handleSelectPreset = (topic: string) => {
@@ -85,40 +101,129 @@ export const TimepassQuiz: React.FC = () => {
 
   const handleStartQuiz = async () => {
     const topicToUse = activeTopicName;
-    if (!topicToUse) return;
+    if (!topicToUse || !topicToUse.trim()) return;
 
+    // Strict guard: prevent duplicate requests caused by double-clicks, effects, or stale state
+    if (isRequestActiveRef.current) return;
+    isRequestActiveRef.current = true;
+
+    // Cancel any previous in-flight request cleanly
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
+    const controller = new AbortController();
+    abortControllerRef.current = controller;
+
+    setIsGenerating(true);
     setStatus('generating');
     setErrorMessage('');
+    setErrorCode(null);
 
     try {
+      // Send ONLY minimal required context: topic + difficulty + questionCount
       const res = await fetch('/api/ai/quiz', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
+        signal: controller.signal,
         body: JSON.stringify({
-          topic: topicToUse,
+          topic: topicToUse.trim(),
           difficulty,
           questionCount,
         }),
       });
 
-      if (!res.ok) {
-        throw new Error("Couldn't generate the quiz. Please try again.");
+      let json: any = null;
+      try {
+        json = await res.json();
+      } catch {
+        json = null;
       }
 
-      const json = await res.json();
-      if (json.status !== 'success' || !json.data || !Array.isArray(json.data.questions) || json.data.questions.length === 0) {
-        throw new Error(json.error || "Couldn't generate the quiz. Please try again.");
+      if (!res.ok || json?.status !== 'success') {
+        const code =
+          json?.code ||
+          (res.status === 429
+            ? 'RATE_LIMIT'
+            : res.status === 504
+            ? 'TIMEOUT'
+            : res.status === 503
+            ? 'SERVICE_UNAVAILABLE'
+            : 'GENERAL');
+
+        let msg = json?.error;
+        if (!msg) {
+          if (code === 'RATE_LIMIT' || res.status === 429) {
+            msg = 'AI service rate limit reached. Please wait a moment before trying again.';
+          } else if (code === 'TIMEOUT' || res.status === 504) {
+            msg = 'Quiz generation timed out. Please try again.';
+          } else if (code === 'SERVICE_UNAVAILABLE' || res.status === 503) {
+            msg = 'AI service is temporarily unavailable. Please try again.';
+          } else {
+            msg = "Couldn't generate the quiz. Please try again.";
+          }
+        }
+
+        setErrorCode(code);
+        setErrorMessage(msg);
+        setStatus('error');
+        return;
       }
 
-      setQuestions(json.data.questions);
+      // Validate returned structured JSON locally before displaying
+      const rawQuestions = json.data?.questions;
+      if (!Array.isArray(rawQuestions) || rawQuestions.length === 0) {
+        setErrorCode('MALFORMED_RESPONSE');
+        setErrorMessage("Couldn't generate valid questions for this topic. Please try again.");
+        setStatus('error');
+        return;
+      }
+
+      const validatedQuestions: QuizQuestion[] = [];
+      for (const item of rawQuestions) {
+        if (
+          item &&
+          typeof item.question === 'string' &&
+          item.question.trim().length > 0 &&
+          Array.isArray(item.options) &&
+          item.options.length === 4 &&
+          typeof item.correctAnswerIndex === 'number' &&
+          item.correctAnswerIndex >= 0 &&
+          item.correctAnswerIndex <= 3
+        ) {
+          validatedQuestions.push({
+            question: item.question.trim().replace(/\$(\d+(?:,\d+)*(?:\.\d+)?)/g, '₹$1'),
+            options: item.options.map((opt: any) =>
+              String(opt).trim().replace(/\$(\d+(?:,\d+)*(?:\.\d+)?)/g, '₹$1')
+            ),
+            correctAnswerIndex: Math.floor(item.correctAnswerIndex),
+          });
+        }
+      }
+
+      if (validatedQuestions.length === 0) {
+        setErrorCode('MALFORMED_RESPONSE');
+        setErrorMessage("Couldn't generate valid questions for this topic. Please try again.");
+        setStatus('error');
+        return;
+      }
+
+      // Display quiz immediately with zero artificial delay
+      setQuestions(validatedQuestions.slice(0, questionCount));
       setCurrentQuestionIndex(0);
       setSelectedAnswers({});
       setStatus('active');
     } catch (err: any) {
+      if (err.name === 'AbortError') {
+        return; // Request was deliberately aborted, ignore
+      }
+      setErrorCode('GENERAL');
       setErrorMessage(err.message || "Couldn't generate the quiz. Please try again.");
       setStatus('error');
+    } finally {
+      isRequestActiveRef.current = false;
+      setIsGenerating(false);
     }
   };
 
@@ -347,11 +452,11 @@ export const TimepassQuiz: React.FC = () => {
               id="btn-start-quiz"
               type="button"
               onClick={handleStartQuiz}
-              disabled={!activeTopicName.trim()}
-              className="px-6 py-3 rounded-full bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white text-xs font-mono font-bold shadow-md shadow-blue-600/20 transition-all cursor-pointer flex items-center gap-2"
+              disabled={isGenerating || status === 'generating' || !activeTopicName.trim()}
+              className="px-6 py-3 rounded-full bg-blue-600 hover:bg-blue-500 disabled:opacity-50 disabled:cursor-not-allowed text-white text-xs font-mono font-bold shadow-md shadow-blue-600/20 transition-all cursor-pointer flex items-center gap-2"
             >
               <Sparkles className="w-4 h-4" />
-              <span>START QUIZ</span>
+              <span>{isGenerating || status === 'generating' ? 'GENERATING...' : 'START QUIZ'}</span>
             </button>
           </div>
         </div>
@@ -422,14 +527,23 @@ export const TimepassQuiz: React.FC = () => {
               {errorMessage || "Couldn't generate the quiz. Please try again."}
             </h3>
             <p className="text-xs text-slate-500 dark:text-slate-400 font-mono">
-              The AI service encountered a temporary hiccup or rate limit.
+              {errorCode === 'RATE_LIMIT'
+                ? 'Rate limit reached on the AI service. Please wait a few seconds before retrying.'
+                : errorCode === 'TIMEOUT'
+                ? 'The AI request timed out before finishing. Please check your connection and retry.'
+                : errorCode === 'SERVICE_UNAVAILABLE'
+                ? 'The AI service is temporarily experiencing high traffic. Please try again shortly.'
+                : errorCode === 'MALFORMED_RESPONSE'
+                ? 'Could not parse questions for this topic. Please try again or choose another topic.'
+                : 'A temporary error occurred during quiz generation. Please try again.'}
             </p>
           </div>
           <div className="flex gap-3 pt-2">
             <button
               type="button"
               onClick={handleStartQuiz}
-              className="px-5 py-2.5 rounded-full bg-blue-600 hover:bg-blue-500 text-white text-xs font-mono font-bold transition-colors cursor-pointer flex items-center gap-1.5"
+              disabled={isGenerating || status === 'generating'}
+              className="px-5 py-2.5 rounded-full bg-blue-600 hover:bg-blue-500 disabled:opacity-50 disabled:cursor-not-allowed text-white text-xs font-mono font-bold transition-colors cursor-pointer flex items-center gap-1.5"
             >
               <RotateCcw className="w-3.5 h-3.5" />
               <span>Retry</span>
@@ -437,6 +551,7 @@ export const TimepassQuiz: React.FC = () => {
             <button
               type="button"
               onClick={() => setStatus('setup')}
+              disabled={isGenerating || status === 'generating'}
               className="px-5 py-2.5 rounded-full bg-slate-100 dark:bg-white/5 hover:bg-slate-200 dark:hover:bg-white/10 text-slate-700 dark:text-slate-300 text-xs font-mono font-medium transition-colors cursor-pointer"
             >
               Change Topic

@@ -230,27 +230,7 @@ export async function executeAiEngine(
     }
   }
 
-  try {
-    const res = await fetch('/api/engine-ai', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(request),
-    });
-
-    if (res.ok) {
-      const json = await res.json();
-      if (json.status === 'success') {
-        onStageUpdate?.(2, 'Analysis Complete');
-        return json;
-      }
-    }
-  } catch (fetchErr) {
-    // Network or direct client fallback
-  }
-
-  // Fallback to local serverAiHandler processing with real-time stage updates
+  // Actual existing V4 service for Internship Ready and internal engines
   return await processEngineAiRequest(request, onStageUpdate);
 }
 

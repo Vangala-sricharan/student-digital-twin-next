@@ -52,6 +52,7 @@ export interface EngineAiRequest {
     fileName: string;
     fileType: 'pdf' | 'ppt' | 'pptx' | 'txt' | 'other';
     fileSize: number;
+    pageOrSlideCount?: string | number;
   };
 }
 

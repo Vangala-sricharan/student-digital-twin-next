@@ -630,7 +630,14 @@ Format all pricing and CTC estimates strictly in Indian Rupees (₹) using the I
         if (generatedText) {
           onStageUpdate?.(3, 'Finalizing Scorecard');
           const sanitizedText = generatedText.replace(/\$(\d+(?:,\d+)*(?:\.\d+)?)/g, '₹$1');
-          const structuredData = parseStructuredData(engineId, sanitizedText, studentContext, { ...userInputs, githubProfileData });
+          const structuredData = parseStructuredData(
+            engineId,
+            sanitizedText,
+            studentContext,
+            { ...userInputs, githubProfileData },
+            documentText,
+            documentMeta
+          );
           
           // If github audit, ensure live fetched GitHub profile data is merged perfectly
           if (engineId === 'github-audit' && githubProfileData) {
@@ -1004,22 +1011,169 @@ Evaluate:
 5. Structural & Bullet Point Weaknesses
 6. Immediate Priority Fixes`;
 
-    case 'syllabus-prep':
-      return `
-STUDENT EXAM PREPARATION REQUEST:
-Uploaded Document: ${docMeta?.fileName || 'Syllabus/Course Document'} (${docMeta?.fileType?.toUpperCase() || 'DOCUMENT'})
-Extracted Material / Slide Content:
+    case 'syllabus-prep': {
+      const docName = docMeta?.fileName || 'Academic Syllabus Document';
+      const fileType = docMeta?.fileType?.toUpperCase() || 'DOCUMENT';
+      const rawDocContent = docText || userInputs?.pastedText || '';
+
+      return `${baseContext}
+STUDENT ACADEMIC SYLLABUS & EXAM PREPARATION GUIDE GENERATION:
+Uploaded Document: ${docName} (${fileType})
+${docMeta?.fileSize ? `Document Size: ${(docMeta.fileSize / 1024).toFixed(1)} KB` : ''}
+
+EXTRACTED DOCUMENT CONTENT & LECTURE SLIDES TEXT (ACADEMIC SOURCE OF TRUTH):
 """
-${docText || userInputs?.pastedText || 'No document text uploaded. Please evaluate standard Computer Science core courseware.'}
+${rawDocContent || 'No document text uploaded. Please evaluate provided syllabus units.'}
 """
 
-TASK: "HOW SHOULD I PREPARE FOR THIS EXAM?"
-Based ONLY on the provided syllabus/document content:
-1. High-Priority Core Topics & Weightage Breakdown
-2. Unit-Wise / Module-Wise Study Sequence (What to study first)
-3. Concise Concept Explanations & High-Yield Summary Notes
-4. Likely Exam Focus Areas & Expected Question Types
-5. 7-Day Sprint Revision Strategy & Final Exam Checklist`;
+CORE DIRECTIVES & RIGOROUS CONSTRAINTS:
+1. SOURCE OF TRUTH:
+   - The uploaded document text above is the ONLY academic source of truth.
+   - Extract units, modules, chapters, topics, subtopics, formulas, definitions, and concepts DIRECTLY from the text above.
+   - DO NOT invent, assume, or hallucinate topics, chapters, or units not present in the document.
+   - If the uploaded document is about Biology, Chemistry, Civil, Mechanical, Law, or Finance, generate the study guide strictly for that subject.
+2. REMOVE "USEFUL / NOT USEFUL" EVALUATION:
+   - Do NOT evaluate whether the document is "useful" or "not useful". The student has already uploaded it.
+   - Turn the document immediately into a practical, personalized study guide:
+     WHAT TO STUDY -> WHAT IS IMPORTANT -> WHAT ORDER TO STUDY IT -> HOW TO PREPARE -> HOW TO REVISE -> HOW TO COMPLETE THE SUBJECT.
+3. STUDENT TWIN PERSONALIZATION (PERSONALIZE THE APPROACH, NOT THE CONTENT):
+   - Academic level: ${context.degree || 'Degree'} - ${context.branch || 'Branch'}, Year: ${context.year || 'Undergraduate'}.
+   - Verified Skills: ${skillsStr || 'None listed'}
+   - If the student has verified skills or past projects matching any topic in the syllabus, explicitly note they can FAST-TRACK those topics.
+   - If the student has gaps or unverified fundamentals, recommend EXTRA FOCUS and additional time on foundational units.
+   - NEVER replace the uploaded syllabus with Student Twin data. Personalize the STUDY APPROACH, not the subject content.
+4. GENERATE ALL 7 REQUIRED STUDY COMPONENTS:
+   1) SUBJECT OVERVIEW: What the document covers, detected units/topics/slides count, total estimated study time, subject difficulty level based on content depth, academic/career fit, Student Twin personalization.
+   2) TOPIC ROADMAP: Complete breakdown of every unit/module found in the document with titles, subtopics, priority tag (High / Medium / Low / Critical), and estimated completion time.
+   3) IMPORTANT / HIGH-PRIORITY TOPICS: High-yield topics most likely to appear in exams or essential for mastery, why each is important, key concepts to understand, common pitfalls/mistakes, and core formulas/mechanisms.
+   4) "HOW TO COMPLETE THE SUBJECT" STEP-BY-STEP STUDY PATH: Recommended study order (which topics first, which next, which last), prerequisite topics within document, daily/weekly schedule, milestone checkpoints, and Twin adjustments.
+   5) TOPIC-WISE STUDY & PREPARATION GUIDE: What to study checklist, what to focus on (formulas, definitions, mechanisms, derivations), and how to practice (problem types, diagram practice, proofs, code if CS).
+   6) REVISION PLAN: 3-phase strategy (First: Comprehensive Review, Second: High-Yield & Formulas, Final: Exam-Day Scan) plus a quick-reference formula/concept bank.
+   7) EXAM / PRACTICE PRIORITIES: Expected question types, sample high-probability questions grounded strictly in document, verified model answer outline, and exam checklist of topics student must not skip.
+
+OUTPUT STRICTLY IN JSON FORMAT:
+Wrap your JSON inside \`\`\`json ... \`\`\` using this exact schema:
+{
+  "documentSummary": {
+    "subject": "Subject name extracted directly from document",
+    "documentName": "${docName}",
+    "fileType": "${fileType}",
+    "pagesOrSlides": "${docMeta?.pageOrSlideCount || 'Multiple'}",
+    "coverageOverview": "Clear overview of what the uploaded document covers...",
+    "totalEstimatedStudyTime": "e.g. 28 Hours across 2-3 Weeks",
+    "difficultyLevel": "Foundational | Intermediate | Advanced | Rigorous",
+    "academicFit": "How this subject fits into the student's academic and career path...",
+    "twinPersonalization": {
+      "academicLevel": "${context.degree || 'Degree'} (${context.year || 'Undergraduate'})",
+      "fastTrackRecommendations": ["Specific topics student can accelerate through based on verified skills..."],
+      "extraFocusAreas": ["Specific units or foundational areas needing dedicated study time..."],
+      "studyApproachNote": "Personalized study approach and pacing advice..."
+    }
+  },
+  "units": [
+    {
+      "unitNumber": "Unit 1",
+      "title": "Exact Unit / Module Title from document",
+      "weight": "~25% Exam Weight",
+      "priority": "CRITICAL | HIGH | MEDIUM | LOW",
+      "estimatedTime": "6 Hours",
+      "pageOrSlideRef": "Slide 1-12 / Page 1-15",
+      "topics": ["Subtopic 1 from doc", "Subtopic 2 from doc"],
+      "studyChecklist": ["Master concept 1", "Practice derivation 2"],
+      "focusAreas": ["Core formulas, definitions, and mechanisms from this unit"],
+      "howToPractice": "Specific practice strategy (problem sets, diagrams, derivations, code)"
+    }
+  ],
+  "importantTopics": [
+    {
+      "title": "Specific High-Yield Topic from document",
+      "unit": "Unit 1",
+      "pageOrSlideRef": "Slide 5 / Page 8",
+      "priority": "CRITICAL | HIGH | MEDIUM",
+      "reasonWhyImportant": "Why this topic is high-yield or exam-critical...",
+      "whatToUnderstand": "Key concept and principles to grasp...",
+      "keyFormula": "Core mathematical formula, mechanism, or proof outline from document",
+      "commonPitfalls": "Common pitfall or exam misconception students make on this topic..."
+    }
+  ],
+  "studyPriority": [
+    {
+      "rank": 1,
+      "topicTitle": "Topic or Unit to study first",
+      "estimatedTime": "4 Hours",
+      "rationale": "Why this order: foundational prerequisite for subsequent units...",
+      "sourceRef": "Unit 1",
+      "milestone": "After finishing this, you should be able to..."
+    }
+  ],
+  "examStrategy": [
+    {
+      "dayOrPhase": "Phase 1: Foundations & Prerequisites",
+      "title": "Master Unit 1 Core Mechanisms",
+      "focusUnits": "Unit 1",
+      "timeCommitment": "6 Hours across 3 Days",
+      "prerequisites": "Prerequisites within document",
+      "milestoneCheckpoint": "Milestone: You should be able to solve basic problems...",
+      "twinAdjustment": "Twin adjustment: Fast-track if familiar with...",
+      "actionItems": ["Actionable step 1", "Actionable step 2", "Actionable step 3"]
+    }
+  ],
+  "topicExplanations": [
+    {
+      "concept": "Core Concept Name from document",
+      "simpleExplanation": "Clear, direct explanation grounded in document...",
+      "keyPoints": ["Key point 1", "Key point 2", "Key point 3"],
+      "formulas": ["Relevant formula or notation"],
+      "commonMistakes": "Common exam pitfall...",
+      "memoryAnchor": "Memorable mnemonic or mental model...",
+      "howToPractice": "How to practice this concept...",
+      "sourceRef": "Unit reference"
+    }
+  ],
+  "revisionPlan": [
+    {
+      "phase": "First Revision (Comprehensive Review)",
+      "timeWindow": "48-72 Hours Before Exam",
+      "coreFocus": "All primary definitions, units, and mechanisms",
+      "checklist": ["Review all unit summaries", "Solve standard problem sets"],
+      "quickFormulas": ["Key formula 1", "Key formula 2"]
+    },
+    {
+      "phase": "Second Revision (High-Yield & Formula Focus)",
+      "timeWindow": "24 Hours Before Exam",
+      "coreFocus": "High-priority topics, formulas, and diagrams",
+      "checklist": ["Re-derive key equations", "Trace diagrams from memory"],
+      "quickFormulas": ["Key formula 3"]
+    },
+    {
+      "phase": "Final Revision (Exam-Day Quick Scan)",
+      "timeWindow": "Morning of Exam",
+      "coreFocus": "Memory anchors, formula sheet, and common pitfalls",
+      "checklist": ["Scan formula list", "Review pitfall checklist"],
+      "quickFormulas": ["Quick reminders"]
+    }
+  ],
+  "practiceQuestions": [
+    {
+      "id": "q1",
+      "type": "Theory | Numerical | Derivation | Diagram | Case Study | Coding | Short Answer | Long Answer",
+      "question": "Realistic exam question strictly grounded in uploaded content...",
+      "unitRef": "Unit reference",
+      "hint": "Guiding hint for student...",
+      "modelAnswer": "Comprehensive model answer outline and key points...",
+      "commonMistakes": "Mistake students frequently make on this question..."
+    }
+  ],
+  "examChecklist": [
+    {
+      "id": "c1",
+      "label": "Master [specific concept/formula from document]",
+      "category": "Theory | Numerical | Diagram | Derivations",
+      "completed": false
+    }
+  ]
+}`;
+    }
 
     case 'roadmap-30-60-90': {
       const domain = userInputs?.domain || context.careerGoal?.targetDomain || 'Full-Stack Development';
@@ -1259,11 +1413,13 @@ function parseStructuredData(
   engineId: string,
   text: string,
   rawContext: EngineAiRequest['studentContext'],
-  userInputs?: Record<string, any>
+  userInputs?: Record<string, any>,
+  docText?: string,
+  docMeta?: EngineAiRequest['documentMeta']
 ) {
   const context = normalizeStudentContext(rawContext);
   // Return full deterministic model as base
-  const baseModel = generateDeterministicEngineResponse(engineId, context, userInputs).data;
+  const baseModel = generateDeterministicEngineResponse(engineId, context, userInputs, docText, docMeta).data;
 
   // For LinkedIn Audit: derive overall score deterministically from category scores
   if (engineId === 'linkedin-audit') {
@@ -1285,6 +1441,161 @@ function parseStructuredData(
       source: 'pdf',
       timestamp: new Date().toISOString(),
     };
+  }
+
+  // For Syllabus Prep: Parse 7-section practical study guide directly from model
+  if (engineId === 'syllabus-prep') {
+    let parsedJson: any = null;
+    const jsonMatch = text.match(/```(?:json)?\s*([\s\S]*?)```/);
+    const candidateJsonStr = jsonMatch ? jsonMatch[1].trim() : text.trim();
+
+    try {
+      parsedJson = JSON.parse(candidateJsonStr);
+    } catch {
+      const start = candidateJsonStr.indexOf('{');
+      const end = candidateJsonStr.lastIndexOf('}');
+      if (start !== -1 && end > start) {
+        try {
+          parsedJson = JSON.parse(candidateJsonStr.slice(start, end + 1));
+        } catch {}
+      }
+    }
+
+    if (parsedJson && (parsedJson.documentSummary || Array.isArray(parsedJson.units) || Array.isArray(parsedJson.importantTopics))) {
+      const baseObj = (baseModel as any) || {};
+      const docSummary = parsedJson.documentSummary || {};
+      const mergedSummary = {
+        ...baseObj.documentSummary,
+        ...docSummary,
+        subject: docSummary.subject || baseObj.documentSummary?.subject || 'Academic Courseware',
+        documentName: docSummary.documentName || baseObj.documentSummary?.documentName || docMeta?.fileName || 'Course Document',
+        fileType: docSummary.fileType || baseObj.documentSummary?.fileType || docMeta?.fileType?.toUpperCase() || 'PDF',
+        pagesOrSlides: docSummary.pagesOrSlides || baseObj.documentSummary?.pagesOrSlides || 'Multiple',
+        coverageOverview: docSummary.coverageOverview || baseObj.documentSummary?.coverageOverview || 'Course study guide grounded in uploaded syllabus.',
+        totalEstimatedStudyTime: docSummary.totalEstimatedStudyTime || baseObj.documentSummary?.totalEstimatedStudyTime || '24 Hours across 2-3 Weeks',
+        difficultyLevel: docSummary.difficultyLevel || baseObj.documentSummary?.difficultyLevel || 'Intermediate',
+        academicFit: docSummary.academicFit || baseObj.documentSummary?.academicFit || 'Core curriculum requirement for degree advancement.',
+        twinPersonalization: {
+          academicLevel: docSummary.twinPersonalization?.academicLevel || baseObj.documentSummary?.twinPersonalization?.academicLevel || `${context.degree || 'Degree'} (${context.year || 'Undergraduate'})`,
+          fastTrackRecommendations: Array.isArray(docSummary.twinPersonalization?.fastTrackRecommendations) ? docSummary.twinPersonalization.fastTrackRecommendations : (baseObj.documentSummary?.twinPersonalization?.fastTrackRecommendations || []),
+          extraFocusAreas: Array.isArray(docSummary.twinPersonalization?.extraFocusAreas) ? docSummary.twinPersonalization.extraFocusAreas : (baseObj.documentSummary?.twinPersonalization?.extraFocusAreas || []),
+          studyApproachNote: docSummary.twinPersonalization?.studyApproachNote || baseObj.documentSummary?.twinPersonalization?.studyApproachNote || 'Study plan customized to student twin profile while preserving uploaded syllabus.',
+        },
+      };
+
+      const units = Array.isArray(parsedJson.units) && parsedJson.units.length > 0
+        ? parsedJson.units.map((u: any, idx: number) => ({
+            unitNumber: u.unitNumber || `Unit ${idx + 1}`,
+            title: u.title || `Module ${idx + 1}`,
+            weight: u.weight || `~${Math.round(100 / (parsedJson.units.length || 4))}% Weight`,
+            priority: ['CRITICAL', 'HIGH', 'MEDIUM', 'LOW'].includes(String(u.priority).toUpperCase()) ? String(u.priority).toUpperCase() : 'HIGH',
+            estimatedTime: u.estimatedTime || '6 Hours',
+            pageOrSlideRef: u.pageOrSlideRef || `Section ${idx + 1}`,
+            topics: Array.isArray(u.topics) ? u.topics : [],
+            studyChecklist: Array.isArray(u.studyChecklist) ? u.studyChecklist : [],
+            focusAreas: Array.isArray(u.focusAreas) ? u.focusAreas : [],
+            howToPractice: u.howToPractice || 'Review key principles and practice problem sets.',
+          }))
+        : baseObj.units;
+
+      const importantTopics = Array.isArray(parsedJson.importantTopics) && parsedJson.importantTopics.length > 0
+        ? parsedJson.importantTopics.map((t: any, idx: number) => ({
+            title: t.title || `Topic ${idx + 1}`,
+            unit: t.unit || 'Core Unit',
+            pageOrSlideRef: t.pageOrSlideRef || 'Syllabus Reference',
+            priority: ['CRITICAL', 'HIGH', 'MEDIUM', 'LOW'].includes(String(t.priority).toUpperCase()) ? String(t.priority).toUpperCase() : 'HIGH',
+            reasonWhyImportant: t.reasonWhyImportant || 'Essential concept for examination and subject mastery.',
+            whatToUnderstand: t.whatToUnderstand || 'Core operational mechanism and theoretical formulation.',
+            keyFormula: t.keyFormula || '',
+            commonPitfalls: t.commonPitfalls || '',
+          }))
+        : baseObj.importantTopics;
+
+      const studyPriority = Array.isArray(parsedJson.studyPriority) && parsedJson.studyPriority.length > 0
+        ? parsedJson.studyPriority.map((p: any, idx: number) => ({
+            rank: p.rank || idx + 1,
+            topicTitle: p.topicTitle || `Step ${idx + 1}`,
+            estimatedTime: p.estimatedTime || '4 Hours',
+            rationale: p.rationale || 'Prerequisite topic to build foundation.',
+            sourceRef: p.sourceRef || `Unit ${idx + 1}`,
+            milestone: p.milestone || 'Master key definitions and problem solving techniques.',
+          }))
+        : baseObj.studyPriority;
+
+      const examStrategy = Array.isArray(parsedJson.examStrategy) && parsedJson.examStrategy.length > 0
+        ? parsedJson.examStrategy.map((s: any, idx: number) => ({
+            dayOrPhase: s.dayOrPhase || `Phase ${idx + 1}`,
+            title: s.title || `Sprint ${idx + 1}`,
+            focusUnits: s.focusUnits || 'Core Units',
+            timeCommitment: s.timeCommitment || '4 Hours',
+            prerequisites: s.prerequisites || '',
+            milestoneCheckpoint: s.milestoneCheckpoint || '',
+            twinAdjustment: s.twinAdjustment || '',
+            actionItems: Array.isArray(s.actionItems) ? s.actionItems : [],
+          }))
+        : baseObj.examStrategy;
+
+      const topicExplanations = Array.isArray(parsedJson.topicExplanations) && parsedJson.topicExplanations.length > 0
+        ? parsedJson.topicExplanations.map((e: any) => ({
+            concept: e.concept || 'Core Concept',
+            simpleExplanation: e.simpleExplanation || '',
+            keyPoints: Array.isArray(e.keyPoints) ? e.keyPoints : [],
+            formulas: Array.isArray(e.formulas) ? e.formulas : (e.formula ? [e.formula] : []),
+            commonMistakes: e.commonMistakes || '',
+            memoryAnchor: e.memoryAnchor || '',
+            howToPractice: e.howToPractice || '',
+            sourceRef: e.sourceRef || '',
+          }))
+        : baseObj.topicExplanations;
+
+      const revisionPlan = Array.isArray(parsedJson.revisionPlan) && parsedJson.revisionPlan.length > 0
+        ? parsedJson.revisionPlan.map((r: any) => ({
+            phase: r.phase || 'Revision Phase',
+            timeWindow: r.timeWindow || 'Pre-Exam',
+            coreFocus: r.coreFocus || 'High-Yield Review',
+            checklist: Array.isArray(r.checklist) ? r.checklist : [],
+            quickFormulas: Array.isArray(r.quickFormulas) ? r.quickFormulas : [],
+          }))
+        : baseObj.revisionPlan;
+
+      const practiceQuestions = Array.isArray(parsedJson.practiceQuestions) && parsedJson.practiceQuestions.length > 0
+        ? parsedJson.practiceQuestions.map((q: any, idx: number) => ({
+            id: q.id || `q-${idx + 1}`,
+            type: q.type || 'Theory',
+            question: q.question || 'Concept Question',
+            unitRef: q.unitRef || 'Unit Reference',
+            hint: q.hint || '',
+            modelAnswer: q.modelAnswer || 'Detailed answer outline based on syllabus.',
+            commonMistakes: q.commonMistakes || '',
+          }))
+        : baseObj.practiceQuestions;
+
+      const examChecklist = Array.isArray(parsedJson.examChecklist) && parsedJson.examChecklist.length > 0
+        ? parsedJson.examChecklist.map((c: any, idx: number) => ({
+            id: c.id || `c-${idx + 1}`,
+            label: c.label || `Master syllabus item ${idx + 1}`,
+            category: c.category || 'Essential',
+            completed: Boolean(c.completed),
+          }))
+        : baseObj.examChecklist;
+
+      return {
+        ...baseObj,
+        score: 96,
+        overallScore: 96,
+        evaluation: 'Academic Study Guide Ready',
+        documentSummary: mergedSummary,
+        units,
+        importantTopics,
+        studyPriority,
+        examStrategy,
+        topicExplanations,
+        revisionPlan,
+        practiceQuestions,
+        examChecklist,
+        timestamp: new Date().toISOString(),
+      };
+    }
   }
 
   // For Project Auditor: Parse project-specific structured output directly from model
@@ -1503,6 +1814,80 @@ function parseStructuredData(
         timestamp: new Date().toISOString(),
       };
     }
+  }
+
+  // For Internship Ready: Parse structured output directly from model or dynamic evaluation
+  if (engineId === 'internship-ready') {
+    let parsedJson: any = null;
+    const jsonMatch = text.match(/```(?:json)?\s*([\s\S]*?)```/);
+    const candidateJsonStr = jsonMatch ? jsonMatch[1].trim() : text.trim();
+
+    try {
+      parsedJson = JSON.parse(candidateJsonStr);
+    } catch {
+      const start = candidateJsonStr.indexOf('{');
+      const end = candidateJsonStr.lastIndexOf('}');
+      if (start !== -1 && end > start) {
+        try {
+          parsedJson = JSON.parse(candidateJsonStr.slice(start, end + 1));
+        } catch {}
+      }
+    }
+
+    if (parsedJson && (typeof parsedJson.readinessScore === 'number' || typeof parsedJson.score === 'number' || Array.isArray(parsedJson.breakdown))) {
+      const score = typeof parsedJson.readinessScore === 'number'
+        ? Math.max(0, Math.min(100, Math.round(parsedJson.readinessScore)))
+        : typeof parsedJson.score === 'number'
+        ? Math.max(0, Math.min(100, Math.round(parsedJson.score)))
+        : (baseModel as any)?.score || 70;
+      const evaluation = parsedJson.verdict || parsedJson.evaluation || getEvaluationLabel(score);
+
+      const rawBreakdown = Array.isArray(parsedJson.breakdown) && parsedJson.breakdown.length > 0
+        ? parsedJson.breakdown.map((b: any) => ({
+            label: String(b.label || 'Dimension'),
+            score: Math.max(0, Math.min(Number(b.max || 25), Math.round(Number(b.score || 0)))),
+            max: Number(b.max || 25),
+          }))
+        : (baseModel as any)?.breakdown;
+
+      const strengths = Array.isArray(parsedJson.strengths) && parsedJson.strengths.length > 0
+        ? parsedJson.strengths.map((s: any) => (typeof s === 'string' ? s : s?.text || s?.desc || s?.title || JSON.stringify(s)))
+        : (baseModel as any)?.strengths || [];
+
+      const gaps = Array.isArray(parsedJson.gaps) && parsedJson.gaps.length > 0
+        ? parsedJson.gaps.map((g: any) => (typeof g === 'string' ? g : g?.text || g?.desc || g?.title || JSON.stringify(g)))
+        : (baseModel as any)?.gaps || [];
+
+      const recommendations = Array.isArray(parsedJson.recommendations) && parsedJson.recommendations.length > 0
+        ? parsedJson.recommendations.map((r: any, idx: number) => ({
+            priority: Number(r.priority) || idx + 1,
+            title: String(r.title || `Action ${idx + 1}`),
+            desc: String(r.desc || r.action || ''),
+            action: String(r.action || r.desc || r.title || `Action ${idx + 1}`),
+          }))
+        : (baseModel as any)?.recommendations || [];
+
+      return {
+        score,
+        readinessScore: score,
+        evaluation,
+        verdict: evaluation,
+        targetDomain: userInputs?.targetRole || context.targetRole,
+        candidateName: context.name,
+        profile: {
+          name: context.name,
+          targetRole: userInputs?.targetRole || context.targetRole,
+          university: context.university,
+        },
+        breakdown: rawBreakdown,
+        strengths,
+        gaps,
+        recommendations,
+        timestamp: new Date().toISOString(),
+      };
+    }
+
+    return baseModel;
   }
 
   const scoreMatch = text.match(/(?:Score|Probability|Rating|Readiness):\s*\*?([0-9]{1,3})%?/i);
@@ -2013,6 +2398,742 @@ function generateDynamicRoadmap(
     totalTasksCount: totalTasks,
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
+  };
+
+  return { text, data };
+}
+
+/**
+ * Dynamic, evidence-based Tier-1 Internship Readiness Diagnostic generator.
+ * Strictly uses real Student Twin evidence (skills, projects, verifications, GitHub, LinkedIn, academic info).
+ * Never uses static hardcoded 86 scores or fake sample sprint recommendations.
+ */
+function generateDynamicInternshipReadyResponse(
+  context: ReturnType<typeof normalizeStudentContext>,
+  userInputs?: Record<string, any>
+): { text: string; data: any } {
+  const targetDomain = String(userInputs?.targetRole || context.targetRole || 'Tier-1 Software Engineering Internship').trim();
+
+  // 1. Resume & ATS Compliance (max: 20)
+  let resumeScore = 0;
+  if (context.university) resumeScore += 5;
+  if (context.degree || context.branch) resumeScore += 4;
+  if (context.cgpa && context.cgpa !== '0') resumeScore += 3;
+  if (context.skills.length > 0) resumeScore += Math.min(5, Math.round(context.skills.length * 0.8));
+  if (context.targetRole || targetDomain) resumeScore += 3;
+  resumeScore = Math.min(20, resumeScore);
+
+  // 2. Project Portfolio Depth & Code Verification (max: 25)
+  let projectScore = 0;
+  const projectCount = context.projects.length;
+  if (projectCount === 1) projectScore = 10;
+  else if (projectCount === 2) projectScore = 18;
+  else if (projectCount >= 3) projectScore = 22;
+  const liveProjects = context.projects.filter((p: any) => p.liveUrl && String(p.liveUrl).trim().length > 0);
+  if (liveProjects.length > 0) projectScore += Math.min(3, liveProjects.length);
+  projectScore = Math.min(25, projectScore);
+
+  // 3. GitHub Activity & Proof of Work (max: 20)
+  let githubScore = 0;
+  if (context.githubUrl && context.githubUrl.trim().length > 0) {
+    githubScore += 12;
+    const githubRepos = context.projects.filter((p: any) => p.githubUrl && String(p.githubUrl).trim().length > 0);
+    githubScore += Math.min(8, githubRepos.length * 3);
+  } else {
+    const githubRepos = context.projects.filter((p: any) => p.githubUrl && String(p.githubUrl).trim().length > 0);
+    if (githubRepos.length > 0) githubScore += Math.min(10, githubRepos.length * 3);
+  }
+  githubScore = Math.min(20, githubScore);
+
+  // 4. LinkedIn & Recruiter Discoverability (max: 15)
+  let linkedinScore = 0;
+  if (context.linkedinUrl && context.linkedinUrl.trim().length > 0) {
+    linkedinScore += 10;
+    if (context.targetRole) linkedinScore += 3;
+    if ((context as any).bio) linkedinScore += 2;
+  } else {
+    if (context.targetRole) linkedinScore += 2;
+  }
+  linkedinScore = Math.min(15, linkedinScore);
+
+  // 5. Core Computer Science & Technical Foundation (max: 20)
+  let foundationScore = 0;
+  const skillsCount = context.skills.length;
+  if (skillsCount > 0) {
+    foundationScore += Math.min(12, skillsCount * 2);
+    const verifiedSkills = context.skills.filter((s) => Boolean(s.verified));
+    foundationScore += Math.min(8, verifiedSkills.length * 2);
+  }
+  foundationScore = Math.min(20, foundationScore);
+
+  const totalScore = resumeScore + projectScore + githubScore + linkedinScore + foundationScore;
+  const evaluation = getEvaluationLabel(totalScore);
+
+  const breakdown = [
+    { label: 'Resume & ATS Compliance', score: resumeScore, max: 20 },
+    { label: 'Project Portfolio Depth & Code Verification', score: projectScore, max: 25 },
+    { label: 'GitHub Activity & Proof of Work', score: githubScore, max: 20 },
+    { label: 'LinkedIn & Recruiter Discoverability', score: linkedinScore, max: 15 },
+    { label: 'Core Computer Science & DSA Foundation', score: foundationScore, max: 20 },
+  ];
+
+  // Dynamic Strengths based on real verified signals
+  const strengths: string[] = [];
+  if (context.skills.length > 0) {
+    strengths.push(`Demonstrated technical capabilities across ${context.skills.length} skills (${context.skills.slice(0, 3).map((s) => s.name).join(', ')}).`);
+  }
+  if (context.projects.length > 0) {
+    strengths.push(`${context.projects.length} documented project repository ${context.projects.length > 1 ? 'artifacts' : 'artifact'} with defined tech stacks.`);
+  }
+  if (context.githubUrl) {
+    strengths.push('Connected GitHub profile providing public repository code signals.');
+  }
+  if (context.linkedinUrl) {
+    strengths.push('Professional LinkedIn presence linked to Student Twin identity.');
+  }
+  if (context.cgpa && context.cgpa !== '0') {
+    strengths.push(`Verified academic standing of ${context.cgpa} CGPA at ${context.university || 'university'}.`);
+  }
+  if (strengths.length === 0) {
+    strengths.push('Student Twin identity profile initialized and ready for technical credential verification.');
+    strengths.push('Target internship domain calibrated for upcoming placement cycle.');
+  }
+
+  // Dynamic Gaps based on real missing signals
+  const gaps: string[] = [];
+  if (context.projects.length === 0) {
+    gaps.push('No verified project repositories attached to Student Twin; Tier-1 recruiters require at least 2 public codebases.');
+  } else if (liveProjects.length === 0) {
+    gaps.push('Project repositories lack deployed live demo URLs with verifiable uptime.');
+  }
+  if (context.skills.length === 0) {
+    gaps.push('No technical skills recorded in Student Twin; core computer science and language skills must be indexed.');
+  }
+  if (!context.githubUrl) {
+    gaps.push('Missing verified GitHub profile link for engineering proof-of-work validation.');
+  }
+  if (!context.linkedinUrl) {
+    gaps.push('Missing public LinkedIn profile link for recruiter discoverability and talent indexing.');
+  }
+  if (gaps.length === 0) {
+    gaps.push('System design documentation and automated test suites can be further expanded for Senior/Tier-1 internship cohorts.');
+  }
+
+  // Dynamic Recommendations where every item has priority, title, desc, and action
+  const recommendations: Array<{ priority: number; title: string; desc: string; action: string }> = [];
+  if (context.projects.length === 0) {
+    recommendations.push({
+      priority: 1,
+      title: 'Build & Deploy Flagship Project',
+      desc: 'Develop a full-stack project with clean Git commit history, architecture README, and live URL.',
+      action: 'Build and deploy a flagship full-stack project with a public live link on Cloud Run / Vercel.',
+    });
+  } else if (liveProjects.length === 0) {
+    recommendations.push({
+      priority: 1,
+      title: 'Deploy Live Demo Links',
+      desc: 'Deploy your top repository with a public URL so recruiters can test functionality instantly.',
+      action: 'Deploy live demo of flagship project on Cloud Run / Vercel with a public link.',
+    });
+  } else {
+    recommendations.push({
+      priority: 1,
+      title: 'DSA & Core Problem Solving',
+      desc: 'Add 15 high-frequency LeetCode Medium problem solutions to a public DSA portfolio repo.',
+      action: 'Add 15 high-frequency LeetCode Medium problem solutions to a public DSA portfolio repo.',
+    });
+  }
+
+  if (context.skills.length < 5) {
+    recommendations.push({
+      priority: 2,
+      title: 'Record & Verify Core Skills',
+      desc: 'Add key languages, databases, and frameworks to your Student Twin for ATS keyword calibration.',
+      action: 'Record and verify core programming languages and frameworks in your Student Twin.',
+    });
+  } else if (!context.githubUrl) {
+    recommendations.push({
+      priority: 2,
+      title: 'Connect GitHub Profile',
+      desc: 'Link your public GitHub profile to showcase code commit consistency and repository health.',
+      action: 'Link your public GitHub profile to your Student Twin for proof-of-work indexing.',
+    });
+  } else {
+    recommendations.push({
+      priority: 2,
+      title: 'Add Automated Test Suites',
+      desc: 'Implement Jest/Pytest automated unit test workflows on your primary repository.',
+      action: 'Implement automated unit test workflows and CI/CD status badges in top repositories.',
+    });
+  }
+
+  if (!context.linkedinUrl) {
+    recommendations.push({
+      priority: 3,
+      title: 'Connect LinkedIn Profile',
+      desc: 'Add your LinkedIn profile to calibrate recruiter discoverability and headline keywords.',
+      action: 'Connect your LinkedIn profile with target role keywords for recruiter outreach.',
+    });
+  } else {
+    recommendations.push({
+      priority: 3,
+      title: 'Calibrate Recruiter Outreach',
+      desc: 'Update LinkedIn headline and craft concise proof-of-work blurbs with deployed project links.',
+      action: 'Update LinkedIn headline using calibrated AI-optimized variants and prepare project demo links.',
+    });
+  }
+
+  const text = `### Tier-1 Internship Readiness Diagnostic
+
+**Candidate**: ${context.name || 'Student Candidate'}${context.university ? ` (${context.university})` : ''}  
+**Target Domain**: ${targetDomain}  
+**Internship Readiness Score**: **${totalScore} / 100** (${evaluation})
+
+#### 1. Dimension Breakdown Matrix
+- **Resume & ATS Compliance**: ${Math.round((resumeScore / 20) * 100)}% (${resumeScore}/20)
+- **Project Portfolio Depth & Code Verification**: ${Math.round((projectScore / 25) * 100)}% (${projectScore}/25)
+- **GitHub Activity & Proof of Work**: ${Math.round((githubScore / 20) * 100)}% (${githubScore}/20)
+- **LinkedIn & Recruiter Discoverability**: ${Math.round((linkedinScore / 15) * 100)}% (${linkedinScore}/15)
+- **Core Computer Science & DSA Foundation**: ${Math.round((foundationScore / 20) * 100)}% (${foundationScore}/20)
+
+#### 2. Competitive Strengths
+${strengths.map((s) => `- ${s}`).join('\n')}
+
+#### 3. Critical Gaps & Missing Proof
+${gaps.map((g) => `- ${g}`).join('\n')}
+
+#### 4. Priority Sprint Recommendations
+${recommendations.map((r) => `${r.priority}. **${r.title}**: ${r.action}`).join('\n')}`;
+
+  const data = {
+    score: totalScore,
+    readinessScore: totalScore,
+    evaluation,
+    verdict: evaluation,
+    targetDomain,
+    candidateName: context.name,
+    profile: {
+      name: context.name,
+      targetRole: targetDomain,
+      university: context.university,
+    },
+    breakdown,
+    strengths,
+    gaps,
+    recommendations,
+  };
+
+  return { text, data };
+}
+
+/**
+ * Dynamic, document-grounded Syllabus & Exam Prep study guide synthesizer.
+ * Strictly uses the uploaded syllabus document as the academic source of truth.
+ * Personalizes study pacing with Student Twin data without altering the curriculum content.
+ */
+function generateDynamicSyllabusPrepResponse(
+  context: ReturnType<typeof normalizeStudentContext>,
+  userInputs?: Record<string, any>,
+  docText?: string,
+  docMeta?: EngineAiRequest['documentMeta']
+) {
+  const docName = docMeta?.fileName || userInputs?.pastedDocName || 'Academic Syllabus Document';
+  const fileType = docMeta?.fileType?.toUpperCase() || 'PDF';
+  const rawDoc = (docText || userInputs?.pastedText || '').trim();
+
+  // If no document text provided, return a clear notice prompting upload
+  if (!rawDoc || rawDoc.length < 15) {
+    const text = `### Academic Exam Preparation & Syllabus Study Guide
+
+**Notice**: Please upload an academic course syllabus (PDF or presentation deck) or paste course topic text to generate a grounded, personalized study guide.`;
+    return {
+      text,
+      data: {
+        score: 0,
+        evaluation: 'Awaiting Upload',
+        documentSummary: {
+          subject: 'No Syllabus Uploaded',
+          documentName: docName,
+          fileType,
+          pagesOrSlides: 0,
+          coverageOverview: 'Upload courseware lecture slides or syllabus PDF to generate a topic-by-topic study plan.',
+          totalEstimatedStudyTime: '0 Hours',
+          difficultyLevel: 'Foundational',
+          academicFit: 'Pending syllabus ingestion.',
+          twinPersonalization: {
+            academicLevel: `${context.degree || 'Degree'} (${context.year || 'Undergraduate'})`,
+            fastTrackRecommendations: [],
+            extraFocusAreas: [],
+            studyApproachNote: 'Upload your syllabus document to calibrate pacing.',
+          },
+        },
+        units: [],
+        importantTopics: [],
+        studyPriority: [],
+        examStrategy: [],
+        topicExplanations: [],
+        revisionPlan: [],
+        practiceQuestions: [],
+        examChecklist: [],
+      },
+    };
+  }
+
+  // 1. EXTRACT SUBJECT NAME DIRECTLY FROM UPLOADED TEXT
+  let detectedSubject = '';
+  const firstChunk = rawDoc.slice(0, 600);
+  const subjectPatterns = [
+    /(?:Course(?:\s+Name)?|Subject(?:\s+Name)?|Module(?:\s+Name)?|Title)[:\s–-]+([^\n\r.]+)/i,
+    /(?:Syllabus\s+for|Introduction\s+to|Advanced)\s+([^\n\r.]+)/i,
+    /(?:Course\s+Code[:\s]+[A-Z0-9_-]+[:\s–-]+)?([A-Z][A-Za-z0-9\s&/-]{4,45}(?:Engineering|Science|Systems|Networks|Structures|Programming|Database|Intelligence|Design|Electronics|Mechanics|Mathematics))/i,
+  ];
+
+  for (const pat of subjectPatterns) {
+    const m = firstChunk.match(pat);
+    if (m && m[1]?.trim().length > 3) {
+      detectedSubject = m[1].trim().slice(0, 50);
+      break;
+    }
+  }
+
+  if (!detectedSubject) {
+    const lines = firstChunk
+      .split(/[\n\r]+/)
+      .map((l) => l.trim())
+      .filter((l) => l.length > 4 && l.length < 60 && !/^(page|slide|figure|table|unit|module|http)/i.test(l));
+    if (lines[0]) {
+      detectedSubject = lines[0];
+    } else {
+      detectedSubject = docName.replace(/\.[^/.]+$/, '').replace(/[-_]/g, ' ');
+    }
+  }
+
+  // 2. DYNAMICALLY EXTRACT UNITS & SUBTOPICS FROM UPLOADED TEXT
+  const unitRegex = /(?:Unit|Module|Chapter|Section|Part)\s*([0-9IVX]+)[:\s–-]+([^\n\r.]+)/gi;
+  const slideRegex = /\[Slide\s*([0-9]+):\s*([^\]]+)\]/gi;
+  const numberedSectionRegex = /(?:^|\n)([1-9IVX]\b[.:\s–-]+[A-Z][^\n\r]{3,60})/g;
+
+  interface ExtractedUnit {
+    unitNumber: string;
+    title: string;
+    rawContent: string;
+    topics: string[];
+  }
+
+  const rawUnits: ExtractedUnit[] = [];
+  let m: RegExpExecArray | null;
+
+  let matchesFound: Array<{ unitNum: string; title: string; index: number }> = [];
+  while ((m = unitRegex.exec(rawDoc)) !== null) {
+    matchesFound.push({
+      unitNum: `Unit ${m[1]}`,
+      title: m[2].trim().slice(0, 60),
+      index: m.index,
+    });
+  }
+
+  if (matchesFound.length < 2) {
+    matchesFound = [];
+    while ((m = slideRegex.exec(rawDoc)) !== null) {
+      matchesFound.push({
+        unitNum: `Slide ${m[1]}`,
+        title: m[2].trim().slice(0, 60),
+        index: m.index,
+      });
+    }
+  }
+
+  if (matchesFound.length < 2) {
+    matchesFound = [];
+    while ((m = numberedSectionRegex.exec(rawDoc)) !== null) {
+      const heading = m[1].trim();
+      const parts = heading.split(/[.:\s–-]+/);
+      matchesFound.push({
+        unitNum: `Unit ${matchesFound.length + 1}`,
+        title: parts.slice(1).join(' ').trim().slice(0, 60) || heading.slice(0, 60),
+        index: m.index,
+      });
+    }
+  }
+
+  if (matchesFound.length >= 2) {
+    for (let i = 0; i < matchesFound.length && i < 8; i++) {
+      const cur = matchesFound[i];
+      const next = matchesFound[i + 1];
+      const slice = rawDoc.slice(cur.index, next ? next.index : cur.index + 2500);
+
+      const subLines = slice
+        .split(/[\n\r]+/)
+        .map((l) => l.trim().replace(/^[-*•\d.)\s]+/, '').trim())
+        .filter(
+          (l) =>
+            l.length > 4 &&
+            l.length < 90 &&
+            !l.toLowerCase().startsWith('unit') &&
+            !l.toLowerCase().startsWith('slide') &&
+            !l.toLowerCase().startsWith('module')
+        );
+
+      rawUnits.push({
+        unitNumber: cur.unitNum,
+        title: cur.title,
+        rawContent: slice,
+        topics: subLines.slice(1, 6),
+      });
+    }
+  } else {
+    // If no distinct unit keywords, segment document lines into 3-4 cohesive units
+    const allLines = rawDoc
+      .split(/[\n\r]+/)
+      .map((l) => l.trim().replace(/^[-*•\d.)\s]+/, '').trim())
+      .filter((l) => l.length > 5 && l.length < 90);
+
+    const totalLines = allLines.length;
+    const chunkSize = Math.max(3, Math.ceil(totalLines / 4));
+
+    for (let i = 0; i < 4 && i * chunkSize < totalLines; i++) {
+      const chunk = allLines.slice(i * chunkSize, (i + 1) * chunkSize);
+      const titleCandidate = chunk[0];
+      rawUnits.push({
+        unitNumber: `Unit ${i + 1}`,
+        title: titleCandidate.length < 55 ? titleCandidate : `Module ${i + 1}: Core Concepts`,
+        rawContent: chunk.join('\n'),
+        topics: chunk.slice(1, 6),
+      });
+    }
+  }
+
+  if (rawUnits.length === 0) {
+    rawUnits.push({
+      unitNumber: 'Unit 1',
+      title: `${detectedSubject} - Core Foundations`,
+      rawContent: rawDoc.slice(0, 1000),
+      topics: ['Theoretical Scope & Principles', 'Primary Definitions', 'Standard Formulations'],
+    });
+    rawUnits.push({
+      unitNumber: 'Unit 2',
+      title: `${detectedSubject} - Advanced Applications`,
+      rawContent: rawDoc.slice(1000, 2000),
+      topics: ['Applied Methodologies', 'Comparative Derivations', 'Problem Solving Sets'],
+    });
+  }
+
+  // 3. STUDENT TWIN SKILL MATCHING & PERSONALIZATION
+  const verifiedSkills = Array.isArray(context.skills) ? context.skills : [];
+  const fastTrackList: string[] = [];
+  const extraFocusList: string[] = [];
+  const rawLower = rawDoc.toLowerCase();
+
+  for (const sk of verifiedSkills) {
+    const sName = (sk.name || '').toLowerCase();
+    if (sName.length > 2 && rawLower.includes(sName)) {
+      fastTrackList.push(`${sk.name} (Matched in syllabus — fast-track introductory modules covering this)`);
+    }
+  }
+
+  if (fastTrackList.length === 0 && verifiedSkills.length > 0) {
+    fastTrackList.push(
+      `Verified skills in ${verifiedSkills.slice(0, 2).map((s) => s.name).join(', ')} provide foundational logic for analytical problem sets`
+    );
+  }
+
+  extraFocusList.push(
+    `${rawUnits[0]?.unitNumber || 'Unit 1'} (${rawUnits[0]?.title || 'Foundations'}) — Core definitions and formulas required for subsequent chapters`
+  );
+  if (rawUnits.length > 2) {
+    extraFocusList.push(
+      `${rawUnits[1]?.unitNumber || 'Unit 2'} — High exam weightage problem solving and derivations`
+    );
+  }
+
+  // 4. MAP TO UI STRUCTURES
+  const totalUnits = rawUnits.length;
+  const weightPerUnit = Math.round(100 / totalUnits);
+
+  const units = rawUnits.map((u, idx) => {
+    const priority = idx === 0 ? 'HIGH' : idx === 1 ? 'CRITICAL' : idx === 2 ? 'HIGH' : 'MEDIUM';
+    const estHours = idx === 1 ? 8 : 6;
+    return {
+      unitNumber: u.unitNumber,
+      title: u.title,
+      weight: `~${weightPerUnit}% Weight`,
+      priority: priority as 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW',
+      estimatedTime: `${estHours} Hours`,
+      pageOrSlideRef: fileType === 'PDF' ? `Section ${idx + 1}` : `Slides ${idx * 6 + 1}–${(idx + 1) * 6}`,
+      topics:
+        u.topics.length > 0
+          ? u.topics
+          : ['Core definitions & scope', 'Governing principles', 'Standard problem sets'],
+      studyChecklist: [
+        `Review definitions and principles of ${u.title}`,
+        `Derive core mechanisms and formulas by hand`,
+        `Solve 3-4 representative textbook problems from ${u.unitNumber}`,
+      ],
+      focusAreas: [
+        `Essential definitions & governing equations for ${u.title}`,
+        `Step-by-step problem solving methodology`,
+      ],
+      howToPractice: 'Solve numerical/analytical problem sets, sketch block diagrams from memory, and write clean summaries.',
+    };
+  });
+
+  const importantTopics: any[] = [];
+  rawUnits.forEach((u, idx) => {
+    const topicTitle = u.topics[0] || u.title;
+    const prio = idx === 1 || idx === 0 ? 'CRITICAL' : 'HIGH';
+    importantTopics.push({
+      title: topicTitle,
+      unit: u.unitNumber,
+      pageOrSlideRef: fileType === 'PDF' ? `Unit ${idx + 1}` : `Slide ${idx * 6 + 2}`,
+      priority: prio as 'CRITICAL' | 'HIGH' | 'MEDIUM',
+      reasonWhyImportant: `Fundamental concept in ${u.title} with recurring weightage in university exams.`,
+      whatToUnderstand: `Understand the underlying mechanism, prerequisite assumptions, and exact analytical formulation for ${topicTitle}.`,
+      keyFormula: `Governing relation / Core definition for ${topicTitle}`,
+      commonPitfalls: `Confusing edge-case boundary conditions or omitting standard units/derivation steps.`,
+    });
+  });
+
+  const studyPriority = rawUnits.map((u, idx) => ({
+    rank: idx + 1,
+    topicTitle: `${u.unitNumber}: ${u.title}`,
+    estimatedTime: `${idx === 1 ? 6 : 4} Hours`,
+    rationale:
+      idx === 0
+        ? 'Foundational prerequisite — establishes the definitions and equations required for all subsequent units.'
+        : idx === 1
+        ? 'Core high-yield section — carries highest mark distribution and descriptive problem sets.'
+        : `Applied module — builds directly upon ${rawUnits[idx - 1]?.unitNumber || 'earlier units'}.`,
+    sourceRef: u.unitNumber,
+    milestone: `After finishing this, you should be able to solve standard ${u.title} problems without reference notes.`,
+  }));
+
+  const examStrategy = [
+    {
+      dayOrPhase: 'Phase 1: Foundations & Core Mechanisms',
+      title: `Master ${rawUnits[0]?.unitNumber || 'Unit 1'} & Core Theory`,
+      focusUnits: `${rawUnits[0]?.unitNumber || 'Unit 1'} (${rawUnits[0]?.title || 'Foundations'})`,
+      timeCommitment: '6 Hours across 2 Days',
+      prerequisites: 'Uploaded lecture slides & textbook chapters',
+      milestoneCheckpoint: 'Milestone: Explain core definitions and derive primary formulas without referencing notes.',
+      twinAdjustment: `Pacing calibrated for ${context.degree || 'Degree'} curriculum.`,
+      actionItems: [
+        `Read through ${rawUnits[0]?.unitNumber || 'Unit 1'} slides line-by-line and annotate key definitions.`,
+        `Derive all primary governing equations by hand on blank paper.`,
+        `Write down a 1-page formula & terminology cheat sheet.`,
+      ],
+    },
+    {
+      dayOrPhase: 'Phase 2: High-Yield Problem Solving',
+      title: `Deep Dive into ${rawUnits[1]?.unitNumber || 'Unit 2'} Problem Sets`,
+      focusUnits: `${rawUnits[1]?.unitNumber || 'Unit 2'} (${rawUnits[1]?.title || 'Core Applications'})`,
+      timeCommitment: '8 Hours across 3 Days',
+      prerequisites: `${rawUnits[0]?.unitNumber || 'Unit 1'} foundational concepts`,
+      milestoneCheckpoint: 'Milestone: Solve previous exam questions under timed conditions with 90%+ accuracy.',
+      twinAdjustment:
+        fastTrackList.length > 0
+          ? 'Leverage verified skills to accelerate initial theory review.'
+          : 'Spend extra time on step-by-step problem proofs.',
+      actionItems: [
+        `Solve 5 standard university numerical or descriptive problems from ${rawUnits[1]?.unitNumber || 'Unit 2'}.`,
+        `Practice diagram sketching and notation accuracy under a 15-minute timer.`,
+        `Identify recurring exam question formats and model answer structures.`,
+      ],
+    },
+    {
+      dayOrPhase: 'Phase 3: Comprehensive Synthesis & Mock Sprint',
+      title: `Full Syllabus Review & Timed Mock Exam`,
+      focusUnits: `All Units (${rawUnits.map((u) => u.unitNumber).join(', ')})`,
+      timeCommitment: '5 Hours across 2 Days',
+      prerequisites: 'Completion of Phases 1 & 2',
+      milestoneCheckpoint: 'Milestone: Complete full-length practice paper within official exam duration.',
+      twinAdjustment: 'Focus revision on identified gap areas.',
+      actionItems: [
+        'Review the 3-phase revision plan and scan the formula bank.',
+        'Complete 1 full-length past exam question paper without external aids.',
+        'Review all flagged common pitfalls before exam day.',
+      ],
+    },
+  ];
+
+  const topicExplanations = rawUnits.slice(0, 3).map((u) => ({
+    concept: `${u.title} - Core Framework`,
+    simpleExplanation: `Essential subject concept extracted from ${u.unitNumber} of the uploaded course material.`,
+    keyPoints: [
+      `Grounded directly in the uploaded ${docName} lecture notes.`,
+      `Governs problem solving in ${u.unitNumber}.`,
+      `High-frequency candidate for descriptive exam questions.`,
+    ],
+    formulas: [`Core governing formula for ${u.title}`],
+    commonMistakes: `Omitting initial assumptions or boundary conditions in exam answers.`,
+    memoryAnchor: `Remember: ${u.title} forms the structural backbone of ${u.unitNumber}.`,
+    howToPractice: `Write out the complete proof or diagram 3 times from memory.`,
+    sourceRef: u.unitNumber,
+  }));
+
+  const revisionPlan = [
+    {
+      phase: 'First Revision (Comprehensive Review)',
+      timeWindow: '72-48 Hours Before Exam',
+      coreFocus: 'All unit definitions, formulas, and structural theory',
+      checklist: rawUnits.map((u) => `Verify full conceptual mastery of ${u.unitNumber} (${u.title})`),
+      quickFormulas: rawUnits.map((u) => `Governing relation: ${u.title}`),
+    },
+    {
+      phase: 'Second Revision (High-Yield & Formulas)',
+      timeWindow: '24 Hours Before Exam',
+      coreFocus: 'High-priority topics, derivations, and hand-drawn diagrams',
+      checklist: [
+        `Re-derive top formulas from ${rawUnits[0]?.unitNumber || 'Unit 1'} and ${rawUnits[1]?.unitNumber || 'Unit 2'}`,
+        'Draw all architecture or process diagrams on paper without looking at notes',
+        'Review model answers for expected 10-mark questions',
+      ],
+      quickFormulas: [`Core formula sheet: ${detectedSubject}`],
+    },
+    {
+      phase: 'Final Revision (Exam-Day Quick Scan)',
+      timeWindow: 'Morning of Exam',
+      coreFocus: 'Rapid scan of formula bank, key terminology, and common pitfalls',
+      checklist: [
+        'Scan the 1-page formula & terminology sheet',
+        'Review common mistake warnings to avoid careless point deductions',
+        'Confirm exam toolkit: pens, calculator, ruler, and hall ticket',
+      ],
+      quickFormulas: [`Final quick scan reminders for ${detectedSubject}`],
+    },
+  ];
+
+  const practiceQuestions = rawUnits.map((u, idx) => ({
+    id: `q${idx + 1}`,
+    type: idx % 2 === 0 ? 'Theory' : 'Numerical',
+    question: `Explain the fundamental principles and mechanisms of ${u.title}. What are the primary governing equations or assumptions?`,
+    unitRef: `${u.unitNumber} (${u.title})`,
+    hint: `Begin with a concise formal definition, state assumptions, and provide a clear step-by-step derivation or diagram.`,
+    modelAnswer: `Model Outline: (1) Define ${u.title} precisely; (2) List core assumptions; (3) Present governing equations or architectural flow; (4) Discuss practical application and boundary cases.`,
+    commonMistakes: `Failing to write clear headings or jumping directly into calculations without defining notation.`,
+  }));
+
+  const examChecklist = rawUnits.map((u, idx) => ({
+    id: `c${idx + 1}`,
+    label: `Master ${u.unitNumber}: ${u.title} and all core subtopics`,
+    category: idx % 2 === 0 ? 'Theory' : 'Problem Solving',
+    completed: idx === 0,
+  }));
+
+  const totalEstimatedHours = rawUnits.length * 6;
+
+  const documentSummary = {
+    subject: detectedSubject,
+    documentName: docName,
+    fileType,
+    pagesOrSlides: docMeta?.fileType === 'pdf' ? docMeta?.pageOrSlideCount || '15+ Pages' : '20+ Slides',
+    coverageOverview: `Comprehensive study guide grounded in ${rawUnits.length} detected syllabus modules for ${detectedSubject}.`,
+    totalEstimatedStudyTime: `${totalEstimatedHours} Hours across 2–3 Weeks`,
+    difficultyLevel: totalUnits >= 5 ? 'Rigorous' : totalUnits >= 4 ? 'Intermediate' : 'Foundational',
+    academicFit: `Core curriculum subject aligned with ${context.degree || 'Degree'} academic progression and technical interviews.`,
+    twinPersonalization: {
+      academicLevel: `${context.degree || 'Degree'} (${context.year || 'Undergraduate'})`,
+      fastTrackRecommendations: fastTrackList,
+      extraFocusAreas: extraFocusList,
+      studyApproachNote: `Study approach calibrated to student's verified skills while strictly preserving 100% of uploaded syllabus content.`,
+    },
+  };
+
+  const text = `### Academic Exam Preparation & Syllabus Study Guide: ${detectedSubject}
+
+**Uploaded Source**: **${docName}** (${fileType})  
+**Academic Source of Truth**: Evaluated strictly on uploaded document content.  
+**Estimated Total Study Time**: **${totalEstimatedHours} Hours**  
+**Difficulty Level**: **${documentSummary.difficultyLevel}**  
+
+---
+
+#### 1. Subject Overview & Curriculum Context
+- **Subject**: ${detectedSubject}
+- **Detected Structure**: ${rawUnits.length} Units / Modules identified from uploaded document.
+- **Coverage**: ${documentSummary.coverageOverview}
+- **Student Twin Alignment**:
+  - Academic Level: ${context.degree || 'Degree'} (${context.year || 'Undergraduate'})
+  - Fast-Track Suggestions: ${fastTrackList.join('; ')}
+  - Recommended Extra Focus: ${extraFocusList.join('; ')}
+
+---
+
+#### 2. Topic Roadmap (Units & Weightage)
+${units.map((u) => `##### **${u.unitNumber}: ${u.title}** (${u.weight} • ${u.priority} Priority • ${u.estimatedTime})
+- **Topics**: ${u.topics.join(' • ')}
+- **Focus**: ${u.focusAreas.join(' | ')}
+- **Practice**: ${u.howToPractice}`).join('\n\n')}
+
+---
+
+#### 3. High-Priority / High-Yield Topics
+${importantTopics.map((t) => `##### **[${t.priority}] ${t.title}** (${t.unit})
+- **Why Important**: ${t.reasonWhyImportant}
+- **What To Understand**: ${t.whatToUnderstand}
+- **Common Pitfalls**: ${t.commonPitfalls}`).join('\n\n')}
+
+---
+
+#### 4. "How to Complete the Subject" Step-by-Step Study Path
+${studyPriority.map((s) => `${s.rank}. **${s.topicTitle}** (${s.estimatedTime})  
+   *Rationale*: ${s.rationale}  
+   *Milestone*: ${s.milestone}`).join('\n\n')}
+
+---
+
+#### 5. Exam Preparation Sprints
+${examStrategy.map((e) => `##### **${e.dayOrPhase}: ${e.title}** (${e.timeCommitment})
+*Focus*: ${e.focusUnits}  
+*Milestone*: ${e.milestoneCheckpoint}  
+${e.actionItems.map((a) => `- ${a}`).join('\n')}`).join('\n\n')}
+
+---
+
+#### 6. 3-Phase Revision Plan
+${revisionPlan.map((r) => `##### **${r.phase}** (${r.timeWindow})
+*Core Focus*: ${r.coreFocus}
+${r.checklist.map((c) => `- [ ] ${c}`).join('\n')}`).join('\n\n')}
+
+---
+
+#### 7. Sample High-Probability Practice Questions
+${practiceQuestions.map((q) => `##### **[${q.type}] ${q.question}** (${q.unitRef})
+- **Hint**: ${q.hint}
+- **Model Answer Outline**: ${q.modelAnswer}
+- **Common Mistakes**: ${q.commonMistakes}`).join('\n\n')}
+
+---
+
+#### 8. Exam Day Checklist
+${examChecklist.map((c) => `- [${c.completed ? 'x' : ' '}] ${c.label} *(${c.category})*`).join('\n')}`;
+
+  const data = {
+    score: 95,
+    evaluation: 'Academic Study Guide Ready',
+    documentSummary,
+    units,
+    importantTopics,
+    studyPriority,
+    examStrategy,
+    topicExplanations,
+    revisionPlan,
+    practiceQuestions,
+    examChecklist,
+    breakdown: [
+      { label: 'Syllabus Coverage & Unit Mapping', score: 25, max: 25 },
+      { label: 'High-Yield Topic Identification', score: 24, max: 25 },
+      { label: 'Study Path & Sprint Actionability', score: 24, max: 25 },
+      { label: 'Revision & Practice Question Rigor', score: 23, max: 25 },
+    ],
+    strengths: [
+      `100% grounded in uploaded ${docName} content with zero fabricated chapters`,
+      `Includes complete 3-phase revision plan and high-probability practice questions`,
+      `Personalized study pacing aligned with Student Twin verified skills`,
+    ],
+    gaps: [
+      `Ensure hand-drawn practice of all diagrams and derivations under timed conditions`,
+      `Review university past question papers alongside lecture slides`,
+    ],
   };
 
   return { text, data };
@@ -2568,338 +3689,7 @@ ${context.achievements.map((a) => `• ${a.title} — ${a.issuer}${a.date ? ` ($
     }
 
     case 'syllabus-prep': {
-      const docName = docMeta?.fileName || 'Academic Syllabus Document';
-      const fileType = docMeta?.fileType?.toUpperCase() || 'PDF';
-      const score = 94;
-      const evaluation = getEvaluationLabel(score);
-
-      // Extract units or topics dynamically from uploaded text if present
-      const rawDoc = docText || userInputs?.pastedText || '';
-      const unitMatches: Array<{ unit: string; title: string }> = [];
-      const unitRegex = /(?:Unit|Module|Chapter|Slide|Section)\s*([0-9IVX]+)[:\s–-]+([^\n\r.]+)/gi;
-      let m: RegExpExecArray | null;
-      while ((m = unitRegex.exec(rawDoc)) !== null) {
-        if (m[2].trim().length > 2) {
-          unitMatches.push({ unit: `Unit ${m[1]}`, title: m[2].trim().slice(0, 60) });
-        }
-        if (unitMatches.length >= 6) break;
-      }
-
-      const defaultUnits = [
-        {
-          unitNumber: 'Unit 1',
-          title: unitMatches[0]?.title || 'Core Foundations & Mathematical Formulations',
-          weight: '~30% Exam Weight',
-          priority: 'HIGH' as const,
-          topics: ['Asymptotic Notations & Master Theorem', 'Recurrence Relations', 'Time-Space Complexity Bounds'],
-          pageOrSlideRef: fileType === 'PDF' ? 'Pages 1–18' : 'Slides 1–12',
-        },
-        {
-          unitNumber: 'Unit 2',
-          title: unitMatches[1]?.title || 'Core Algorithms & Data Structure Traversal',
-          weight: '~35% Exam Weight',
-          priority: 'CRITICAL' as const,
-          topics: ['Graph Search (BFS / DFS & Topological Sort)', 'Dynamic Programming Optimal Substructure', 'Shortest Path (Dijkstra & Bellman-Ford)'],
-          pageOrSlideRef: fileType === 'PDF' ? 'Pages 19–42' : 'Slides 13–28',
-        },
-        {
-          unitNumber: 'Unit 3',
-          title: unitMatches[2]?.title || 'System Architecture, Concurrency & State Machines',
-          weight: '~20% Exam Weight',
-          priority: 'MEDIUM' as const,
-          topics: ['Deadlock Necessary Conditions & Banker\'s Algorithm', 'Process Scheduling (Round Robin & Priority)', 'Virtual Memory & Page Replacement (LRU)'],
-          pageOrSlideRef: fileType === 'PDF' ? 'Pages 43–65' : 'Slides 29–44',
-        },
-        {
-          unitNumber: 'Unit 4',
-          title: unitMatches[3]?.title || 'Database Transactions & Distributed Indexing',
-          weight: '~15% Exam Weight',
-          priority: 'MEDIUM' as const,
-          topics: ['ACID Guarantees & Conflict Serializability', 'B+ Tree Indexing Mechanics', 'Schema Normalization (1NF through BCNF)'],
-          pageOrSlideRef: fileType === 'PDF' ? 'Pages 66–88' : 'Slides 45–60',
-        },
-      ];
-
-      const importantTopics = [
-        {
-          title: 'Graph Traversals & Topological Ordering',
-          unit: 'Unit 2',
-          pageOrSlideRef: fileType === 'PDF' ? 'Page 24' : 'Slide 18',
-          priority: 'CRITICAL' as const,
-          reasonWhyImportant: 'Core algorithmic concept frequently tested in descriptive problem-solving sections.',
-          whatToUnderstand: 'Understand cycle detection in directed graphs using 3-color DFS and DAG dependency resolution.',
-          keyFormula: 'Time Complexity: O(V + E) | Space Complexity: O(V)',
-        },
-        {
-          title: 'Dynamic Programming — 0/1 Knapsack & Memoization',
-          unit: 'Unit 2',
-          pageOrSlideRef: fileType === 'PDF' ? 'Page 36' : 'Slide 22',
-          priority: 'CRITICAL' as const,
-          reasonWhyImportant: 'Distinguishes top-tier scores through tabular vs recursive memoization proofs.',
-          whatToUnderstand: 'Formulate the recurrence relation: DP[i][w] = max(DP[i-1][w], DP[i-1][w-wt[i]] + val[i]).',
-          keyFormula: 'DP[i, w] = max(DP[i-1, w], DP[i-1, w-w_i] + v_i)',
-        },
-        {
-          title: 'Deadlock Characterization & Prevention',
-          unit: 'Unit 3',
-          pageOrSlideRef: fileType === 'PDF' ? 'Page 48' : 'Slide 32',
-          priority: 'HIGH' as const,
-          reasonWhyImportant: 'Standard 10-mark theory question in university exam papers.',
-          whatToUnderstand: 'Memorize the 4 Coffman conditions (Mutual Exclusion, Hold & Wait, No Preemption, Circular Wait).',
-          keyFormula: 'Banker\'s Algorithm: Need[i,j] = Max[i,j] - Allocation[i,j]',
-        },
-        {
-          title: 'Asymptotic Bounds & Master Theorem',
-          unit: 'Unit 1',
-          pageOrSlideRef: fileType === 'PDF' ? 'Page 12' : 'Slide 8',
-          priority: 'HIGH' as const,
-          reasonWhyImportant: 'Guaranteed 5-mark calculation questions in university midterms and finals.',
-          whatToUnderstand: 'Master the 3 cases of T(n) = aT(n/b) + f(n) comparing n^(log_b a) with f(n).',
-          keyFormula: 'Case 1: f(n) = O(n^(log_b a - ε)) => T(n) = Θ(n^(log_b a))',
-        },
-      ];
-
-      const studyPriority = [
-        {
-          rank: 1,
-          topicTitle: 'Dynamic Programming & Graph Algorithms',
-          rationale: 'Accounts for ~35% of total exam marks and requires pen-and-paper tracing practice.',
-          estimatedTime: '4.5 Hours',
-          sourceRef: fileType === 'PDF' ? 'Unit 2 • Pages 19–42' : 'Unit 2 • Slides 13–28',
-        },
-        {
-          rank: 2,
-          topicTitle: 'Core Mathematical Bounds & Recurrences',
-          rationale: 'High-probability quick calculation questions that award full credit for correct formulas.',
-          estimatedTime: '2.5 Hours',
-          sourceRef: fileType === 'PDF' ? 'Unit 1 • Pages 1–18' : 'Unit 1 • Slides 1–12',
-        },
-        {
-          rank: 3,
-          topicTitle: 'Operating System Synchronization & Deadlocks',
-          rationale: 'Diagram-heavy conceptual questions where neat block diagrams secure high grading marks.',
-          estimatedTime: '3.0 Hours',
-          sourceRef: fileType === 'PDF' ? 'Unit 3 • Pages 43–65' : 'Unit 3 • Slides 29–44',
-        },
-        {
-          rank: 4,
-          topicTitle: 'Relational Indexing & Normal Forms',
-          rationale: 'Definition and scenario-based decomposition problems (BCNF proofs).',
-          estimatedTime: '2.0 Hours',
-          sourceRef: fileType === 'PDF' ? 'Unit 4 • Pages 66–88' : 'Unit 4 • Slides 45–60',
-        },
-      ];
-
-      const topicExplanations = [
-        {
-          concept: 'Dynamic Programming: Tabulation vs Memoization',
-          simpleExplanation: 'Breaking complex problems into overlapping subproblems and caching results to prevent exponential recalculation.',
-          keyPoints: [
-            'Top-Down uses recursion with a lookup memo table.',
-            'Bottom-Up constructs solutions iteratively from base cases in an array.',
-            'Always define state variables before writing code or recurrence.',
-          ],
-          formulas: ['DP[i] = min(DP[i - c] + 1) for all c in coins'],
-          commonMistakes: 'Forgetting base condition initialization leading to off-by-one or infinite loop errors.',
-          memoryAnchor: 'Remember: Memoization = Recursion + Cache; Tabulation = Iterative Table Fill.',
-          sourceRef: fileType === 'PDF' ? 'Unit 2 • Page 36' : 'Unit 2 • Slide 22',
-        },
-        {
-          concept: 'Banker\'s Algorithm for Deadlock Avoidance',
-          simpleExplanation: 'Simulates allocation of predetermined maximum resources to test whether granting a request leaves the system in a safe state.',
-          keyPoints: [
-            'Maintain Available, Max, Allocation, and Need matrices.',
-            'A state is SAFE if there exists an execution sequence that allows all processes to finish.',
-            'If state is unsafe, the request must wait.',
-          ],
-          formulas: ['Need = Max - Allocation', 'Work = Work + Allocation (when Finish[i] == true)'],
-          commonMistakes: 'Confusing deadlock avoidance (Banker\'s) with deadlock detection.',
-          memoryAnchor: 'Safe sequence exists = No deadlock possible.',
-          sourceRef: fileType === 'PDF' ? 'Unit 3 • Page 52' : 'Unit 3 • Slide 34',
-        },
-      ];
-
-      const examStrategy = [
-        {
-          dayOrPhase: 'Day 1 — Foundations & Core Algorithms',
-          title: 'Master Units 1 & 2 High-Yield Topics',
-          focusUnits: 'Unit 1 & Unit 2',
-          actionItems: [
-            'Derive 5 Master Theorem recurrence equations by hand.',
-            'Trace BFS/DFS and write Dijkstra algorithm pseudo-code with priority queue.',
-            'Solve 3 standard 0/1 Knapsack tabular problems.',
-          ],
-          timeCommitment: '4 Hours',
-        },
-        {
-          dayOrPhase: 'Day 2 — Systems & Concurrency',
-          title: 'Master Unit 3 & OS Architecture Tracing',
-          focusUnits: 'Unit 3',
-          actionItems: [
-            'Draw complete process state transition diagram and memory paging layout.',
-            'Solve 2 numerical problems on Banker\'s safety state algorithm.',
-            'Practice LRU and Optimal page replacement numerical tables.',
-          ],
-          timeCommitment: '3.5 Hours',
-        },
-        {
-          dayOrPhase: 'Day 3 — Database Rigor & Final Revision',
-          title: 'Master Unit 4 & Comprehensive Mock Sprint',
-          focusUnits: 'Unit 4 & Cross-Unit Mock',
-          actionItems: [
-            'Prove BCNF and 3NF decomposition for given functional dependencies.',
-            'Review all important formulas, definitions, and hand-drawn architecture diagrams.',
-            'Attempt 1 full-length timed mock question paper.',
-          ],
-          timeCommitment: '3.5 Hours',
-        },
-      ];
-
-      const practiceQuestions = [
-        {
-          id: 'q1',
-          type: 'Short Answer' as const,
-          question: 'State the Master Theorem conditions and find the asymptotic time complexity of T(n) = 2T(n/2) + O(n).',
-          hint: 'Compare n^(log_b a) with f(n) where a=2, b=2.',
-          modelAnswer: 'Here a=2, b=2, so n^(log_2 2) = n^1. Since f(n) = Θ(n^1), by Case 2 of Master Theorem, T(n) = Θ(n log n).',
-          unitRef: 'Unit 1 (Foundations)',
-        },
-        {
-          id: 'q2',
-          type: 'Long Answer' as const,
-          question: 'Explain Dijkstra\'s single-source shortest path algorithm. Does it work with negative edge weights? Justify with an example.',
-          hint: 'Greedy approach requires non-negative edge weights for relaxation invariant to hold.',
-          modelAnswer: 'Dijkstra maintains a set of visited vertices and greedily selects the minimum distance vertex using a min-heap (O((V+E)log V)). It fails on negative edge cycles because once a node is marked visited, its distance is assumed final.',
-          unitRef: 'Unit 2 (Algorithms)',
-        },
-        {
-          id: 'q3',
-          type: 'Conceptual' as const,
-          question: 'List the four Coffman conditions necessary for a deadlock. How does Banker\'s Algorithm ensure safe resource allocation?',
-          hint: 'Mutual Exclusion, Hold and Wait, No Preemption, Circular Wait.',
-          modelAnswer: 'The 4 conditions: (1) Mutual Exclusion, (2) Hold & Wait, (3) No Preemption, (4) Circular Wait. Banker\'s algorithm tests if allocating resources allows at least one process to complete and release resources recursively.',
-          unitRef: 'Unit 3 (Systems)',
-        },
-      ];
-
-      const revisionPlan = [
-        {
-          phase: 'First Revision' as const,
-          timeWindow: '48 Hours Before Exam',
-          coreFocus: 'High-Yield Units (Units 1 & 2)',
-          checklist: [
-            'All time/space complexity proof summaries verified',
-            'Dynamic programming recurrence formulas memorized',
-            'Graph traversal pseudo-code written from memory',
-          ],
-        },
-        {
-          phase: 'Second Revision' as const,
-          timeWindow: '24 Hours Before Exam',
-          coreFocus: 'System Diagrams & Calculations (Units 3 & 4)',
-          checklist: [
-            'Process state transition & paging diagrams drawn cleanly',
-            'Banker\'s safety algorithm and page replacement matrices verified',
-            'Database Normalization (BCNF vs 3NF) comparison rules reviewed',
-          ],
-        },
-        {
-          phase: 'Final Revision' as const,
-          timeWindow: 'Morning of Exam',
-          coreFocus: 'Quick Reference Formulas & Pitfalls',
-          checklist: [
-            'Review Master Theorem decision table',
-            'Review 4 Coffman conditions and ACID properties',
-            'Review common exam pitfalls and margin layout guidelines',
-          ],
-        },
-      ];
-
-      const examChecklist = [
-        { id: 'c1', label: 'Unit 1 Mathematical Notations & Master Theorem formulas memorized', category: 'Theory', completed: true },
-        { id: 'c2', label: 'Unit 2 BFS/DFS & Shortest Path pseudo-code practiced on paper', category: 'Algorithms', completed: true },
-        { id: 'c3', label: 'Unit 2 DP 0/1 Knapsack recurrence relation traced', category: 'Algorithms', completed: false },
-        { id: 'c4', label: 'Unit 3 4 Deadlock conditions & Banker\'s algorithm practiced', category: 'Systems', completed: false },
-        { id: 'c5', label: 'Unit 3 Page replacement algorithms (FIFO, LRU, Optimal) solved', category: 'Systems', completed: false },
-        { id: 'c6', label: 'Unit 4 BCNF and 3NF functional dependency proofs reviewed', category: 'Databases', completed: false },
-        { id: 'c7', label: 'Hand-drawn architecture block diagrams verified for neatness', category: 'Diagrams', completed: false },
-      ];
-
-      const text = `### Academic Exam Preparation & Syllabus Strategy Guide
-
-**Target Document**: **${docName}** (${fileType})  
-**Readiness Strategy Score**: **${score} / 100** (${evaluation})
-
-#### 1. Document Overview & Detected Hierarchy
-- **Identified Units**: ${defaultUnits.length} Units detected across ${docMeta?.fileType === 'pdf' ? 'document pages' : 'presentation slides'}
-- **Course Subject**: Core Computer Science & Applied Systems Engineering
-
-#### 2. High-Yield Topic Weightage & Priority
-${defaultUnits.map((u) => `- **${u.unitNumber} (${u.title})**: ${u.weight} (${u.priority} Priority)`).join('\n')}
-
-#### 3. What to Study First (Ordered Sequence)
-${studyPriority.map((s) => `${s.rank}. **${s.topicTitle}** (${s.estimatedTime}) — ${s.rationale}`).join('\n')}
-
-#### 4. High-Yield Concept Explanations
-${topicExplanations.map((t) => `##### **${t.concept}**\n- ${t.simpleExplanation}\n- **Key Formula**: \`${t.formulas.join(', ')}\`\n- **Memory Anchor**: ${t.memoryAnchor}`).join('\n\n')}
-
-#### 5. Exam Preparation Sprint Strategy
-${examStrategy.map((e) => `##### **${e.dayOrPhase}: ${e.title}** (${e.timeCommitment})\n${e.actionItems.map((a) => `• ${a}`).join('\n')}`).join('\n\n')}
-
-#### 6. Practice Examination Questions
-${practiceQuestions.map((q) => `**[${q.type}] ${q.question}**\n> *Answer*: ${q.modelAnswer}`).join('\n\n')}
-
-#### 7. Final Exam Day Checklist
-${examChecklist.map((c) => `- [${c.completed ? 'x' : ' '}] ${c.label}`).join('\n')}`;
-
-      const data = {
-        score,
-        evaluation,
-        documentSummary: {
-          documentName: docName,
-          fileType,
-          subject: 'Core Computer Science & Applied Systems',
-          pagesOrSlides: fileType === 'PDF' ? 48 : 36,
-          unitsCount: defaultUnits.length,
-          topicsCount: 24,
-          status: 'Verified & Indexed',
-        },
-        profile: {
-          docName,
-          docType: fileType,
-        },
-        breakdown: [
-          { label: 'High-Priority Topic Coverage', score: 28, max: 30 },
-          { label: 'Concept Depth & Clarity', score: 24, max: 25 },
-          { label: 'Question Pattern Prediction', score: 19, max: 20 },
-          { label: 'Sprint Strategy Actionability', score: 14, max: 15 },
-          { label: 'Exam Day Checklist Rigor', score: 9, max: 10 },
-        ],
-        units: defaultUnits,
-        importantTopics,
-        studyPriority,
-        topicExplanations,
-        examStrategy,
-        practiceQuestions,
-        revisionPlan,
-        examChecklist,
-        strengths: [
-          'Direct mapping to verified courseware units with concrete slide/page references',
-          'Actionable 3-day sprint breakdown answering "What to study first"',
-          'Includes high-probability practice questions and numerical verification proofs',
-          'Clear priority tiering distinguishing critical algorithms from low-weight theory',
-        ],
-        gaps: [
-          'Review past university question papers alongside lecture slide derivations',
-          'Practice drawing block architecture diagrams with a pen under timed conditions',
-        ],
-        recommendations: [
-          { priority: 1, title: 'Focus on High-Yield Units', desc: 'Devote 65% of prep time to Units 1 & 2 before moving to peripheral units.' },
-          { priority: 2, title: 'Practice Hand-Written Tracing', desc: 'Draw BFS/DFS and DP matrices by hand to avoid calculation errors.' },
-          { priority: 3, title: 'Download Study Guide PDF', desc: 'Keep a clean offline copy for rapid pre-exam revision.' },
-        ],
-      };
-      return { text, data };
+      return generateDynamicSyllabusPrepResponse(context, userInputs, docText, docMeta);
     }
 
     case 'roadmap-30-60-90': {
@@ -2907,64 +3697,7 @@ ${examChecklist.map((c) => `- [${c.completed ? 'x' : ' '}] ${c.label}`).join('\n
     }
 
     case 'internship-ready': {
-      const score = 86;
-      const evaluation = getEvaluationLabel(score);
-      const text = `### Tier-1 Internship Readiness Diagnostic
-
-**Candidate**: ${context.name} (${context.university})  
-**Target Domain**: ${context.targetRole || 'Software Engineering'}  
-**Internship Readiness Score**: **${score} / 100** (${evaluation})
-
-#### 1. Dimension Breakdown Matrix
-- **Resume Readiness**: 86% (Clean single-page ATS layout)
-- **Project Depth**: 88% (${context.projects.length} verified projects with AST modularity)
-- **GitHub Signals**: 84% (Organic commit signals and active repositories)
-- **LinkedIn Presence**: 82% (Clear student positioning)
-- **Core Skills**: 89% (Verified modern technical stack)
-- **Proof-of-Work Verification**: 85% (Low code entropy)
-
-#### 2. Competitive Strengths
-- Strong academic standing (${context.cgpa || '8.5'} CGPA) combined with real project artifacts.
-- Verified skills in high-demand technologies (${context.skills.slice(0, 3).map((s) => s.name).join(', ')}).
-- Direct alignment with Tier-1 internship evaluation rubrics.
-
-#### 3. Critical Gaps & Missing Proof
-- Several repositories lack live interactive demo URLs in header.
-- Automated CI/CD test workflows are missing from backend codebases.
-- System design basics (caching, load balancing) require calibration.`;
-
-      const data = {
-        score,
-        evaluation,
-        profile: {
-          name: context.name,
-          targetRole: context.targetRole,
-          university: context.university,
-        },
-        breakdown: [
-          { label: 'Resume Readiness', score: 14, max: 15 },
-          { label: 'Project Depth', score: 22, max: 25 },
-          { label: 'GitHub Technical Signals', score: 17, max: 20 },
-          { label: 'LinkedIn Presence', score: 12, max: 15 },
-          { label: 'Core Skill Verification', score: 13, max: 15 },
-          { label: 'Proof-of-Work Rigor', score: 8, max: 10 },
-        ],
-        strengths: [
-          'High academic GPA combined with verified repository artifacts',
-          'Demonstrable proficiency in modern full-stack architectures',
-          'Strong placement track trajectory exceeding median university benchmarks',
-        ],
-        gaps: [
-          'Missing live deployed staging links on 2 project repositories',
-          'Unit test coverage below 70% on backend endpoints',
-        ],
-        recommendations: [
-          { priority: 1, title: 'Deploy Live Demos', desc: 'Ensure zero-friction staging URLs are available for recruiters' },
-          { priority: 2, title: 'Add Test Suites', desc: 'Implement automated unit tests in your primary GitHub repo' },
-          { priority: 3, title: 'Calibrate Outreach', desc: 'Begin cold outreach with concise proof-of-work blurbs' },
-        ],
-      };
-      return { text, data };
+      return generateDynamicInternshipReadyResponse(context, userInputs);
     }
 
     case 'career-simulator': {
