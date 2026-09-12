@@ -2,6 +2,8 @@ import React, { createContext, useContext, useState, useRef, useEffect, useCallb
 import { EngineId, EngineAiRequest, EngineAiResponse } from '../types/engines';
 import { AIJob, AIJobContextType, AIJobStage, DEFAULT_ENGINE_STAGES } from '../types/aiJobs';
 import { executeAiEngine } from '../lib/aiEngineService';
+import { useAuth } from './AuthContext';
+import { useStudentTwin } from './StudentTwinContext';
 
 const AIJobContext = createContext<AIJobContextType | undefined>(undefined);
 
@@ -17,13 +19,22 @@ function createInitialJob(engineId: EngineId): AIJob {
 }
 
 export const AIJobProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [jobs, setJobs] = useState<Record<EngineId, AIJob>>(() => {
+  const { user } = useAuth();
+  const { isDemoMode } = useStudentTwin();
+  const scopeKey = isDemoMode ? 'demo' : (user?.id ? `user_${user.id}` : 'guest');
+
+  const getStorageKey = useCallback((engineId: EngineId) => {
+    return `sdt_ai_job_${scopeKey}_${engineId}`;
+  }, [scopeKey]);
+
+  // Load jobs specific to active session/scope
+  const loadJobsForScope = useCallback((): Record<EngineId, AIJob> => {
     const initial: Partial<Record<EngineId, AIJob>> = {};
     const engineIds = Object.keys(DEFAULT_ENGINE_STAGES) as EngineId[];
     engineIds.forEach((id) => {
       let restored: AIJob | null = null;
       try {
-        const saved = localStorage.getItem(`sdt_ai_job_${id}`);
+        const saved = localStorage.getItem(`sdt_ai_job_${scopeKey}_${id}`);
         if (saved) {
           const parsed = JSON.parse(saved);
           if (parsed && parsed.status === 'completed' && parsed.result) {
@@ -34,7 +45,14 @@ export const AIJobProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       initial[id] = restored || createInitialJob(id);
     });
     return initial as Record<EngineId, AIJob>;
-  });
+  }, [scopeKey]);
+
+  const [jobs, setJobs] = useState<Record<EngineId, AIJob>>(loadJobsForScope);
+
+  // Sync jobs whenever scope changes (e.g., login, switch to demo, logout)
+  useEffect(() => {
+    setJobs(loadJobsForScope());
+  }, [scopeKey, loadJobsForScope]);
 
   // Keep track of active timers and abort controllers
   const jobTimers = useRef<Record<string, NodeJS.Timeout[]>>({});
@@ -57,25 +75,25 @@ export const AIJobProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const resetJob = useCallback((engineId: EngineId) => {
     clearJobTimers(engineId);
     try {
-      localStorage.removeItem(`sdt_ai_job_${engineId}`);
+      localStorage.removeItem(getStorageKey(engineId));
     } catch {}
     setJobs((prev) => ({
       ...prev,
       [engineId]: createInitialJob(engineId),
     }));
-  }, []);
+  }, [getStorageKey]);
 
   const clearAllJobs = useCallback(() => {
     Object.keys(jobTimers.current).forEach(clearJobTimers);
     const initial: Partial<Record<EngineId, AIJob>> = {};
     (Object.keys(DEFAULT_ENGINE_STAGES) as EngineId[]).forEach((id) => {
       try {
-        localStorage.removeItem(`sdt_ai_job_${id}`);
+        localStorage.removeItem(getStorageKey(id));
       } catch {}
       initial[id] = createInitialJob(id);
     });
     setJobs(initial as Record<EngineId, AIJob>);
-  }, []);
+  }, [getStorageKey]);
 
   const runJob = useCallback(
     async (
@@ -198,7 +216,7 @@ export const AIJobProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         };
 
         try {
-          localStorage.setItem(`sdt_ai_job_${engineId}`, JSON.stringify(completedJob));
+          localStorage.setItem(getStorageKey(engineId), JSON.stringify(completedJob));
         } catch (e) {
           console.warn('Could not persist job to localStorage:', e);
         }

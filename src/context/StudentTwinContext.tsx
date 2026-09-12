@@ -26,6 +26,21 @@ import { useAuth } from './AuthContext';
 import { supabase, isSupabaseConfigured, withTimeout } from '../lib/supabase';
 import { calculateRealReadiness, ReadinessBreakdown, PILLAR_WEIGHTS } from '../lib/readinessScore';
 
+const generateUUID = (): string => {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID();
+  }
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+    const r = (Math.random() * 16) | 0,
+      v = c === 'x' ? r : (r & 0x3) | 0x8;
+    return v.toString(16);
+  });
+};
+
+const isValidUUID = (id: any): boolean => {
+  return typeof id === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
+};
+
 export const SUBSCRIPTION_PLANS: Record<SubscriptionTier, SubscriptionPlan> = {
   free: {
     tier: 'free',
@@ -384,7 +399,7 @@ export const StudentTwinProvider: React.FC<{
         // Only reached when user genuinely has neither cloud profiles nor local cached profiles
         const userName = userProfile?.fullName || user!.user_metadata?.full_name || '';
         const initialProfile: StudentProfile = {
-          id: `profile-${userId}`,
+          id: generateUUID(),
           userId: userId,
           isDemo: false,
           name: userName,
@@ -697,43 +712,43 @@ export const StudentTwinProvider: React.FC<{
       localStorage.setItem(`${USER_STUDENT_PROFILES_KEY}_${user.id}`, JSON.stringify(updated));
 
       if (isSupabaseConfigured) {
+        const profilePayload: Record<string, any> = {
+          user_id: user.id,
+          name: mergedData.name || mergedData.fullName || 'Student Twin',
+          display_name: mergedData.displayName || mergedData.fullName || mergedData.name || 'Student Twin',
+          role: mergedData.role || 'Student',
+          headline: mergedData.headline || null,
+          university: mergedData.university || '',
+          academic_program: mergedData.academicProgram || (mergedData.degree && mergedData.branch ? `${mergedData.degree} in ${mergedData.branch}` : mergedData.degree || ''),
+          year_of_study: mergedData.yearOfStudy || mergedData.year || '1st Year',
+          career_focus: mergedData.careerFocus || mergedData.targetRole || '',
+          specialty: mergedData.specialty || null,
+          bio: mergedData.bio || null,
+          avatar_url: mergedData.avatarUrl || null,
+          github_url: mergedData.githubUrl || null,
+          linkedin_url: mergedData.linkedinUrl || null,
+          portfolio_url: mergedData.portfolioUrl || null,
+          location: mergedData.location || null,
+          current_gpa: mergedData.currentGpa || (mergedData.cgpa ? String(mergedData.cgpa) : null),
+          semester: mergedData.semester || null,
+          target_role: mergedData.targetRole || null,
+          target_company_tier: mergedData.targetCompanyTier || null,
+          readiness_score: typeof mergedData.readinessScore === 'number' ? mergedData.readinessScore : 0,
+          skills_verified_count: isTargetActive ? userSkills.filter((s) => Boolean(s.verified)).length : (mergedData.skillsVerifiedCount || 0),
+          project_index_count: isTargetActive ? userProjects.length : (mergedData.projectIndexCount || 0),
+          milestones_count: isTargetActive ? userAchievements.length : (mergedData.milestonesCount || 0),
+          status: mergedData.status || 'Active Twin',
+          updated_at: new Date().toISOString(),
+        };
+
+        if (isValidUUID(profileIdToUpdate)) {
+          profilePayload.id = profileIdToUpdate;
+        }
+
         withTimeout(
-          supabase
-            .from('student_profiles')
-            .upsert({
-              id: profileIdToUpdate,
-              user_id: user.id,
-              name: mergedData.name || mergedData.fullName,
-              display_name: mergedData.displayName || mergedData.fullName,
-              role: mergedData.role || 'Student',
-              headline: mergedData.headline,
-              university: mergedData.university,
-              academic_program: mergedData.academicProgram || mergedData.degree,
-              degree: mergedData.degree,
-              branch: mergedData.branch,
-              year: mergedData.year,
-              year_of_study: mergedData.yearOfStudy || mergedData.year,
-              grad_year: mergedData.gradYear,
-              career_focus: mergedData.careerFocus,
-              specialty: mergedData.specialty,
-              bio: mergedData.bio,
-              avatar_url: mergedData.avatarUrl,
-              phone: mergedData.phone,
-              github_url: mergedData.githubUrl,
-              linkedin_url: mergedData.linkedinUrl,
-              portfolio_url: mergedData.portfolioUrl,
-              location: mergedData.location,
-              current_gpa: mergedData.currentGpa,
-              cgpa: mergedData.cgpa,
-              semester: mergedData.semester,
-              target_role: mergedData.targetRole,
-              target_company_tier: mergedData.targetCompanyTier,
-              readiness_score: mergedData.readinessScore,
-              skills_verified_count: isTargetActive ? userSkills.filter((s) => Boolean(s.verified)).length : mergedData.skillsVerifiedCount,
-              project_index_count: isTargetActive ? userProjects.length : mergedData.projectIndexCount,
-              milestones_count: isTargetActive ? userAchievements.length : mergedData.milestonesCount,
-              status: mergedData.status || 'Active Twin',
-            }),
+          isValidUUID(profileIdToUpdate)
+            ? supabase.from('student_profiles').upsert(profilePayload)
+            : supabase.from('student_profiles').update(profilePayload).eq('user_id', user.id),
           3500
         ).catch((err) => {
           console.warn('Student profile cloud update notice:', err);
@@ -1025,16 +1040,18 @@ export const StudentTwinProvider: React.FC<{
       nextAchievements,
       nextGoals
     );
+    const metricsPayload = {
+      skills_verified_count: nextSkills.filter((s) => Boolean(s.verified)).length,
+      project_index_count: nextProjects.length,
+      milestones_count: nextAchievements.length,
+      readiness_score: computed.overallScore,
+      updated_at: new Date().toISOString(),
+    };
+
     withTimeout(
-      supabase
-        .from('student_profiles')
-        .update({
-          skills_verified_count: nextSkills.filter((s) => Boolean(s.verified)).length,
-          project_index_count: nextProjects.length,
-          milestones_count: nextAchievements.length,
-          readiness_score: computed.overallScore,
-        })
-        .eq('id', activeProfile.id),
+      isValidUUID(activeProfile.id)
+        ? supabase.from('student_profiles').update(metricsPayload).eq('id', activeProfile.id)
+        : supabase.from('student_profiles').update(metricsPayload).eq('user_id', user.id),
       3000
     ).catch((err) => {
       console.warn('Background metrics sync caught:', err);

@@ -1946,7 +1946,10 @@ This portfolio website was generated automatically using verified Student Digita
                           <style>${generatedCss}</style>
                         </head>
                         <body class="theme-${portfolioTheme}">
-                          ${generatedHtml.replace(/<!DOCTYPE html>[\s\S]*?<body[^>]*>/i, '').replace(/<\/body>[\s\S]*?<\/html>/i, '')}
+                          ${generatedHtml
+                            .replace(/<!DOCTYPE html>[\s\S]*?<body[^>]*>/i, '')
+                            .replace(/<\/body>[\s\S]*?<\/html>/i, '')
+                            .replace(/<script\s+src=["']script\.js["']\s*><\/script>/gi, '')}
                           <script>${generatedJs}</script>
                         </body>
                       </html>

@@ -747,16 +747,24 @@ Format all pricing and CTC estimates strictly in Indian Rupees (₹) using the I
     }
 
     // Critical Engines: NEVER return a fake static answer if prerequisites or AI execution fails
-    if (engineId === 'career-assistant' || engineId === 'project-auditor' || engineId === 'internship-ready') {
+    if (
+      engineId === 'career-assistant' ||
+      engineId === 'project-auditor' ||
+      engineId === 'internship-ready' ||
+      engineId === 'syllabus-prep'
+    ) {
       return {
         engineId,
         timestamp: new Date().toISOString(),
         status: 'error',
-        error: engineId === 'internship-ready'
-          ? 'Unable to complete the Internship Readiness analysis.'
-          : engineId === 'project-auditor'
-          ? 'Project code audit could not be completed. Please ensure your project details are valid and try again.'
-          : 'Career Assistant analysis could not be completed.',
+        error:
+          engineId === 'syllabus-prep'
+            ? 'Please upload the correct PPT/PDF of a subject.'
+            : engineId === 'internship-ready'
+            ? 'Unable to complete the Internship Readiness analysis.'
+            : engineId === 'project-auditor'
+            ? 'Project code audit could not be completed. Please ensure your project details are valid and try again.'
+            : 'Career Assistant analysis could not be completed.',
         data: null,
       };
     }
@@ -1622,6 +1630,14 @@ function parseStructuredData(
       }
     }
 
+    if (parsedJson?.isAcademicSubject === false) {
+      return {
+        isAcademicSubject: false,
+        error: parsedJson.error || 'Please upload the correct PPT/PDF of a subject.',
+        supportingText: 'This document does not appear to contain academic subject material for Syllabus Prep.',
+      };
+    }
+
     if (parsedJson && (parsedJson.documentSummary || Array.isArray(parsedJson.units) || Array.isArray(parsedJson.importantTopics))) {
       const baseObj = (baseModel as any) || {};
       const docSummary = parsedJson.documentSummary || {};
@@ -1633,7 +1649,7 @@ function parseStructuredData(
         fileType: docSummary.fileType || baseObj.documentSummary?.fileType || docMeta?.fileType?.toUpperCase() || 'PDF',
         pagesOrSlides: docSummary.pagesOrSlides || baseObj.documentSummary?.pagesOrSlides || 'Multiple',
         coverageOverview: docSummary.coverageOverview || baseObj.documentSummary?.coverageOverview || 'Course study guide grounded in uploaded syllabus.',
-        totalEstimatedStudyTime: docSummary.totalEstimatedStudyTime || baseObj.documentSummary?.totalEstimatedStudyTime || '24 Hours across 2-3 Weeks',
+        totalEstimatedStudyTime: docSummary.totalEstimatedStudyTime || baseObj.documentSummary?.totalEstimatedStudyTime || 'Estimated from curriculum breadth',
         difficultyLevel: docSummary.difficultyLevel || baseObj.documentSummary?.difficultyLevel || 'Intermediate',
         academicFit: docSummary.academicFit || baseObj.documentSummary?.academicFit || 'Core curriculum requirement for degree advancement.',
         twinPersonalization: {
@@ -1648,9 +1664,9 @@ function parseStructuredData(
         ? parsedJson.units.map((u: any, idx: number) => ({
             unitNumber: u.unitNumber || `Unit ${idx + 1}`,
             title: u.title || `Module ${idx + 1}`,
-            weight: u.weight || `~${Math.round(100 / (parsedJson.units.length || 4))}% Weight`,
+            weight: u.evidenceBasis || u.weight || 'Evidence-Based Priority',
             priority: ['CRITICAL', 'HIGH', 'MEDIUM', 'LOW'].includes(String(u.priority).toUpperCase()) ? String(u.priority).toUpperCase() : 'HIGH',
-            estimatedTime: u.estimatedTime || '6 Hours',
+            estimatedTime: u.estimatedTime || 'Dedicated Study Focus',
             pageOrSlideRef: u.pageOrSlideRef || `Section ${idx + 1}`,
             topics: Array.isArray(u.topics) ? u.topics : [],
             studyChecklist: Array.isArray(u.studyChecklist) ? u.studyChecklist : [],
@@ -1672,42 +1688,45 @@ function parseStructuredData(
           }))
         : baseObj.importantTopics;
 
+      const conceptGuide = Array.isArray(parsedJson.conceptGuide) && parsedJson.conceptGuide.length > 0
+        ? parsedJson.conceptGuide.map((c: any) => ({
+            topicTitle: c.topicTitle || c.concept || 'Core Concept',
+            unit: c.unit || 'Core Unit',
+            whatToLearn: c.whatToLearn || '',
+            simpleExplanation: c.simpleExplanation || '',
+            keyDefinitions: Array.isArray(c.keyDefinitions) ? c.keyDefinitions : [],
+            importantFormulas: Array.isArray(c.importantFormulas) ? c.importantFormulas : (c.formula ? [c.formula] : []),
+            examples: Array.isArray(c.examples) ? c.examples : [],
+            prerequisites: Array.isArray(c.prerequisites) ? c.prerequisites : [],
+            commonPitfalls: c.commonPitfalls || '',
+          }))
+        : parsedJson.topicExplanations || baseObj.topicExplanations || [];
+
+      const problemSolving = parsedJson.problemSolving || null;
+
       const studyPriority = Array.isArray(parsedJson.studyPriority) && parsedJson.studyPriority.length > 0
         ? parsedJson.studyPriority.map((p: any, idx: number) => ({
             rank: p.rank || idx + 1,
             topicTitle: p.topicTitle || `Step ${idx + 1}`,
-            estimatedTime: p.estimatedTime || '4 Hours',
+            estimatedTime: p.estimatedTime || 'Dedicated Study Block',
             rationale: p.rationale || 'Prerequisite topic to build foundation.',
             sourceRef: p.sourceRef || `Unit ${idx + 1}`,
             milestone: p.milestone || 'Master key definitions and problem solving techniques.',
           }))
         : baseObj.studyPriority;
 
-      const examStrategy = Array.isArray(parsedJson.examStrategy) && parsedJson.examStrategy.length > 0
-        ? parsedJson.examStrategy.map((s: any, idx: number) => ({
-            dayOrPhase: s.dayOrPhase || `Phase ${idx + 1}`,
+      const examStrategy = Array.isArray(parsedJson.examStrategy || parsedJson.studyStrategy) && (parsedJson.examStrategy || parsedJson.studyStrategy).length > 0
+        ? (parsedJson.examStrategy || parsedJson.studyStrategy).map((s: any, idx: number) => ({
+            dayOrPhase: s.dayOrPhase || s.phaseName || `Phase ${idx + 1}`,
             title: s.title || `Sprint ${idx + 1}`,
             focusUnits: s.focusUnits || 'Core Units',
-            timeCommitment: s.timeCommitment || '4 Hours',
+            timeCommitment: s.timeCommitment || 'Dedicated Focus',
             prerequisites: s.prerequisites || '',
             milestoneCheckpoint: s.milestoneCheckpoint || '',
             twinAdjustment: s.twinAdjustment || '',
             actionItems: Array.isArray(s.actionItems) ? s.actionItems : [],
           }))
         : baseObj.examStrategy;
-
-      const topicExplanations = Array.isArray(parsedJson.topicExplanations) && parsedJson.topicExplanations.length > 0
-        ? parsedJson.topicExplanations.map((e: any) => ({
-            concept: e.concept || 'Core Concept',
-            simpleExplanation: e.simpleExplanation || '',
-            keyPoints: Array.isArray(e.keyPoints) ? e.keyPoints : [],
-            formulas: Array.isArray(e.formulas) ? e.formulas : (e.formula ? [e.formula] : []),
-            commonMistakes: e.commonMistakes || '',
-            memoryAnchor: e.memoryAnchor || '',
-            howToPractice: e.howToPractice || '',
-            sourceRef: e.sourceRef || '',
-          }))
-        : baseObj.topicExplanations;
 
       const revisionPlan = Array.isArray(parsedJson.revisionPlan) && parsedJson.revisionPlan.length > 0
         ? parsedJson.revisionPlan.map((r: any) => ({
@@ -1722,9 +1741,11 @@ function parseStructuredData(
       const practiceQuestions = Array.isArray(parsedJson.practiceQuestions) && parsedJson.practiceQuestions.length > 0
         ? parsedJson.practiceQuestions.map((q: any, idx: number) => ({
             id: q.id || `q-${idx + 1}`,
+            unitNumber: q.unitNumber || q.unitRef || 'Core Unit',
+            topicName: q.topicName || 'Core Topic',
             type: q.type || 'Theory',
             question: q.question || 'Concept Question',
-            unitRef: q.unitRef || 'Unit Reference',
+            unitRef: q.unitRef || q.unitNumber || 'Unit Reference',
             hint: q.hint || '',
             modelAnswer: q.modelAnswer || 'Detailed answer outline based on syllabus.',
             commonMistakes: q.commonMistakes || '',
@@ -1736,24 +1757,25 @@ function parseStructuredData(
             id: c.id || `c-${idx + 1}`,
             label: c.label || `Master syllabus item ${idx + 1}`,
             category: c.category || 'Essential',
-            completed: Boolean(c.completed),
+            unitRef: c.unitRef || '',
+            completed: false, // Always start clean - never pre-checked
           }))
         : baseObj.examChecklist;
 
       return {
         ...baseObj,
-        score: 96,
-        overallScore: 96,
         evaluation: 'Academic Study Guide Ready',
         documentSummary: mergedSummary,
         units,
         importantTopics,
+        conceptGuide,
+        problemSolving,
         studyPriority,
         examStrategy,
-        topicExplanations,
         revisionPlan,
         practiceQuestions,
         examChecklist,
+        lastMinuteChecklist: Array.isArray(parsedJson.lastMinuteChecklist) ? parsedJson.lastMinuteChecklist : [],
         timestamp: new Date().toISOString(),
       };
     }

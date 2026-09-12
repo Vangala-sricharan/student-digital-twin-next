@@ -240,7 +240,121 @@ export async function executeAiEngine(
     }
   }
 
-  // Actual existing V4 service for Internship Ready and internal engines
+  // Internship Readiness: Call dedicated /api/ai/internship-ready route
+  if (request.engineId === 'internship-ready') {
+    try {
+      onStageUpdate?.(1, 'Auditing Twin Evidence & Gaps');
+      const res = await fetch('/api/ai/internship-ready', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          studentContext: request.studentContext,
+          userInputs: request.userInputs,
+        }),
+      });
+
+      const text = await res.text();
+      let json: any = {};
+      try {
+        json = JSON.parse(text);
+      } catch {
+        return {
+          engineId: 'internship-ready',
+          status: 'error',
+          error: 'Unable to complete the Internship Readiness analysis. Please retry.',
+          data: null,
+          timestamp: new Date().toISOString(),
+        };
+      }
+
+      if (res.ok && json.status === 'success' && json.data) {
+        onStageUpdate?.(2, 'Benchmarking Complete');
+        return {
+          engineId: 'internship-ready',
+          status: 'success',
+          data: json.data,
+          rawText: json.rawText || '',
+          timestamp: json.timestamp || new Date().toISOString(),
+        };
+      }
+
+      return {
+        engineId: 'internship-ready',
+        status: 'error',
+        error: json.error || 'Unable to complete the Internship Readiness analysis. Please retry.',
+        data: null,
+        timestamp: new Date().toISOString(),
+      };
+    } catch (fetchErr: any) {
+      return {
+        engineId: 'internship-ready',
+        status: 'error',
+        error: fetchErr?.message || 'Network connection failed while reaching Internship Readiness API.',
+        data: null,
+        timestamp: new Date().toISOString(),
+      };
+    }
+  }
+
+  // Syllabus & Exam Prep: Call dedicated /api/ai/syllabus-prep route
+  if (request.engineId === 'syllabus-prep') {
+    try {
+      onStageUpdate?.(1, 'Validating Academic Subject Content');
+      const res = await fetch('/api/ai/syllabus-prep', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          documentText: request.documentText,
+          documentMeta: request.documentMeta,
+          studentContext: request.studentContext,
+          userInputs: request.userInputs,
+        }),
+      });
+
+      const text = await res.text();
+      let json: any = {};
+      try {
+        json = JSON.parse(text);
+      } catch {
+        return {
+          engineId: 'syllabus-prep',
+          status: 'error',
+          error: 'Please upload the correct PPT/PDF of a subject.',
+          data: null,
+          timestamp: new Date().toISOString(),
+        };
+      }
+
+      if (res.ok && json.status === 'success' && json.data) {
+        onStageUpdate?.(2, 'Analysis Complete');
+        return {
+          engineId: 'syllabus-prep',
+          status: 'success',
+          data: json.data,
+          rawText: json.rawText || '',
+          timestamp: json.timestamp || new Date().toISOString(),
+        };
+      }
+
+      return {
+        engineId: 'syllabus-prep',
+        status: 'error',
+        error: json.error || 'Please upload the correct PPT/PDF of a subject.',
+        supportingText: json.supportingText || 'This document does not appear to contain academic subject material for Syllabus Prep.',
+        data: null,
+        timestamp: new Date().toISOString(),
+      };
+    } catch (fetchErr: any) {
+      console.warn('[SyllabusPrep] Primary API failed, trying local engine runner:', fetchErr);
+      return await processEngineAiRequest(request, onStageUpdate);
+    }
+  }
+
+  // Actual existing V4 service for other internal engines
   return await processEngineAiRequest(request, onStageUpdate);
 }
 

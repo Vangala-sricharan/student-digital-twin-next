@@ -85,7 +85,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       try {
         const queryPromise = supabase
           .from('student_profiles')
-          .select('id, user_id, display_name, name, avatar_url, email')
+          .select('id, user_id, display_name, name, avatar_url')
           .eq('user_id', authUser.id)
           .limit(1)
           .maybeSingle();

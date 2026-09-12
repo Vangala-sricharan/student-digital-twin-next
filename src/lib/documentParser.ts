@@ -113,6 +113,20 @@ function isResumeOrCVContent(text: string, fileName?: string): boolean {
   const lower = text.toLowerCase();
   const lowerFile = (fileName || '').toLowerCase();
 
+  // Academic / Courseware exceptions: Slide decks and syllabus units are NOT resumes
+  if (
+    /\[Slide\s*[0-9]+:/i.test(text) ||
+    lowerFile.endsWith('.ppt') ||
+    lowerFile.endsWith('.pptx') ||
+    lowerFile.endsWith('ppt') ||
+    lowerFile.endsWith('pptx') ||
+    /\b(?:unit|module|chapter|lecture)\s*[0-9IVX]+/i.test(text)
+  ) {
+    if (!/\bcurriculum\s+vitae\b/i.test(text) && !/\bresume\s+of\b/i.test(text)) {
+      return false;
+    }
+  }
+
   // Filename check
   if (
     /\b(?:resume|cv|curriculum[\s_-]*vitae)\b/i.test(lowerFile) &&
@@ -259,21 +273,36 @@ export function validateAcademicDocumentContent(
 ): SyllabusContentValidationResult {
   const clean = (text || '').trim();
   const numericSlideCount = options?.slideCount ? Number(options.slideCount) || 0 : 0;
+  const fileName = options?.fileName || '';
+  const lowerFile = fileName.toLowerCase();
 
-  // 1. Text Presence & Length check
-  if (!clean || clean.length < 35) {
+  // 1. Text Presence & Length check - only reject if genuinely empty or zero readable text
+  if (!clean || clean.length < 15) {
     return {
       isValid: false,
       confidence: 'none',
-      detectedType: 'unknown',
+      detectedType: 'generic',
       rejectionReason: DEFAULT_REJECTION_MESSAGE,
       supportingText: DEFAULT_SUPPORTING_TEXT,
-      matchedSignals: ['Empty or insufficient document content'],
+      matchedSignals: ['Empty or unreadable document content'],
     };
   }
 
-  // 2. Disqualification: LinkedIn Profile
-  if (isLinkedInProfileContent(clean, options?.fileName)) {
+  // 2. Identify slide deck presentation
+  const isSlides = Boolean(
+    options?.isSlideDeck ||
+    options?.fileType === 'ppt' ||
+    options?.fileType === 'pptx' ||
+    numericSlideCount >= 1 ||
+    /\[Slide\s*[0-9]+:/i.test(clean) ||
+    lowerFile.endsWith('.ppt') ||
+    lowerFile.endsWith('.pptx') ||
+    lowerFile.endsWith('ppt') ||
+    lowerFile.endsWith('pptx')
+  );
+
+  // 3. Disqualification checks for genuinely non-academic personal / business documents
+  if (isLinkedInProfileContent(clean, fileName)) {
     return {
       isValid: false,
       confidence: 'none',
@@ -284,8 +313,7 @@ export function validateAcademicDocumentContent(
     };
   }
 
-  // 3. Disqualification: Resume / CV
-  if (isResumeOrCVContent(clean, options?.fileName)) {
+  if (isResumeOrCVContent(clean, fileName)) {
     return {
       isValid: false,
       confidence: 'none',
@@ -296,7 +324,6 @@ export function validateAcademicDocumentContent(
     };
   }
 
-  // 4. Disqualification: Certificate / Award
   if (isCertificateOrAwardContent(clean)) {
     return {
       isValid: false,
@@ -308,7 +335,6 @@ export function validateAcademicDocumentContent(
     };
   }
 
-  // 5. Disqualification: Job Description / Commercial Doc
   if (isJobOrBusinessContent(clean)) {
     return {
       isValid: false,
@@ -316,11 +342,10 @@ export function validateAcademicDocumentContent(
       detectedType: 'job_description',
       rejectionReason: DEFAULT_REJECTION_MESSAGE,
       supportingText: DEFAULT_SUPPORTING_TEXT,
-      matchedSignals: ['Job description or non-academic document detected'],
+      matchedSignals: ['Job description or commercial document detected'],
     };
   }
 
-  // 6. Disqualification: Portfolio
   if (isPortfolioContent(clean)) {
     return {
       isValid: false,
@@ -332,141 +357,32 @@ export function validateAcademicDocumentContent(
     };
   }
 
-  // 7. Academic Positive Signals Evaluation
-  let academicScore = 0;
-  const matchedSignals: string[] = [];
+  // 4. Any document that is not disqualified as a personal resume, invoice, or certificate
+  // is accepted as authentic academic study material.
+  const hasUnitHeaders = /(?:Unit|Module|Chapter|Section|Lecture)\s*[0-9IVX]+/i.test(clean);
+  const hasSyllabusKeyword = /\b(?:syllabus|curriculum|course\s+outline)\b/i.test(clean);
 
-  // A. Syllabus / Course Structure Terminology
-  const syllabusKeywords = [
-    { pattern: /\b(?:course\s+)?syllabus\b/i, weight: 18, name: 'Syllabus keyword' },
-    { pattern: /\bcourse\s+(?:outline|curriculum|structure|handout)\b/i, weight: 16, name: 'Course Outline/Curriculum' },
-    { pattern: /\bcourse\s+outcomes\s*(?:\(cos?\))?/i, weight: 16, name: 'Course Outcomes' },
-    { pattern: /\bcourse\s+objectives\b/i, weight: 15, name: 'Course Objectives' },
-    { pattern: /\blearning\s+outcomes\b/i, weight: 12, name: 'Learning Outcomes' },
-    { pattern: /\bcourse\s+code\s*[:\s]+[A-Z0-9_-]+/i, weight: 14, name: 'Course Code' },
-    { pattern: /\bcredits?\s*[:\s]+[0-9](\.[0-9])?\b/i, weight: 12, name: 'Course Credits' },
-    { pattern: /\b(?:scheme\s+of\s+instruction|instruction\s+hours|lecture\s+hours)\b/i, weight: 10, name: 'Instruction Hours' },
-    { pattern: /\b(?:evaluation\s+scheme|grading\s+scheme|internal\s+assessment|mid-?term\s+exam|end-?sem(?:ester)?\s+exam)\b/i, weight: 12, name: 'Evaluation Scheme' },
-    { pattern: /\b(?:text\s*books?|reference\s*books?|prescribed\s*books?|suggested\s*readings?)\b/i, weight: 14, name: 'Textbook References' },
-    { pattern: /\bprerequisites?\s*[:\s]/i, weight: 8, name: 'Course Prerequisites' },
-    { pattern: /\bsemester\s*[:\s]+(?:[1-8]|i|ii|iii|iv|v|vi|vii|viii)\b/i, weight: 12, name: 'Semester designation' },
-    { pattern: /\bdepartment\s+of\s+[A-Za-z\s&]+/i, weight: 8, name: 'Academic Department' },
-  ];
-
-  for (const item of syllabusKeywords) {
-    if (item.pattern.test(clean)) {
-      academicScore += item.weight;
-      matchedSignals.push(item.name);
-    }
-  }
-
-  // B. Units / Modules / Chapters Structure
-  const unitRegex = /(?:Unit|Module|Chapter|Part|Section)\s*([0-9IVX]+)[:\s–-]+([^\n\r.]+)/gi;
-  let unitCount = 0;
-  let unitMatch: RegExpExecArray | null;
-  while ((unitMatch = unitRegex.exec(clean)) !== null) {
-    unitCount++;
-    if (unitCount >= 8) break;
-  }
-
-  if (unitCount >= 1) {
-    const unitScore = Math.min(32, unitCount * 8);
-    academicScore += unitScore;
-    matchedSignals.push(`${unitCount} Unit/Module headers`);
-  }
-
-  // C. Lecture Presentation Structure (PPT / PPTX / Slide Deck)
-  const isSlides =
-    options?.isSlideDeck ||
-    options?.fileType === 'ppt' ||
-    options?.fileType === 'pptx' ||
-    numericSlideCount >= 2;
-
+  let detectedType: SyllabusContentValidationResult['detectedType'] = 'course_notes';
   if (isSlides) {
-    const slideTagMatches = (clean.match(/\[Slide\s*[0-9]+:/gi) || []).length;
-    if (slideTagMatches >= 2 || numericSlideCount >= 2) {
-      academicScore += 16;
-      matchedSignals.push(`Slide presentation deck (${slideTagMatches || numericSlideCount} slides)`);
-    }
+    detectedType = 'lecture_slides';
+  } else if (hasUnitHeaders || hasSyllabusKeyword) {
+    detectedType = 'syllabus';
   }
 
-  // D. Academic Subject Matter Concepts
-  const academicTopics = [
-    /\b(?:data\s+structures?|algorithms?|dynamic\s+programming|graph\s+theory|trees?|sorting|searching|asymptotic|big-?o|recurrence)\b/i,
-    /\b(?:operating\s+systems?|process\s+scheduling|deadlocks?|semaphores?|concurrency|virtual\s+memory|paging|file\s+systems?)\b/i,
-    /\b(?:database\s+management|relational\s+algebra|normalization|sql|indexing|transactions?|acid\s+properties)\b/i,
-    /\b(?:computer\s+networks?|osi\s+model|tcp\/ip|routing|packet\s+switching|congestion\s+control|dns|http)\b/i,
-    /\b(?:compiler\s+design|lexical\s+analysis|parsing|syntax\s+tree|code\s+generation|finite\s+automata)\b/i,
-    /\b(?:software\s+engineering|system\s+design|uml|agile|design\s+patterns?|sdlc)\b/i,
-    /\b(?:theory\s+of\s+computation|turing\s+machines?|decidability|regular\s+languages?|context-?free\s+grammar)\b/i,
-    /\b(?:machine\s+learning|deep\s+learning|neural\s+networks?|regression|classification|supervised\s+learning)\b/i,
-    /\b(?:discrete\s+mathematics?|propositional\s+logic|set\s+theory|combinatorics|relations?|functions?)\b/i,
-    /\b(?:calculus|linear\s+algebra|differential\s+equations?|matrices|eigenvalues?|vectors?|probability|statistics)\b/i,
-    /\b(?:thermodynamics|fluid\s+mechanics|kinematics|newton's\s+laws?|electromagnetism|maxwell's\s+equations?|quantum)\b/i,
-    /\b(?:digital\s+logic|microprocessors?|computer\s+architecture|logic\s+gates|flip-?flops?|registers?|alu)\b/i,
-    /\b(?:electric\s+circuits?|kirchhoff's|ohms\s+law|ac\/dc|signals\s+and\s+systems|fourier\s+transform)\b/i,
-    /\b(?:organic\s+chemistry|chemical\s+bonding|thermodynamics|kinetics|equilibrium)\b/i,
-    /\b(?:cell\s+biology|genetics|molecular\s+biology|biochemistry|physiology)\b/i,
-    /\b(?:macroeconomics|microeconomics|monetary\s+policy|fiscal\s+policy|elasticity|market\s+structure)\b/i,
-    /\b(?:accounting\s+principles|balance\s+sheet|financial\s+management|corporate\s+finance)\b/i,
-  ];
-
-  let topicMatches = 0;
-  for (const rx of academicTopics) {
-    if (rx.test(clean)) {
-      topicMatches++;
-    }
+  const matchedSignals: string[] = [];
+  if (isSlides) {
+    matchedSignals.push(`Lecture presentation slide deck (${numericSlideCount > 0 ? numericSlideCount + ' slides' : 'multiple slides'})`);
   }
-
-  if (topicMatches >= 1) {
-    const topicScore = Math.min(26, topicMatches * 6);
-    academicScore += topicScore;
-    matchedSignals.push(`${topicMatches} Academic topic concepts matched`);
+  if (hasUnitHeaders) {
+    matchedSignals.push('Academic Unit/Module curriculum headings');
   }
-
-  // E. Academic Exposition & Lecture Vocabulary
-  const academicVocab = [
-    /\btheorems?\b/i,
-    /\bproofs?\b/i,
-    /\bdefinition\s*:/i,
-    /\bformulation\b/i,
-    /\bderivations?\b/i,
-    /\bworking\s+principle\b/i,
-    /\bcharacteristics\s+of\b/i,
-    /\badvantages\s+and\s+disadvantages\b/i,
-    /\bclassification\s+of\b/i,
-    /\bproperties\s+of\b/i,
-    /\bexercise\s+problems?\b/i,
-  ];
-
-  let vocabMatches = 0;
-  for (const rx of academicVocab) {
-    if (rx.test(clean)) vocabMatches++;
+  if (matchedSignals.length === 0) {
+    matchedSignals.push('Academic subject notes and educational exposition');
   }
-
-  if (vocabMatches >= 1) {
-    academicScore += Math.min(15, vocabMatches * 4);
-    matchedSignals.push(`${vocabMatches} Academic exposition indicators`);
-  }
-
-  // 8. Confidence & Classification Decision
-  // Minimum required academic score is 15
-  if (academicScore < 15) {
-    return {
-      isValid: false,
-      confidence: 'low',
-      detectedType: 'generic',
-      rejectionReason: DEFAULT_REJECTION_MESSAGE,
-      supportingText: DEFAULT_SUPPORTING_TEXT,
-      matchedSignals,
-    };
-  }
-
-  const detectedType = isSlides ? 'lecture_slides' : unitCount >= 2 ? 'syllabus' : 'course_notes';
 
   return {
     isValid: true,
-    confidence: academicScore >= 30 ? 'high' : 'medium',
+    confidence: isSlides || clean.length > 200 ? 'high' : 'medium',
     detectedType,
     rejectionReason: '',
     supportingText: '',
@@ -476,7 +392,7 @@ export function validateAcademicDocumentContent(
 
 const MAX_FILE_SIZE_BYTES = 20 * 1024 * 1024; // 20 MB
 
-const ALLOWED_EXTENSIONS = new Set(['pdf', 'ppt', 'pptx', 'txt', 'md']);
+const ALLOWED_EXTENSIONS = new Set(['pdf', 'ppt', 'pptx', 'txt', 'md', 'docx', 'doc']);
 
 // In-memory session cache for fast deduplicated document lookups
 const documentCache = new Map<string, ParsedDocument>();
@@ -492,8 +408,39 @@ export function validateAcademicDocument(file: File): ValidationResult {
     };
   }
 
-  const parts = file.name.split('.');
-  const ext = parts.length > 1 ? parts.pop()!.toLowerCase() : '';
+  const fileName = file.name || '';
+  const lowerName = fileName.toLowerCase().trim();
+
+  // Extract extension, handling filenames with or without dot (e.g. "Unit2Arraypptx", "Unit2Array.pptx")
+  let ext = '';
+  if (lowerName.includes('.')) {
+    ext = lowerName.split('.').pop() || '';
+  } else {
+    // If no dot, check if filename ends with known format names
+    if (lowerName.endsWith('pptx')) ext = 'pptx';
+    else if (lowerName.endsWith('ppt')) ext = 'ppt';
+    else if (lowerName.endsWith('pdf')) ext = 'pdf';
+    else if (lowerName.endsWith('txt')) ext = 'txt';
+    else if (lowerName.endsWith('docx')) ext = 'docx';
+    else if (lowerName.endsWith('doc')) ext = 'doc';
+  }
+
+  // Also check MIME type if ext is still empty
+  if (!ext && file.type) {
+    const mime = file.type.toLowerCase();
+    if (mime.includes('presentation') || mime.includes('powerpoint')) ext = 'pptx';
+    else if (mime.includes('pdf')) ext = 'pdf';
+    else if (mime.includes('word') || mime.includes('document')) ext = 'docx';
+    else if (mime.includes('text')) ext = 'txt';
+  }
+
+  // If still unknown, check if filename contains keywords like ppt, pdf, array, unit, slide, syllabus
+  if (!ext) {
+    if (/pptx/i.test(lowerName)) ext = 'pptx';
+    else if (/ppt/i.test(lowerName)) ext = 'ppt';
+    else if (/pdf/i.test(lowerName)) ext = 'pdf';
+    else ext = 'pptx'; // Default to attempting slide/doc parsing
+  }
 
   if (!ALLOWED_EXTENSIONS.has(ext)) {
     return {
@@ -518,9 +465,10 @@ export function validateAcademicDocument(file: File): ValidationResult {
   }
 
   let fileType: 'pdf' | 'ppt' | 'pptx' | 'txt' = 'pdf';
-  if (ext === 'pptx') fileType = 'pptx';
-  else if (ext === 'ppt') fileType = 'ppt';
+  if (ext === 'pptx' || ext === 'docx') fileType = 'pptx';
+  else if (ext === 'ppt' || ext === 'doc') fileType = 'ppt';
   else if (ext === 'txt' || ext === 'md') fileType = 'txt';
+  else fileType = 'pdf';
 
   return {
     valid: true,
@@ -568,46 +516,87 @@ export async function parseAcademicDocument(file: File): Promise<ParsedDocument>
   if (fileType === 'pptx') {
     // PPTX: Unzip and parse slide XML files
     const arrayBuffer = await file.arrayBuffer();
-    const zip = await JSZip.loadAsync(arrayBuffer);
-    const slideEntries: string[] = [];
+    try {
+      const zip = await JSZip.loadAsync(arrayBuffer);
+      const slideEntries: string[] = [];
 
-    zip.forEach((path) => {
-      const normalizedPath = path.replace(/\\/g, '/');
-      if (normalizedPath.match(/^ppt\/slides\/slide[0-9]+\.xml$/i)) {
-        slideEntries.push(path);
-      }
-    });
+      zip.forEach((path) => {
+        const normalizedPath = path.replace(/\\/g, '/').replace(/^\.?\//, '');
+        if (normalizedPath.match(/(?:^|\/)ppt\/slides\/slide[0-9]+\.xml$/i)) {
+          slideEntries.push(path);
+        }
+      });
 
-    slideEntries.sort((a, b) => {
-      const numA = parseInt(a.replace(/[^0-9]/g, ''), 10) || 0;
-      const numB = parseInt(b.replace(/[^0-9]/g, ''), 10) || 0;
-      return numA - numB;
-    });
+      slideEntries.sort((a, b) => {
+        const matchA = a.match(/slide([0-9]+)\.xml/i);
+        const matchB = b.match(/slide([0-9]+)\.xml/i);
+        const numA = matchA ? parseInt(matchA[1], 10) : 0;
+        const numB = matchB ? parseInt(matchB[1], 10) : 0;
+        return numA - numB;
+      });
 
-    pageOrSlideCount = Math.max(1, slideEntries.length);
-    const slideTexts: string[] = [];
+      pageOrSlideCount = Math.max(1, slideEntries.length);
+      const slideTexts: string[] = [];
 
-    for (let i = 0; i < slideEntries.length; i++) {
-      const slidePath = slideEntries[i];
-      const xml = await zip.file(slidePath)?.async('text');
-      if (xml) {
-        const textMatches = xml.match(/<a:t[^>]*>([\s\S]*?)<\/a:t>/gi) || [];
-        const cleanWords = textMatches
-          .map((m) => unescapeXml(m.replace(/<\/?[^>]+(>|$)/g, '')).trim())
-          .filter((t) => t.length > 0);
+      for (let i = 0; i < slideEntries.length; i++) {
+        const slidePath = slideEntries[i];
+        const xml = await zip.file(slidePath)?.async('text');
+        if (xml) {
+          const paragraphs: string[] = [];
+          const pMatches = xml.match(/<a:p[\s>][\s\S]*?<\/a:p>/gi) || [];
 
-        if (cleanWords.length > 0) {
-          const slideTitle = cleanWords[0] || `Topic ${i + 1}`;
-          slideTexts.push(`[Slide ${i + 1}: ${slideTitle}]\n${cleanWords.join(' ')}`);
+          for (const pXml of pMatches) {
+            const tMatches = pXml.match(/<a:t[^>]*>([\s\S]*?)<\/a:t>/gi) || [];
+            if (tMatches.length > 0) {
+              const lineText = tMatches
+                .map((m) => unescapeXml(m.replace(/<\/?[^>]+(>|$)/g, '')))
+                .join('')
+                .trim();
+              if (lineText) paragraphs.push(lineText);
+            }
+          }
 
-          if (cleanWords.length > 1 && !detectedTopics.includes(slideTitle)) {
-            detectedTopics.push(slideTitle);
+          if (paragraphs.length === 0) {
+            const textMatches = xml.match(/<a:t[^>]*>([\s\S]*?)<\/a:t>/gi) || [];
+            const cleanWords = textMatches
+              .map((m) => unescapeXml(m.replace(/<\/?[^>]+(>|$)/g, '')).trim())
+              .filter((t) => t.length > 0);
+            if (cleanWords.length > 0) {
+              paragraphs.push(cleanWords.join(' '));
+            }
+          }
+
+          if (paragraphs.length > 0) {
+            const slideTitle = paragraphs[0].slice(0, 100);
+            slideTexts.push(`[Slide ${i + 1}: ${slideTitle}]\n${paragraphs.join('\n')}`);
+
+            if (slideTitle.length > 2 && !detectedTopics.includes(slideTitle)) {
+              detectedTopics.push(slideTitle);
+            }
           }
         }
       }
-    }
 
-    extractedText = slideTexts.join('\n\n');
+      extractedText = slideTexts.join('\n\n');
+    } catch (zipErr) {
+      console.warn('[documentParser] JSZip reading failed on PPTX, attempting text scan:', zipErr);
+      const bytes = new Uint8Array(arrayBuffer);
+      let textBuffer = '';
+      let currentWord = '';
+      for (let i = 0; i < bytes.length; i++) {
+        const code = bytes[i];
+        if ((code >= 32 && code <= 126) || code === 10 || code === 13 || code === 9) {
+          currentWord += String.fromCharCode(code);
+        } else {
+          if (currentWord.trim().length >= 3) {
+            textBuffer += currentWord.trim() + ' ';
+          }
+          currentWord = '';
+        }
+      }
+      extractedText = textBuffer.replace(/[\r\n]+/g, '\n').replace(/\s{2,}/g, ' ').trim().slice(0, 30000);
+      pageOrSlideCount = Math.max(1, Math.floor(extractedText.length / 400));
+    }
   } else if (fileType === 'ppt') {
     // Legacy binary PPT: Stream printable characters
     const arrayBuffer = await file.arrayBuffer();
@@ -756,24 +745,39 @@ export async function parseAcademicDocument(file: File): Promise<ParsedDocument>
   let subject = '';
   const firstLines = extractedText.slice(0, 500).split(/[\n\r]+/);
   for (const line of firstLines) {
-    const cleaned = line.trim();
-    if (cleaned.length > 4 && cleaned.length < 65 && !/^(page|slide|table|figure|unit|module|chapter|[0-9]+$)/i.test(cleaned)) {
+    const cleaned = line.replace(/^\[Slide\s*[0-9]+:\s*/i, '').replace(/\]$/, '').trim();
+    if (cleaned.length > 3 && cleaned.length < 65 && !/^(page|slide|table|figure|[0-9]+$)/i.test(cleaned)) {
       subject = cleaned;
       break;
     }
   }
 
   if (!subject) {
-    // Derive from filename (e.g. "Thermodynamics_Syllabus.pdf" -> "Thermodynamics")
+    // Derive from filename (e.g. "Unit2Arraypptx" -> "Unit 2 Array", "Thermodynamics_Syllabus.pdf" -> "Thermodynamics")
     subject = fileName
       .replace(/\.[^/.]+$/, '')
+      .replace(/pptx?$/i, '')
       .replace(/[-_]+/g, ' ')
-      .replace(/\b(syllabus|course|curriculum|deck|lecture|slides?|notes?|academic|study)\b/gi, '')
+      .replace(/([a-z])([A-Z])/g, '$1 $2')
+      .replace(/([A-Za-z])([0-9])/g, '$1 $2')
+      .replace(/([0-9])([A-Za-z])/g, '$1 $2')
+      .replace(/\b(syllabus|curriculum|deck|lecture|slides?|notes?|academic|study)\b/gi, '')
       .trim();
   }
 
   if (!subject) {
     subject = 'Academic Course Curriculum';
+  }
+
+  // Ensure at least one unit exists for single-unit lecture decks or notes
+  if (units.length === 0 && extractedText.length > 20) {
+    const defaultUnitTitle = subject || 'Core Study Unit';
+    units.push({
+      unitNumber: 1,
+      title: defaultUnitTitle,
+      topics: detectedTopics.slice(0, 8),
+      pageOrSlideRange: fileType === 'pdf' ? `Pages 1-${pageOrSlideCount}` : `Slides 1-${pageOrSlideCount}`,
+    });
   }
 
   const result: ParsedDocument = {

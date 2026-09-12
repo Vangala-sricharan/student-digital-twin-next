@@ -33,10 +33,25 @@ export const InternshipReadyView: React.FC<InternshipReadyViewProps> = ({ onBack
   const engine = AI_ENGINES.find((e) => e.id === 'internship-ready')!;
   const { profile, skills, projects, achievements, careerGoals, certifications, isDemoMode, isTwinHydrating } = useStudentTwin();
   const { job, isRunning, isError, rawText, structuredData, execute, retry } = useEngineJob('internship-ready');
+  const { job: githubJob } = useEngineJob('github-audit');
+  const { job: linkedinJob } = useEngineJob('linkedin-audit');
 
-  const [targetDomain, setTargetDomain] = useState(profile?.targetRole || 'Tier-1 Software Engineering Internship');
+  const initialTargetRole =
+    profile?.targetRole ||
+    profile?.careerFocus ||
+    careerGoals[0]?.targetRole ||
+    careerGoals[0]?.title ||
+    '';
+
+  const [targetDomain, setTargetDomain] = useState(initialTargetRole || 'Tier-1 Software Engineering Internship');
   const [copied, setCopied] = useState(false);
   const [exportingPdf, setExportingPdf] = useState(false);
+
+  React.useEffect(() => {
+    if (initialTargetRole && (targetDomain === 'Tier-1 Software Engineering Internship' || !targetDomain)) {
+      setTargetDomain(initialTargetRole);
+    }
+  }, [initialTargetRole]);
 
   // Safe string extractor to guarantee no raw object is ever rendered as a React child (React Error #31)
   const getSafeString = (item: any, defaultText = ''): string => {
@@ -88,6 +103,54 @@ export const InternshipReadyView: React.FC<InternshipReadyViewProps> = ({ onBack
     Array.isArray(diagnosticData.breakdown) &&
     diagnosticData.breakdown.length > 0
   );
+
+  // Real authenticated Twin metrics (no hardcoded fallback numbers)
+  const realReadiness = typeof profile?.readinessScore === 'number' ? profile.readinessScore : 0;
+  const totalSkillsCount = skills.length;
+  const verifiedSkillsCount = skills.filter((s) => Boolean(s.verified)).length;
+  const totalProjectsCount = projects.length;
+  const liveProjectsCount = projects.filter((p) => Boolean(p.liveUrl && String(p.liveUrl).trim())).length;
+
+  const hasAuthenticGithub = Boolean(
+    profile?.githubUrl &&
+    profile.githubUrl.includes('github.com') &&
+    !profile.githubUrl.includes('username') &&
+    profile.githubUrl.trim().length > 12
+  );
+  const isGithubAudited = !isDemoMode && githubJob?.status === 'completed' && githubJob.result?.data;
+  const githubAuditScore = isGithubAudited
+    ? (githubJob.result.data.score ?? githubJob.result.data.overallScore)
+    : null;
+
+  const githubDisplayStatus = isGithubAudited && typeof githubAuditScore === 'number'
+    ? `Audited (${githubAuditScore}/100)`
+    : hasAuthenticGithub
+    ? 'Connected (Unaudited)'
+    : 'Unavailable';
+
+  const hasAuthenticLinkedin = Boolean(
+    profile?.linkedinUrl &&
+    profile.linkedinUrl.includes('linkedin.com') &&
+    !profile.linkedinUrl.includes('username') &&
+    profile.linkedinUrl.trim().length > 12
+  );
+  const isLinkedinAudited = !isDemoMode && linkedinJob?.status === 'completed' && linkedinJob.result?.data;
+  const linkedinAuditScore = isLinkedinAudited
+    ? (linkedinJob.result.data.score ?? linkedinJob.result.data.overallScore)
+    : null;
+
+  const linkedinDisplayStatus = isLinkedinAudited && typeof linkedinAuditScore === 'number'
+    ? `Audited (${linkedinAuditScore}/100)`
+    : hasAuthenticLinkedin
+    ? 'Connected (Unaudited)'
+    : 'Unavailable';
+
+  const targetRoleDisplay =
+    profile?.targetRole ||
+    profile?.careerFocus ||
+    careerGoals[0]?.targetRole ||
+    careerGoals[0]?.title ||
+    'Not Specified';
 
   const readinessScore = diagnosticData?.readinessScore ?? diagnosticData?.score ?? 0;
   const verdict = getSafeString(
@@ -192,26 +255,48 @@ export const InternshipReadyView: React.FC<InternshipReadyViewProps> = ({ onBack
             <div className="p-4 rounded-xl bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/5 space-y-2.5 text-xs">
               <div className="flex items-center justify-between font-mono">
                 <span className="text-slate-500">Twin Readiness</span>
-                <strong className="text-blue-600 dark:text-cyan-400">{profile?.readinessScore ?? 0}%</strong>
+                <strong className="text-blue-600 dark:text-cyan-400">{realReadiness}%</strong>
               </div>
               <div className="flex items-center justify-between font-mono">
-                <span className="text-slate-500">Verified Skills</span>
-                <strong className="text-slate-900 dark:text-white">{skills.length} Skills</strong>
-              </div>
-              <div className="flex items-center justify-between font-mono">
-                <span className="text-slate-500">Codebase Proof</span>
-                <strong className="text-slate-900 dark:text-white">{projects.length} Repositories</strong>
-              </div>
-              <div className="flex items-center justify-between font-mono">
-                <span className="text-slate-500">GitHub Profile</span>
-                <strong className={profile?.githubUrl ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-400'}>
-                  {profile?.githubUrl ? 'Linked' : 'Not Linked'}
+                <span className="text-slate-500">Recorded Skills</span>
+                <strong className="text-slate-900 dark:text-white">
+                  {totalSkillsCount > 0
+                    ? `${totalSkillsCount} Skills${verifiedSkillsCount > 0 ? ` (${verifiedSkillsCount} Verified)` : ' (0 Verified)'}`
+                    : '0 Skills'}
                 </strong>
               </div>
               <div className="flex items-center justify-between font-mono">
-                <span className="text-slate-500">LinkedIn Profile</span>
-                <strong className={profile?.linkedinUrl ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-400'}>
-                  {profile?.linkedinUrl ? 'Linked' : 'Not Linked'}
+                <span className="text-slate-500">Code Repositories</span>
+                <strong className="text-slate-900 dark:text-white">
+                  {totalProjectsCount > 0
+                    ? `${totalProjectsCount} Repositories${liveProjectsCount > 0 ? ` (${liveProjectsCount} Live)` : ''}`
+                    : '0 Repositories'}
+                </strong>
+              </div>
+              <div className="flex items-center justify-between font-mono">
+                <span className="text-slate-500">GitHub Status</span>
+                <strong className={hasAuthenticGithub || isGithubAudited ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-400 dark:text-slate-500'}>
+                  {githubDisplayStatus}
+                </strong>
+              </div>
+              <div className="flex items-center justify-between font-mono">
+                <span className="text-slate-500">LinkedIn Status</span>
+                <strong className={hasAuthenticLinkedin || isLinkedinAudited ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-400 dark:text-slate-500'}>
+                  {linkedinDisplayStatus}
+                </strong>
+              </div>
+              <div className="flex items-center justify-between font-mono pt-1 border-t border-slate-200/50 dark:border-white/5">
+                <span className="text-slate-500">Target Role</span>
+                <strong className="text-slate-800 dark:text-slate-200 max-w-[140px] truncate text-right" title={targetRoleDisplay}>
+                  {targetRoleDisplay}
+                </strong>
+              </div>
+              <div className="flex items-center justify-between font-mono">
+                <span className="text-slate-500">Proof Records</span>
+                <strong className="text-slate-800 dark:text-slate-200">
+                  {certifications.length + achievements.length > 0
+                    ? `${certifications.length} Certs • ${achievements.length} Milestones`
+                    : '0 Logged'}
                 </strong>
               </div>
             </div>

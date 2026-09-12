@@ -75,4 +75,5 @@ export interface EngineAiResponse {
   data: any;
   rawText?: string;
   error?: string;
+  supportingText?: string;
 }

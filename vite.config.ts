@@ -9,7 +9,9 @@ import { handleAssistantRequest } from './api/ai/assistant.js';
 import { handleProjectAuditRequest } from './api/ai/project-audit.js';
 import { handleGitHubAuditRequest } from './api/ai/github-audit.js';
 import { handleLinkedInAuditRequest } from './api/ai/linkedin-audit.js';
+import { handleInternshipReadyRequest } from './api/ai/internship-ready.js';
 import { handleQuizRequest } from './api/ai/quiz.js';
+import { handleSyllabusPrepRequest } from './api/ai/syllabus-prep.js';
 
 function aiEngineApiPlugin(): Plugin {
   const attachMiddleware = (server: any) => {
@@ -24,6 +26,8 @@ function aiEngineApiPlugin(): Plugin {
           url.startsWith('/api/project-audit') ||
           url.startsWith('/api/ai/github-audit') ||
           url.startsWith('/api/ai/linkedin-audit') ||
+          url.startsWith('/api/ai/internship-ready') ||
+          url.startsWith('/api/ai/syllabus-prep') ||
           url.startsWith('/api/ai/quiz') ||
           url.startsWith('/api/engine-ai'))
       ) {
@@ -76,6 +80,31 @@ function aiEngineApiPlugin(): Plugin {
               }
             }
             await handleLinkedInAuditRequest(req, res);
+          } catch (err: any) {
+            res.statusCode = 500;
+            res.setHeader('Content-Type', 'application/json');
+            res.end(JSON.stringify({ status: 'error', error: err?.message || 'Server error' }));
+          }
+        });
+        return;
+      }
+
+      // Internship Readiness: /api/ai/internship-ready
+      if (url.startsWith('/api/ai/internship-ready')) {
+        let body = '';
+        req.on('data', (chunk: any) => {
+          body += chunk;
+        });
+        req.on('end', async () => {
+          try {
+            if (body) {
+              try {
+                req.body = JSON.parse(body);
+              } catch {
+                req.body = {};
+              }
+            }
+            await handleInternshipReadyRequest(req, res);
           } catch (err: any) {
             res.statusCode = 500;
             res.setHeader('Content-Type', 'application/json');
@@ -151,6 +180,31 @@ function aiEngineApiPlugin(): Plugin {
               }
             }
             await handleQuizRequest(req, res);
+          } catch (err: any) {
+            res.statusCode = 500;
+            res.setHeader('Content-Type', 'application/json');
+            res.end(JSON.stringify({ status: 'error', error: err?.message || 'Server error' }));
+          }
+        });
+        return;
+      }
+
+      // Syllabus & Exam Prep: /api/ai/syllabus-prep
+      if (url.startsWith('/api/ai/syllabus-prep')) {
+        let body = '';
+        req.on('data', (chunk: any) => {
+          body += chunk;
+        });
+        req.on('end', async () => {
+          try {
+            if (body) {
+              try {
+                req.body = JSON.parse(body);
+              } catch {
+                req.body = {};
+              }
+            }
+            await handleSyllabusPrepRequest(req, res);
           } catch (err: any) {
             res.statusCode = 500;
             res.setHeader('Content-Type', 'application/json');

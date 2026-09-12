@@ -1,21 +1,29 @@
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 
 const metaEnv = (import.meta as unknown as { env: Record<string, string | undefined> }).env || {};
-const supabaseUrl = metaEnv.VITE_SUPABASE_URL || '';
-const supabaseAnonKey = metaEnv.VITE_SUPABASE_ANON_KEY || '';
+const rawSupabaseUrl = (metaEnv.VITE_SUPABASE_URL || '').trim();
+const rawSupabaseAnonKey = (metaEnv.VITE_SUPABASE_ANON_KEY || '').trim();
+
+// Clean URL: trim whitespace and remove trailing slashes or accidental /rest/v1
+const cleanSupabaseUrl = rawSupabaseUrl
+  .replace(/\/rest\/v1\/?$/i, '')
+  .replace(/\/+$/, '');
 
 export const isSupabaseConfigured = Boolean(
-  supabaseUrl && 
-  supabaseAnonKey && 
-  supabaseUrl !== 'https://your-project.supabase.co' &&
-  supabaseUrl !== ''
+  cleanSupabaseUrl && 
+  rawSupabaseAnonKey && 
+  cleanSupabaseUrl !== 'https://your-project.supabase.co' &&
+  cleanSupabaseUrl !== 'https://mock-sdt-project.supabase.co' &&
+  !cleanSupabaseUrl.includes('placeholder') &&
+  !rawSupabaseAnonKey.includes('placeholder') &&
+  cleanSupabaseUrl !== ''
 );
 
-// Fallback mock client URL if environment variables are not yet populated
-const fallbackUrl = supabaseUrl || 'https://mock-sdt-project.supabase.co';
-const fallbackKey = supabaseAnonKey || 'mock-anon-key-sdt-os-placeholder';
+// Resilient fallback client URL if environment variables are not yet populated
+const clientUrl = isSupabaseConfigured ? cleanSupabaseUrl : 'https://mock-sdt-project.supabase.co';
+const clientKey = isSupabaseConfigured ? rawSupabaseAnonKey : 'mock-anon-key-sdt-os-placeholder';
 
-export const supabase: SupabaseClient = createClient(fallbackUrl, fallbackKey, {
+export const supabase: SupabaseClient = createClient(clientUrl, clientKey, {
   auth: {
     persistSession: true,
     autoRefreshToken: true,
