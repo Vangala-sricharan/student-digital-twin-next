@@ -83,4 +83,28 @@ body {
   animation-play-state: paused;
 }
 
+/* Ensure native select and option dropdowns stay compact and respect light/dark themes without oversized panels */
+select {
+  color-scheme: light;
+}
+
+.dark select {
+  color-scheme: dark;
+}
+
+select option {
+  background-color: #ffffff;
+  color: #0f172a;
+  font-size: 12px;
+  line-height: normal;
+  padding: 4px 8px;
+  height: auto;
+  min-height: unset;
+}
+
+.dark select option {
+  background-color: #161b22;
+  color: #f1f5f9;
+}
+
 

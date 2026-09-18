@@ -1043,7 +1043,7 @@ GROUNDING & FORMATTING RULES:
 3. EDUCATION: Format cleanly: Degree • Branch • Year (e.g. B.Tech • CSE (AI/ML) • 2nd Year). Fix any "2rd Year" typo to "2nd Year". Preserve actual CGPA only if present in data; never invent or overwrite it.
 4. SKILLS: Categorize cleanly (Languages, Frontend, Backend & APIs, AI/ML, Databases, Systems & Tools). Deduplicate. Include only technologies genuinely present in candidate data.
 5. PROJECTS: Put the strongest/most distinctive project first (especially Digital Student Twin). 2-3 concise, technically specific bullets per project based on actual project data. Avoid repeating generic filler ("Optimized performance and ensured reliable error handling..."). Do NOT fabricate metrics, users, companies, or results.
-6. LINKS: Real URLs only. If valid URL exists, show it. If not, omit completely. Never output broken placeholders like "GitHub !— • Live Demo !—" or "github.com/candidate".`;
+6. LINKS: Real URLs only. Do NOT include Live Demo links, Vercel URLs, or live website links on projects. Show GitHub repository links in a compact clean text format (e.g. GitHub: username/repo) only if real repository URLs exist. Never output broken placeholders like "GitHub !—" or "github.com/candidate".`;
 
     case 'resume-ats':
       if (userInputs?.isUploadedResume) {

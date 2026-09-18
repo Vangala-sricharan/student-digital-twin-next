@@ -69,7 +69,7 @@ export const AppShell: React.FC<AppShellProps> = ({
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [enginesExpanded, setEnginesExpanded] = useState(true);
   const [isPortfolioSetupOpen, setIsPortfolioSetupOpen] = useState(false);
-  const quizStreak = useQuizStreak();
+  const quizStreak = useQuizStreak(user?.id, isDemoMode);
 
   // Check if authenticated user has configured a portfolio
   const hasPortfolio = Boolean(profile?.portfolioUrl && profile.portfolioUrl.trim().length > 0) ||

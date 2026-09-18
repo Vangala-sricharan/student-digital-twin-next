@@ -15,6 +15,12 @@ export const AIProcessingCard: React.FC<AIProcessingCardProps> = ({
   onRetry,
 }) => {
   const { stages, currentStageIndex, progress, status, error } = job;
+
+  // Never display when idle or already completed
+  if (status === 'idle' || status === 'completed') {
+    return null;
+  }
+
   const currentStage = stages[currentStageIndex] || stages[0] || {
     id: 'running',
     label: 'Analyzing profile content & evidence...',

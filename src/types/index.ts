@@ -100,12 +100,30 @@ export interface CertificationItem {
   title: string;
   issuer: string;
   issueDate: string;
+  issueYear?: string;
   credentialId?: string;
   credentialUrl?: string;
   skills?: string[];
   verified?: boolean;
   description?: string;
   details?: string;
+  source?: 'linkedin_pdf' | 'manual' | 'planned';
+  sourceEvidence?: string;
+  confidence?: number;
+  status?: 'completed' | 'planned';
+}
+
+export interface ExtractedCertificationRecord {
+  id: string;
+  title: string;
+  issuingOrganization: string | null;
+  issueYear: string | null;
+  issueDate: string | null;
+  credentialId: string | null;
+  verificationUrl: string | null;
+  sourceEvidence: string;
+  confidence: number;
+  selected?: boolean;
 }
 
 export interface ParticipationItem {

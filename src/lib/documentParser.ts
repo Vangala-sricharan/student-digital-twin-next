@@ -64,7 +64,7 @@ export interface SyllabusContentValidationResult {
 }
 
 const DEFAULT_REJECTION_MESSAGE = 'Please upload the correct PPT/PDF of a subject.';
-const DEFAULT_SUPPORTING_TEXT = 'This document does not appear to contain academic subject material for Syllabus Prep.';
+const DEFAULT_SUPPORTING_TEXT = 'This document does not contain enough academic subject/course material to generate an exam preparation guide.';
 
 /**
  * Checks if the content is a LinkedIn profile export.

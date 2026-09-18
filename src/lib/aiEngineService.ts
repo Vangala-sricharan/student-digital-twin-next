@@ -300,6 +300,18 @@ export async function executeAiEngine(
 
   // Syllabus & Exam Prep: Call dedicated /api/ai/syllabus-prep route
   if (request.engineId === 'syllabus-prep') {
+    const textToAnalyze = (request.documentText || request.userInputs?.pastedText || '').trim();
+    if (!textToAnalyze) {
+      return {
+        engineId: 'syllabus-prep',
+        status: 'error',
+        error: 'Please upload a PDF/PPT/PPTX or enter syllabus text to generate your exam preparation guide.',
+        supportingText: 'A valid course syllabus, lecture slides (PDF/PPT/PPTX), or course outline text is required.',
+        data: null,
+        timestamp: new Date().toISOString(),
+      };
+    }
+
     try {
       onStageUpdate?.(1, 'Validating Academic Subject Content');
       const res = await fetch('/api/ai/syllabus-prep', {
@@ -323,7 +335,8 @@ export async function executeAiEngine(
         return {
           engineId: 'syllabus-prep',
           status: 'error',
-          error: 'Please upload the correct PPT/PDF of a subject.',
+          error: 'Unable to generate the preparation guide right now. Please try again.',
+          supportingText: 'Invalid server response.',
           data: null,
           timestamp: new Date().toISOString(),
         };
@@ -344,13 +357,20 @@ export async function executeAiEngine(
         engineId: 'syllabus-prep',
         status: 'error',
         error: json.error || 'Please upload the correct PPT/PDF of a subject.',
-        supportingText: json.supportingText || 'This document does not appear to contain academic subject material for Syllabus Prep.',
+        supportingText: json.supportingText || 'This document does not contain enough academic subject/course material to generate an exam preparation guide.',
         data: null,
         timestamp: new Date().toISOString(),
       };
     } catch (fetchErr: any) {
-      console.warn('[SyllabusPrep] Primary API failed, trying local engine runner:', fetchErr);
-      return await processEngineAiRequest(request, onStageUpdate);
+      console.error('[SyllabusPrep] Primary API failed:', fetchErr);
+      return {
+        engineId: 'syllabus-prep',
+        status: 'error',
+        error: 'Unable to generate the preparation guide right now. Please try again.',
+        supportingText: fetchErr?.message || 'Server or network connectivity issue.',
+        data: null,
+        timestamp: new Date().toISOString(),
+      };
     }
   }
 

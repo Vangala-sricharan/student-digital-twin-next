@@ -29,6 +29,7 @@ export interface PdfValidationResult {
   candidateHeadline?: string;
   candidateLocation?: string;
   debugInfo?: PdfDebugInfo;
+  extractedUrls?: string[];
 }
 
 export const SEMANTIC_SECTIONS = [
@@ -596,6 +597,25 @@ export async function validateAndExtractLinkedInPdf(file: File): Promise<PdfVali
 
     const debugInfo = extractPdfDebugInfo(finalText, candidateProfile);
 
+    // Extract actual URLs from PDF link annotations (/URI) and text
+    const extractedUrls: string[] = [];
+    const uriRegex = /\/URI\s*\(((?:[^()\\]|\\.)*)\)/gi;
+    let uriMatch: RegExpExecArray | null;
+    while ((uriMatch = uriRegex.exec(rawPdfString)) !== null) {
+      const u = uriMatch[1].replace(/\\([()\\])/g, '$1').trim();
+      if (/^https?:\/\//i.test(u) && !extractedUrls.includes(u)) {
+        extractedUrls.push(u);
+      }
+    }
+    const textUrlRegex = /https?:\/\/[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}[^\s)\]">\\]*/gi;
+    let textUrlMatch: RegExpExecArray | null;
+    while ((textUrlMatch = textUrlRegex.exec(finalText)) !== null) {
+      const u = textUrlMatch[0].trim();
+      if (!extractedUrls.includes(u)) {
+        extractedUrls.push(u);
+      }
+    }
+
     return {
       isValid: true,
       fileSizeFormatted: formatSize(file.size),
@@ -608,6 +628,7 @@ export async function validateAndExtractLinkedInPdf(file: File): Promise<PdfVali
       candidateHeadline,
       candidateLocation,
       debugInfo,
+      extractedUrls,
     };
   } catch (err: any) {
     return {

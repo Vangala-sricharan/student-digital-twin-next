@@ -22,14 +22,14 @@ function getAiClient() {
 }
 
 /**
- * Checks if the text appears to be a non-academic document (resume, job description, receipt, etc.)
+ * Checks if the text appears to be a non-academic document (resume, LinkedIn, job description, receipt, etc.)
  */
 function isNonAcademicDocument(text, fileName = '') {
   const lower = text.toLowerCase();
   const lowerFile = fileName.toLowerCase();
 
-  // Slide decks or unit outlines are definitely academic
-  if (
+  // Slide decks or unit outlines are definitely academic if not explicitly marked resume/cv/linkedin
+  const isSlideOrUnit = (
     lower.includes('[slide ') ||
     lowerFile.endsWith('.ppt') ||
     lowerFile.endsWith('.pptx') ||
@@ -38,42 +38,66 @@ function isNonAcademicDocument(text, fileName = '') {
     lower.includes('unit ') ||
     lower.includes('chapter ') ||
     lower.includes('module ')
-  ) {
-    if (!lowerFile.includes('resume') && !lowerFile.includes('invoice') && !lowerFile.includes('receipt')) {
-      return false;
-    }
+  );
+
+  if (isSlideOrUnit && !lowerFile.includes('resume') && !lowerFile.includes('cv') && !lowerFile.includes('linkedin')) {
+    return false;
   }
 
-  // Obvious non-academic files
+  // 1. Obvious non-academic files
   if (
     lowerFile.includes('resume') ||
     lowerFile.includes('cv_') ||
     lowerFile.includes('curriculum_vitae') ||
+    lowerFile.includes('linkedin') ||
     lowerFile.includes('invoice') ||
-    lowerFile.includes('receipt')
+    lowerFile.includes('receipt') ||
+    lowerFile.includes('portfolio') ||
+    lowerFile.includes('certificate')
   ) {
     return true;
   }
 
-  // Resume / CV patterns
-  const resumeMatches = [
-    /\bwork\s+experience\b/i,
-    /\bprofessional\s+experience\b/i,
-    /\bemployment\s+history\b/i,
-    /\beducation\s*:\s*(?:b\.?tech|b\.?s|b\.?e|m\.?s|m\.?tech)\b/i,
-    /\breferences\s+available\s+upon\s+request\b/i,
-    /\bcurriculum\s+vitae\b/i,
-    /\bcontact\s*:\s*[\w.-]+@[\w.-]+\b/i,
-  ].filter((r) => r.test(text)).length;
+  // 2. LinkedIn profile export signals
+  if (
+    lower.includes('linkedin.com') ||
+    lower.includes('top skills') ||
+    lower.includes('connections') ||
+    lower.includes('view full profile') ||
+    lower.includes('linkedin member') ||
+    /linkedin\.com\/(?:in|pub)\/[\w-]+/i.test(text)
+  ) {
+    if (lower.includes('experience') || lower.includes('education') || lower.includes('skills')) {
+      return true;
+    }
+  }
 
-  if (resumeMatches >= 2 && !lower.includes('syllabus') && !lower.includes('course outline') && !lower.includes('lecture')) {
+  // 3. Resume / CV patterns
+  const resumeSections = [
+    /\b(?:work|professional|industry|employment)\s+experience\b/i,
+    /\bprofessional\s+summary\b/i,
+    /\bcareer\s+objective\b/i,
+    /\btechnical\s+skills\b/i,
+    /\beducation(?:\s*&|\/|\s+and)?\s*(?:qualifications|background)?\b/i,
+    /\bcurriculum\s+vitae\b/i,
+    /\breferences\s+available\s+upon\s+request\b/i,
+    /\bdeclaration\s*:\s*i\s+hereby\s+declare\b/i,
+    /\bcontact\s*:\s*[\w.-]+@[\w.-]+\b/i,
+  ];
+
+  let matches = 0;
+  for (const rx of resumeSections) {
+    if (rx.test(text)) matches++;
+  }
+
+  if (matches >= 2 && !lower.includes('syllabus') && !lower.includes('course outline') && !lower.includes('lecture')) {
     return true;
   }
 
-  // LinkedIn export
+  // 4. Portfolio / Bio patterns
   if (
-    (lower.includes('linkedin') && lower.includes('connections') && lower.includes('experience')) ||
-    /linkedin\.com\/(?:in|pub)\/[\w-]+/i.test(text)
+    /\b(?:my\s+portfolio|portfolio\s+of)\b/i.test(text) ||
+    (/\bselected\s+(?:works|projects|case\s+studies)\b/i.test(text) && /\bcontact\s+me\b/i.test(text))
   ) {
     return true;
   }
@@ -90,20 +114,55 @@ export async function handleSyllabusPrepRequest(req, res) {
     return;
   }
 
-  const body = req.body || {};
+  // Robust body parsing for Vercel serverless function execution
+  let body = req.body;
+  if (Buffer.isBuffer(body)) {
+    try {
+      body = JSON.parse(body.toString('utf-8'));
+    } catch {
+      body = {};
+    }
+  } else if (!body && typeof req.on === 'function') {
+    try {
+      body = await new Promise((resolve, reject) => {
+        let raw = '';
+        req.on('data', (chunk) => {
+          raw += chunk;
+        });
+        req.on('end', () => {
+          try {
+            resolve(raw ? JSON.parse(raw) : {});
+          } catch {
+            resolve({});
+          }
+        });
+        req.on('error', reject);
+      });
+    } catch {
+      body = {};
+    }
+  } else if (typeof body === 'string') {
+    try {
+      body = JSON.parse(body);
+    } catch {
+      body = {};
+    }
+  }
+  body = body || {};
+
   const docText = (body.documentText || body.pastedText || body.userInputs?.pastedText || '').trim();
   const docMeta = body.documentMeta || {};
   const studentContext = body.studentContext || {};
   const fileName = docMeta.fileName || 'Uploaded Document';
 
-  // 1. Text extraction check
-  if (!docText || docText.length < 30) {
+  // 1. Text presence & input validation guard
+  if (!docText || docText.length < 15) {
     res.statusCode = 400;
     res.end(
       JSON.stringify({
         status: 'error',
-        error: 'Please upload the correct PPT/PDF of a subject.',
-        supportingText: 'The document does not contain readable academic text. Please upload a valid course syllabus, lecture slides, or subject notes PDF/PPT.',
+        error: 'Please upload a PDF/PPT/PPTX or enter syllabus text to generate your exam preparation guide.',
+        supportingText: 'No readable academic document or syllabus text was provided.',
       })
     );
     return;
@@ -116,7 +175,7 @@ export async function handleSyllabusPrepRequest(req, res) {
       JSON.stringify({
         status: 'error',
         error: 'Please upload the correct PPT/PDF of a subject.',
-        supportingText: 'This document does not appear to contain academic subject material for Syllabus Prep.',
+        supportingText: 'This document does not contain enough academic subject/course material to generate an exam preparation guide.',
       })
     );
     return;
@@ -400,7 +459,11 @@ Analyze the document above and return the comprehensive Exam Preparation Guide i
 }`;
 
     // Call Gemini with resilient models
-    const modelsToTry = ['gemini-2.5-flash', 'gemini-1.5-flash'];
+    const modelsToTry = [
+      'gemini-2.5-flash',
+      'gemini-2.0-flash',
+      'gemini-1.5-flash',
+    ];
     let responseText = null;
     let lastErr = null;
 
@@ -556,4 +619,9 @@ ${t.keyFormula ? `- **Core Formula / Rule**: ${t.keyFormula}` : ''}
       })
     );
   }
+}
+
+// Default export for Vercel Serverless Function entrypoint
+export default async function handler(req, res) {
+  return handleSyllabusPrepRequest(req, res);
 }

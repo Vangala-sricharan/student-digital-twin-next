@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
+import { getUserQuizStreak } from './quizStorageService';
 
-const QUIZ_STREAK_STORAGE_KEY = 'sdt_demo_quiz_streak';
+const USER_STREAK_PREFIX = 'sdt_quiz_streak_';
+const DEMO_VISITOR_STREAK_KEY = 'sdt_demo_visitor_quiz_streak';
 
 export interface QuizStreakData {
   count: number;
@@ -27,54 +29,27 @@ function getDayDiff(dateStr1: string, dateStr2: string): number {
 }
 
 /**
- * Returns current valid quiz streak count.
- * Resets streak to 0 if visitor missed more than 1 calendar day.
+ * Returns current valid quiz streak count for user or demo visitor.
+ * ZERO hardcoded numbers. If no quizzes completed, returns 0.
  */
-export function getQuizStreak(): number {
-  if (typeof window === 'undefined') return 0;
-  try {
-    const raw = localStorage.getItem(QUIZ_STREAK_STORAGE_KEY);
-    if (!raw) return 0;
-    const data: QuizStreakData = JSON.parse(raw);
-    if (!data || typeof data.count !== 'number' || !data.lastPlayedDate) return 0;
-
-    const today = getLocalDateString();
-    const diff = getDayDiff(data.lastPlayedDate, today);
-
-    // Played today: active streak
-    if (diff === 0) {
-      return data.count;
-    }
-    // Played yesterday: active streak awaiting play today
-    if (diff === 1) {
-      return data.count;
-    }
-    // Missed a calendar day: reset streak to 0
-    if (diff > 1) {
-      localStorage.setItem(
-        QUIZ_STREAK_STORAGE_KEY,
-        JSON.stringify({ count: 0, lastPlayedDate: '' })
-      );
-      return 0;
-    }
-    return data.count;
-  } catch {
-    return 0;
-  }
+export function getQuizStreak(userId?: string | null, isDemo: boolean = false): number {
+  return getUserQuizStreak(userId, isDemo);
 }
 
 /**
- * Records completion of a quiz.
+ * Records completion of a quiz for user or demo visitor.
  * - Counts only upon actual quiz completion/submission.
  * - Same-day completions do not increment multiple times.
  * - Consecutive day increments streak.
  * - Missed day resets to 1.
  */
-export function recordQuizCompleted(): number {
+export function recordQuizCompleted(userId?: string | null, isDemo: boolean = false): number {
   if (typeof window === 'undefined') return 1;
   try {
     const today = getLocalDateString();
-    const raw = localStorage.getItem(QUIZ_STREAK_STORAGE_KEY);
+    const isDemoVisitor = isDemo || !userId;
+    const storageKey = isDemoVisitor ? DEMO_VISITOR_STREAK_KEY : `${USER_STREAK_PREFIX}${userId}`;
+    const raw = isDemoVisitor ? sessionStorage.getItem(storageKey) : localStorage.getItem(storageKey);
     let currentCount = 0;
     let lastDate = '';
 
@@ -111,8 +86,16 @@ export function recordQuizCompleted(): number {
       count: newCount,
       lastPlayedDate: today,
     };
-    localStorage.setItem(QUIZ_STREAK_STORAGE_KEY, JSON.stringify(payload));
-    window.dispatchEvent(new CustomEvent('sdt:quiz-streak-updated', { detail: payload }));
+
+    if (isDemoVisitor) {
+      sessionStorage.setItem(storageKey, JSON.stringify(payload));
+    } else {
+      localStorage.setItem(storageKey, JSON.stringify(payload));
+    }
+
+    window.dispatchEvent(
+      new CustomEvent('sdt:quiz-streak-updated', { detail: { count: newCount, userId, isDemo } })
+    );
     return newCount;
   } catch {
     return 1;
@@ -120,24 +103,28 @@ export function recordQuizCompleted(): number {
 }
 
 /**
- * React hook to reactively subscribe to demo quiz streak changes.
+ * React hook to reactively subscribe to quiz streak changes for current user/demo.
  */
-export function useQuizStreak(): number {
-  const [streak, setStreak] = useState<number>(() => getQuizStreak());
+export function useQuizStreak(userId?: string | null, isDemo: boolean = false): number {
+  const [streak, setStreak] = useState<number>(() => getUserQuizStreak(userId, isDemo));
 
   useEffect(() => {
+    setStreak(getUserQuizStreak(userId, isDemo));
+
     const handleUpdate = () => {
-      setStreak(getQuizStreak());
+      setStreak(getUserQuizStreak(userId, isDemo));
     };
 
     window.addEventListener('sdt:quiz-streak-updated', handleUpdate);
+    window.addEventListener('sdt:quiz-history-updated', handleUpdate);
     window.addEventListener('storage', handleUpdate);
 
     return () => {
       window.removeEventListener('sdt:quiz-streak-updated', handleUpdate);
+      window.removeEventListener('sdt:quiz-history-updated', handleUpdate);
       window.removeEventListener('storage', handleUpdate);
     };
-  }, []);
+  }, [userId, isDemo]);
 
   return streak;
 }

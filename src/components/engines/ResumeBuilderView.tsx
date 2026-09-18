@@ -29,7 +29,10 @@ import {
   Code,
   Award,
   Link2,
+  ExternalLink,
 } from 'lucide-react';
+import { LinkedInCertificationsManager } from './resume/LinkedInCertificationsManager';
+import { ResumeCertificationItem } from './resume/types';
 
 interface ResumeBuilderViewProps {
   onBackToHub?: () => void;
@@ -50,12 +53,7 @@ interface SkillCategoryItem {
   skills: string;
 }
 
-interface ResumeAchievementItem {
-  id: string;
-  title: string;
-  issuer: string;
-  date: string;
-}
+type ResumeAchievementItem = ResumeCertificationItem;
 
 interface ResumeParticipationItem {
   id: string;
@@ -96,6 +94,12 @@ function normalizeUrl(url: string): string {
   return /^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`;
 }
 
+function formatGitHubLabel(url: string): string {
+  const norm = normalizeUrl(url);
+  const clean = norm.replace(/^https?:\/\/(www\.)?github\.com\/?/i, '').replace(/\/$/, '');
+  return clean ? `GitHub: ${clean}` : 'GitHub';
+}
+
 function getCleanCgpa(prof?: any): string {
   if (!prof) return '';
   if (typeof prof.cgpa === 'number' && prof.cgpa > 0) return prof.cgpa.toString();
@@ -110,35 +114,58 @@ function buildInitialRecruiterSummary(
   userProjects: any[],
   isDemo: boolean
 ): string {
-  const degreeStr = prof?.degree || 'B.Tech';
-  const branchStr = prof?.branch || 'CSE (AI/ML)';
-  const uniStr = prof?.university || 'Marwadi University';
-  const hasAi = userSkills.some((s) => /ai|ml|pytorch|deep learning|llm/i.test(s.name)) || /ai|ml/i.test(branchStr);
+  if (isDemo) {
+    return 'B.Tech Computer Science student at Marwadi University focused on practical AI-powered and full-stack software. Hands-on experience with Python, C++, JavaScript/TypeScript, React, SQL, Supabase, AI APIs, Git/GitHub and Vercel. Built the Digital Student Twin intelligence platform for academic analytics and career-readiness diagnostics, alongside retail, event-management, travel-planning and student-productivity applications.';
+  }
 
-  const studentPrefix = `${degreeStr} student in ${branchStr} at ${uniStr}`;
-  const focus = hasAi
-    ? 'specializing in AI/ML systems and full-stack software development'
-    : 'focused on scalable full-stack software engineering and clean web architectures';
+  // If authenticated user has saved a summary in their profile, use it
+  if (prof?.summary && typeof prof.summary === 'string' && prof.summary.trim().length > 0) {
+    return prof.summary.trim();
+  }
+
+  // Build factual summary ONLY from user's actual record
+  const degreeStr = prof?.degree;
+  const branchStr = prof?.branch || prof?.department;
+  const uniStr = prof?.university;
+
+  const parts: string[] = [];
+  if (degreeStr && uniStr) {
+    parts.push(`${degreeStr}${branchStr ? ` in ${branchStr}` : ''} student at ${uniStr}`);
+  } else if (degreeStr) {
+    parts.push(`${degreeStr}${branchStr ? ` in ${branchStr}` : ''} student`);
+  } else if (uniStr) {
+    parts.push(`Student at ${uniStr}`);
+  }
 
   const allSkills = Array.from(
     new Set(userSkills.map((s) => s.name).concat(userProjects.flatMap((p) => (Array.isArray(p.techStack) ? p.techStack : []))))
-  );
-  const coreTech = allSkills.filter((s) => /python|javascript|typescript|react|node|sql|postgres|supabase|fastapi/i.test(s)).slice(0, 5);
-  const techPhrase = coreTech.length > 0 ? `Proficient in ${coreTech.join(', ')}.` : '';
+  ).filter(Boolean);
 
-  const hasTwin = userProjects.some((p) => /student\s*twin/i.test(p.title));
-  const projectPhrase = hasTwin
-    ? 'Hands-on experience architecting full-stack systems including the Digital Student Twin intelligence platform with structured diagnostics and cloud data workflows.'
-    : userProjects.length > 0
-    ? `Hands-on experience architecting applications including ${userProjects[0].title} with modular system architecture.`
-    : '';
+  if (allSkills.length > 0) {
+    const skillList = allSkills.slice(0, 6).join(', ');
+    if (parts.length > 0) {
+      parts[0] += ` focused on practical software development. Hands-on experience with ${skillList}.`;
+    } else {
+      parts.push(`Software developer with hands-on experience in ${skillList}.`);
+    }
+  }
 
-  return `${studentPrefix}, ${focus}. ${techPhrase} ${projectPhrase} Focused on engineering production-oriented, reliable software.`.replace(/\s+/g, ' ').trim();
+  if (userProjects.length > 0) {
+    const topProj = userProjects[0];
+    parts.push(`Developed projects including ${topProj.title}${topProj.description ? ` (${topProj.description})` : ''}.`);
+  }
+
+  if (parts.length === 0) {
+    return '';
+  }
+
+  return parts.join(' ').replace(/\s+/g, ' ').trim();
 }
 
 function buildInitialSkillCategories(
   userSkills: Array<{ name: string }>,
-  userProjects: any[]
+  userProjects: any[],
+  isDemo: boolean
 ): SkillCategoryItem[] {
   const allSkillNames = Array.from(
     new Set(
@@ -155,6 +182,21 @@ function buildInitialSkillCategories(
     )
   );
 
+  if (allSkillNames.length === 0) {
+    if (isDemo) {
+      return [
+        { id: 'cat-lang', category: 'LANGUAGES', skills: 'C, C++, Python, JavaScript, TypeScript, HTML, CSS' },
+        { id: 'cat-fe', category: 'FRONTEND', skills: 'React, Tailwind CSS' },
+        { id: 'cat-be', category: 'BACKEND & APIs', skills: 'Node.js, REST APIs' },
+        { id: 'cat-ai', category: 'AI / ML', skills: 'AI APIs, Generative AI, Gemini AI' },
+        { id: 'cat-db', category: 'DATABASES', skills: 'Supabase, PostgreSQL, MySQL' },
+        { id: 'cat-tools', category: 'TOOLS & CLOUD', skills: 'Git, GitHub, Vercel, AWS' },
+        { id: 'cat-other', category: 'OTHER', skills: 'Data Analytics, GitHub API, IoT, Data Structures & Algorithms, OOP' },
+      ];
+    }
+    return [];
+  }
+
   const assigned = new Set<string>();
   const matchCategory = (regex: RegExp) => {
     const matched = allSkillNames.filter((s) => !assigned.has(s.toLowerCase()) && regex.test(s));
@@ -162,32 +204,28 @@ function buildInitialSkillCategories(
     return matched;
   };
 
-  const lang = matchCategory(/^(?:python|javascript|typescript|c\+\+|java|sql|c#|rust|golang|go|php|c|html|css|bash)$/i);
-  const fe = matchCategory(/^(?:react|tailwind|tailwind css|next\.js|redux|recharts|vue|angular|vite)$/i);
-  const be = matchCategory(/^(?:node\.js|node|express|fastapi|django|flask|spring|rest apis?|graphql)$/i);
-  const ai = matchCategory(/^(?:pytorch|tensorflow|generative ai|llm orchestration|vector embeddings|deep learning|nlp|machine learning|ai apis)$/i);
-  const db = matchCategory(/^(?:postgresql|postgres|mysql|supabase|mongodb|redis|sqlite|firebase)$/i);
-  const tools = matchCategory(/^(?:docker|git|github|vercel|ci\/cd|linux|aws|postman)$/i);
+  const lang = matchCategory(/^(?:python|javascript|typescript|c\+\+|java|sql|c#|rust|golang|go|php|c|html|css|bash|r|kotlin|swift)$/i);
+  const fe = matchCategory(/^(?:react|tailwind|tailwind css|next\.js|redux|recharts|vue|angular|vite|bootstrap|svelte|sass|less)$/i);
+  const be = matchCategory(/^(?:node\.js|node|express|fastapi|django|flask|spring|rest apis?|graphql|grpc|nest\.js)$/i);
+  const ai = matchCategory(/^(?:pytorch|tensorflow|generative ai|llm orchestration|vector embeddings|deep learning|nlp|machine learning|ai apis|gemini ai|opencv|langchain)$/i);
+  const db = matchCategory(/^(?:postgresql|postgres|mysql|supabase|mongodb|redis|sqlite|firebase|prisma|drizzle|dynamodb)$/i);
+  const tools = matchCategory(/^(?:docker|git|github|vercel|ci\/cd|linux|aws|postman|kubernetes|gcp|azure)$/i);
 
   const remaining = allSkillNames.filter((s) => !assigned.has(s.toLowerCase()));
 
   const result: SkillCategoryItem[] = [];
-  if (lang.length > 0) result.push({ id: 'cat-lang', category: 'Languages', skills: lang.join(', ') });
-  if (fe.length > 0) result.push({ id: 'cat-fe', category: 'Frontend', skills: fe.join(', ') });
-  if (be.length > 0) result.push({ id: 'cat-be', category: 'Backend & APIs', skills: be.join(', ') });
+  if (lang.length > 0) result.push({ id: 'cat-lang', category: 'LANGUAGES', skills: lang.join(', ') });
+  if (fe.length > 0) result.push({ id: 'cat-fe', category: 'FRONTEND', skills: fe.join(', ') });
+  if (be.length > 0) result.push({ id: 'cat-be', category: 'BACKEND & APIs', skills: be.join(', ') });
   if (ai.length > 0) result.push({ id: 'cat-ai', category: 'AI / ML', skills: ai.join(', ') });
-  if (db.length > 0) result.push({ id: 'cat-db', category: 'Databases', skills: db.join(', ') });
-  if (tools.length > 0) result.push({ id: 'cat-tools', category: 'Systems & Tools', skills: tools.join(', ') });
+  if (db.length > 0) result.push({ id: 'cat-db', category: 'DATABASES', skills: db.join(', ') });
+  if (tools.length > 0) result.push({ id: 'cat-tools', category: 'TOOLS & CLOUD', skills: tools.join(', ') });
   if (remaining.length > 0) {
     if (result.length > 0) {
-      result.push({ id: 'cat-other', category: 'Other Competencies', skills: remaining.join(', ') });
+      result.push({ id: 'cat-other', category: 'OTHER', skills: remaining.join(', ') });
     } else {
-      result.push({ id: 'cat-all', category: 'Technical Skills', skills: remaining.join(', ') });
+      result.push({ id: 'cat-all', category: 'TECHNICAL SKILLS', skills: remaining.join(', ') });
     }
-  }
-
-  if (result.length === 0) {
-    result.push({ id: 'cat-core', category: 'Technical Skills', skills: 'Python, JavaScript, TypeScript, React, Node.js, PostgreSQL' });
   }
 
   return result;
@@ -259,10 +297,24 @@ const VERIFIED_PROJECT_DEFAULTS: Record<string, { bullets: string[]; githubUrl: 
 
 function buildInitialProjects(
   userProjects: any[],
-  isDemo: boolean,
-  isCreator: boolean
+  isDemo: boolean
 ): ResumeProjectItem[] {
-  // Sort: Digital Student Twin first
+  if ((!userProjects || userProjects.length === 0) && isDemo) {
+    return Object.entries(VERIFIED_PROJECT_DEFAULTS).map(([title, val], i) => ({
+      id: `demo-proj-${i}`,
+      title,
+      techStack: val.techStack,
+      githubUrl: val.githubUrl,
+      liveUrl: val.liveUrl,
+      bullets: val.bullets,
+    }));
+  }
+
+  if (!userProjects || userProjects.length === 0) {
+    return [];
+  }
+
+  // Sort: Digital Student Twin first if exists
   const sorted = [...userProjects].sort((a, b) => {
     const aTwin = /student\s*twin/i.test(a.title);
     const bTwin = /student\s*twin/i.test(b.title);
@@ -272,49 +324,41 @@ function buildInitialProjects(
   });
 
   return sorted.map((p) => {
-    const isTwin = /student\s*twin/i.test(p.title);
-    const match = VERIFIED_PROJECT_DEFAULTS[p.title];
+    const match = isDemo ? VERIFIED_PROJECT_DEFAULTS[p.title] : undefined;
 
-    // URLs: strictly real user URLs if not demo/creator
+    // URLs: strictly real user URLs
     const gh = isValidUrl(p.githubUrl)
       ? p.githubUrl
-      : (isDemo || isCreator) && match ? match.githubUrl : '';
+      : isDemo && match ? match.githubUrl : '';
     const live = isValidUrl(p.liveUrl)
       ? p.liveUrl
-      : (isDemo || isCreator) && match ? match.liveUrl : '';
+      : isDemo && match ? match.liveUrl : '';
 
     // Tech Stack
     const stackStr = Array.isArray(p.techStack)
       ? p.techStack.join(' • ')
       : typeof p.techStack === 'string'
       ? p.techStack.replace(/\|/g, '•').trim()
-      : (match?.techStack || 'React • TypeScript • Tailwind CSS');
+      : (match?.techStack || '');
 
-    // Bullets: 2-3 concise bullets without repeating generic filler
+    // Bullets: concise bullets without generic filler
     let bullets: string[] = [];
-    if (isTwin) {
+    if (/student\s*twin/i.test(p.title) && isDemo) {
       bullets = [
         'Architected student intelligence platform combining academic analytics, skill tracking, and career readiness diagnostics.',
         'Implemented responsive multi-engine student workspace using React and Tailwind CSS with PostgreSQL and Supabase data layer.',
         'Deployed on Vercel with structured progress tracking and deterministic readiness scoring across academic and practical pillars.',
       ];
-    } else if (match && (isDemo || isCreator)) {
+    } else if (match && isDemo) {
       bullets = [...match.bullets];
     } else {
       const cleanHighlights = (p.highlights || [])
-        .filter((h: string) => !h.toLowerCase().includes('optimized performance and ensured reliable error handling'));
+        .filter((h: string) => typeof h === 'string' && !h.toLowerCase().includes('optimized performance and ensured reliable error handling'));
 
-      if (cleanHighlights.length >= 2) {
+      if (cleanHighlights.length >= 1) {
         bullets = cleanHighlights.slice(0, 3);
-      } else {
-        const stackList = Array.isArray(p.techStack) ? p.techStack.join(', ') : p.techStack || 'modular technologies';
-        bullets = [
-          `Architected ${p.title} platform utilizing ${stackList} with modular component hierarchy.`,
-          p.description || `Engineered full-stack workflows with responsive user interface and structured data handling.`,
-        ];
-        if (cleanHighlights.length === 1 && !bullets.includes(cleanHighlights[0])) {
-          bullets.push(cleanHighlights[0]);
-        }
+      } else if (p.description) {
+        bullets = [p.description];
       }
     }
 
@@ -335,7 +379,20 @@ function buildInitialProjects(
 
 export const ResumeBuilderView: React.FC<ResumeBuilderViewProps> = ({ onBackToHub }) => {
   const engine = AI_ENGINES.find((e) => e.id === 'resume-builder')!;
-  const { profile, skills, projects, achievements, certifications, participations, careerGoals, isDemoMode } = useStudentTwin();
+  const {
+    profile,
+    activeProfile,
+    skills,
+    projects,
+    achievements,
+    certifications,
+    participations,
+    careerGoals,
+    isDemoMode,
+    addCertification,
+    updateCertification,
+    removeCertification,
+  } = useStudentTwin();
   const { user, userProfile } = useAuth();
   const { job, isRunning, isError, rawText, structuredData, execute, retry } = useEngineJob('resume-builder');
 
@@ -350,11 +407,15 @@ export const ResumeBuilderView: React.FC<ResumeBuilderViewProps> = ({ onBackToHu
       profile?.name ||
       userProfile?.fullName ||
       (user?.user_metadata?.full_name as string) ||
-      (user?.email ? user.email.split('@')[0] : isDemoMode ? 'Vangala Sricharan' : 'Candidate')
+      (isDemoMode ? 'Vangala Sricharan' : (user?.email ? user.email.split('@')[0] : ''))
   );
-  const [headline, setHeadline] = useState(profile?.targetRole || profile?.headline || 'Software Developer / AI Engineer');
-  const [email, setEmail] = useState((profile as any)?.email || user?.email || '');
-  const [phone, setPhone] = useState((profile as any)?.phone || '');
+  const [headline, setHeadline] = useState(
+    profile?.targetRole ||
+      profile?.headline ||
+      (isDemoMode ? 'Software Engineering Student | AI/ML & Full-Stack Developer' : '')
+  );
+  const [email, setEmail] = useState((profile as any)?.email || user?.email || (isDemoMode ? 'sricharan.vangala135062@marwadiuniversity.ac.in' : ''));
+  const [phone, setPhone] = useState((profile as any)?.phone || (isDemoMode ? '+91 8520981574' : ''));
   const [location, setLocation] = useState(cleanLocation(profile?.location || (isDemoMode ? 'Rajkot, Gujarat, India' : '')));
   const [githubUrl, setGithubUrl] = useState(
     isValidUrl(profile?.githubUrl) ? profile!.githubUrl! : (isDemoMode ? 'https://github.com/Vangala-sricharan' : '')
@@ -362,49 +423,142 @@ export const ResumeBuilderView: React.FC<ResumeBuilderViewProps> = ({ onBackToHu
   const [linkedinUrl, setLinkedinUrl] = useState(
     isValidUrl(profile?.linkedinUrl) ? profile!.linkedinUrl! : (isDemoMode ? 'https://www.linkedin.com/in/sri-charan-vangala-a7453b384/' : '')
   );
-  const [targetRole, setTargetRole] = useState(profile?.targetRole || 'Software Developer / AI Engineer');
+  const [targetRole, setTargetRole] = useState(
+    profile?.targetRole || (isDemoMode ? 'Software Developer / AI Engineer' : '')
+  );
 
   // Section 2: Summary
   const [summary, setSummary] = useState(
-    buildInitialRecruiterSummary(profile, skills, projects, isDemoMode)
+    buildInitialRecruiterSummary(profile, skills, projects, Boolean(isDemoMode))
   );
 
   // Section 3: Education - Clean Year (no "2rd Year") & Real CGPA only
-  const [university, setUniversity] = useState(profile?.university || 'Marwadi University');
-  const [degree, setDegree] = useState(profile?.degree || 'B.Tech');
-  const [branch, setBranch] = useState(profile?.branch || 'CSE (AI/ML)');
-  const [gradYear, setGradYear] = useState(cleanEducationYear(profile?.yearOfStudy || profile?.year));
-  const [cgpa, setCgpa] = useState(getCleanCgpa(profile));
+  const [university, setUniversity] = useState(profile?.university || (isDemoMode ? 'Marwadi University' : ''));
+  const [degree, setDegree] = useState(profile?.degree || (isDemoMode ? 'B.Tech' : ''));
+  const [branch, setBranch] = useState(profile?.branch || profile?.academicProgram || (isDemoMode ? 'CSE (AI/ML)' : ''));
+  const [gradYear, setGradYear] = useState(
+    cleanEducationYear(profile?.yearOfStudy || profile?.year) || (isDemoMode ? '2025–2029 • Expected Graduation: 2029' : '')
+  );
+  const [cgpa, setCgpa] = useState(getCleanCgpa(profile) || (isDemoMode ? '9.1' : ''));
 
   // Section 4: Categorized Technical Skills (No duplicates, supported by verified data)
   const [skillCategories, setSkillCategories] = useState<SkillCategoryItem[]>(() =>
-    buildInitialSkillCategories(skills, projects)
+    buildInitialSkillCategories(skills, projects, Boolean(isDemoMode))
   );
 
   // Section 5: Technical Projects (Strongest first, real URLs only, clean bullets)
   const [resumeProjects, setResumeProjects] = useState<ResumeProjectItem[]>(() =>
-    buildInitialProjects(projects, isDemoMode, isSricharan)
+    buildInitialProjects(projects, Boolean(isDemoMode))
   );
 
-  // Section 6: Certifications / Programs
-  const initialCertifications = (): ResumeAchievementItem[] => {
+  // Section 6: Certifications / Programs (Strictly verified/approved certifications only)
+  const initialCertifications = (): ResumeCertificationItem[] => {
     if (certifications && certifications.length > 0) {
       return certifications.map((c) => ({
         id: c.id,
         title: c.title,
         issuer: c.issuer,
         date: c.issueDate,
+        issueYear: c.issueYear || undefined,
+        credentialUrl: c.credentialUrl || undefined,
+        credentialId: c.credentialId || undefined,
+        source: c.source || 'manual',
+        sourceEvidence: c.sourceEvidence,
+        confidence: c.confidence,
+        status: 'completed',
       }));
     }
-    return achievements.map((a) => ({
-      id: a.id,
-      title: a.title,
-      issuer: a.issuer,
-      date: a.date,
-    }));
+    return [];
   };
 
-  const [resumeCertifications, setResumeCertifications] = useState<ResumeAchievementItem[]>(initialCertifications);
+  const [resumeCertifications, setResumeCertifications] = useState<ResumeCertificationItem[]>(initialCertifications);
+
+  // Planned Certifications State (Separate from completed certifications)
+  const [plannedCertifications, setPlannedCertifications] = useState<ResumeCertificationItem[]>(() => {
+    try {
+      const key = `sdt_user_planned_certifications_v4_${user?.id || 'guest'}_${activeProfile?.id || 'default'}`;
+      const saved = localStorage.getItem(key);
+      if (saved) return JSON.parse(saved);
+    } catch {}
+    return [];
+  });
+  const [includePlannedOnResume, setIncludePlannedOnResume] = useState<boolean>(false);
+
+  useEffect(() => {
+    try {
+      const key = `sdt_user_planned_certifications_v4_${user?.id || 'guest'}_${activeProfile?.id || 'default'}`;
+      localStorage.setItem(key, JSON.stringify(plannedCertifications));
+    } catch {}
+  }, [plannedCertifications, user?.id, activeProfile?.id]);
+
+  const handleAddCertification = (cert: ResumeCertificationItem) => {
+    setResumeCertifications((prev) => [...prev, cert]);
+    if (!isDemoMode && addCertification) {
+      addCertification({
+        title: cert.title,
+        issuer: cert.issuer,
+        issueDate: cert.date,
+        issueYear: cert.issueYear,
+        credentialUrl: cert.credentialUrl,
+        credentialId: cert.credentialId,
+        source: cert.source || 'manual',
+        sourceEvidence: cert.sourceEvidence,
+        confidence: cert.confidence,
+        status: 'completed',
+      });
+    }
+  };
+
+  const handleAddMultipleCertifications = (certs: ResumeCertificationItem[]) => {
+    setResumeCertifications((prev) => [...prev, ...certs]);
+    if (!isDemoMode && addCertification) {
+      certs.forEach((cert) => {
+        addCertification({
+          title: cert.title,
+          issuer: cert.issuer,
+          issueDate: cert.date,
+          issueYear: cert.issueYear,
+          credentialUrl: cert.credentialUrl,
+          credentialId: cert.credentialId,
+          source: cert.source || 'linkedin_pdf',
+          sourceEvidence: cert.sourceEvidence,
+          confidence: cert.confidence,
+          status: 'completed',
+        });
+      });
+    }
+  };
+
+  const handleUpdateCertification = (id: string, updates: Partial<ResumeCertificationItem>) => {
+    setResumeCertifications((prev) =>
+      prev.map((c) => (c.id === id ? { ...c, ...updates } : c))
+    );
+    if (!isDemoMode && updateCertification) {
+      updateCertification(id, {
+        title: updates.title,
+        issuer: updates.issuer,
+        issueDate: updates.date,
+        issueYear: updates.issueYear,
+        credentialUrl: updates.credentialUrl,
+        credentialId: updates.credentialId,
+      });
+    }
+  };
+
+  const handleRemoveCertification = (id: string) => {
+    setResumeCertifications((prev) => prev.filter((c) => c.id !== id));
+    if (!isDemoMode && removeCertification) {
+      removeCertification(id);
+    }
+  };
+
+  const handleAddPlannedCertification = (cert: ResumeCertificationItem) => {
+    setPlannedCertifications((prev) => [...prev, cert]);
+  };
+
+  const handleRemovePlannedCertification = (id: string) => {
+    setPlannedCertifications((prev) => prev.filter((c) => c.id !== id));
+  };
 
   // Section 7: Participations & Events
   const initialParticipations = (): ResumeParticipationItem[] => {
@@ -497,13 +651,40 @@ export const ResumeBuilderView: React.FC<ResumeBuilderViewProps> = ({ onBackToHu
   };
 
   const handleSaveResume = () => {
+    if (!isDemoMode && user && activeProfile) {
+      try {
+        const certsToSave = resumeCertifications.map((c) => ({
+          id: c.id,
+          title: c.title,
+          issuer: c.issuer,
+          issueDate: c.date,
+          issueYear: c.issueYear,
+          credentialUrl: c.credentialUrl,
+          credentialId: c.credentialId,
+          source: c.source || 'manual',
+          sourceEvidence: c.sourceEvidence,
+          confidence: c.confidence,
+          status: c.status || 'completed',
+        }));
+        localStorage.setItem(
+          `sdt_user_certifications_v4_${user.id}_${activeProfile.id}`,
+          JSON.stringify(certsToSave)
+        );
+        localStorage.setItem(
+          `sdt_user_certifications_v4_${user.id}`,
+          JSON.stringify(certsToSave)
+        );
+      } catch (err) {
+        console.warn('Failed saving certifications to localStorage:', err);
+      }
+    }
     setSaveSuccess(true);
     setTimeout(() => setSaveSuccess(false), 2500);
   };
 
   const handleCopyText = () => {
     const cleanLoc = cleanLocation(location);
-    const contactParts = [email, phone, cleanLoc].filter(Boolean).join(' • ');
+    const contactParts = [cleanLoc, email, phone].filter(Boolean).join(' • ');
 
     const linkParts: string[] = [];
     if (isValidUrl(githubUrl)) {
@@ -513,39 +694,39 @@ export const ResumeBuilderView: React.FC<ResumeBuilderViewProps> = ({ onBackToHu
       linkParts.push(`LinkedIn: ${normalizeUrl(linkedinUrl).replace(/^https?:\/\//, '').replace(/\/$/, '')}`);
     }
 
-    const educationDegreeLine = [degree || 'B.Tech', branch, gradYear].filter(Boolean).join(' • ');
+    const educationDegreeLine = [degree, branch].filter(Boolean).join(' in ');
+    const educationSubLine = [university, cleanLoc, gradYear].filter(Boolean).join(' • ');
     const educationCgpaPart = cgpa && cgpa.trim() !== '' ? ` | CGPA: ${cgpa.trim()}` : '';
 
     const textOutput = `
 ${fullName.toUpperCase()}
 ${headline}
 ${contactParts}
-${linkParts.join('   |   ')}
+${linkParts.join(' • ')}
 
-PROFESSIONAL SUMMARY
+PROFILE
 ${summary}
 
-EDUCATION
-${university}
-${educationDegreeLine}${educationCgpaPart}
-
 TECHNICAL SKILLS
-${skillCategories.map((c) => `• ${c.category.toUpperCase()}: ${c.skills}`).join('\n')}
+${skillCategories.map((c) => `${c.category.toUpperCase().padEnd(16)}: ${c.skills}`).join('\n')}
 
-TECHNICAL PROJECTS
+SELECTED PROJECTS
 ${resumeProjects
   .map((p) => {
-    const projLinks: string[] = [];
-    if (isValidUrl(p.githubUrl)) projLinks.push(`GitHub: ${normalizeUrl(p.githubUrl!)}`);
-    if (isValidUrl(p.liveUrl)) projLinks.push(`Live: ${normalizeUrl(p.liveUrl!)}`);
-    const linkLine = projLinks.length > 0 ? `\n${projLinks.join('  |  ')}` : '';
+    const ghLink = isValidUrl(p.githubUrl) ? ` [Code: ${normalizeUrl(p.githubUrl!)}]` : '';
 
-    return `${p.title} | ${p.techStack}${linkLine}
+    return `${p.title}${ghLink}
+${p.techStack}
 ${p.bullets.map((b) => `• ${b}`).join('\n')}`;
   })
   .join('\n\n')}
 
-${resumeCertifications.length > 0 ? `CERTIFICATIONS / PROGRAMS\n${resumeCertifications.map((c) => `• ${c.title} — ${c.issuer} (${c.date})`).join('\n')}\n\n` : ''}
+EDUCATION
+${educationDegreeLine || 'Degree'}
+${educationSubLine}${educationCgpaPart}
+
+${resumeCertifications.length > 0 ? `CERTIFICATIONS\n${resumeCertifications.map((c) => `• ${c.title}${c.issuer ? ` — ${c.issuer}` : ''}${c.date ? ` (${c.date})` : ''}${c.credentialUrl ? ` [Credential: ${c.credentialUrl}]` : ''}`).join('\n')}\n\n` : ''}
+${includePlannedOnResume && plannedCertifications.length > 0 ? `PLANNED CERTIFICATIONS (TARGET)\n${plannedCertifications.map((c) => `• [PLANNED] ${c.title}${c.issuer ? ` — ${c.issuer}` : ''}${c.date ? ` (Target: ${c.date})` : ''}`).join('\n')}\n\n` : ''}
 ${resumeParticipations.length > 0 ? `PARTICIPATIONS & EVENTS\n${resumeParticipations.map((p) => `• ${p.title}: ${p.description}`).join('\n')}` : ''}
 `.trim();
 
@@ -585,14 +766,21 @@ ${resumeParticipations.length > 0 ? `PARTICIPATIONS & EVENTS\n${resumeParticipat
             title: p.title,
             techStack: p.techStack.split(/[|•]/).map((s) => s.trim()).filter(Boolean),
             githubUrl: isValidUrl(p.githubUrl) ? normalizeUrl(p.githubUrl!) : undefined,
-            liveUrl: isValidUrl(p.liveUrl) ? normalizeUrl(p.liveUrl!) : undefined,
             bullets: p.bullets,
           })),
           certifications: resumeCertifications.map((c) => ({
             title: c.title,
             issuer: c.issuer,
             date: c.date,
+            credentialUrl: c.credentialUrl,
           })),
+          plannedCertifications: includePlannedOnResume
+            ? plannedCertifications.map((c) => ({
+                title: c.title,
+                issuer: c.issuer,
+                date: c.date,
+              }))
+            : undefined,
           participations: resumeParticipations.map((p) => ({
             title: p.title,
             description: p.description,
@@ -874,75 +1062,12 @@ ${resumeParticipations.length > 0 ? `PARTICIPATIONS & EVENTS\n${resumeParticipat
                 />
               </div>
 
-              {/* 3. Education */}
-              <div className="p-6 rounded-[2rem] bg-white dark:bg-[#0d1117] border border-slate-200 dark:border-white/10 shadow-sm space-y-4">
-                <div className="flex items-center justify-between border-b border-slate-100 dark:border-white/5 pb-3">
-                  <h3 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                    <GraduationCap className="w-4 h-4 text-blue-600 dark:text-cyan-400" />
-                    <span>3. Education</span>
-                  </h3>
-                  <span className="text-[10px] font-mono text-slate-400">Academic Standing</span>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-                  <div className="space-y-1 sm:col-span-2">
-                    <label className="text-[11px] font-mono text-slate-500 dark:text-slate-400">University / Institution</label>
-                    <input
-                      type="text"
-                      value={university}
-                      onChange={(e) => setUniversity(e.target.value)}
-                      className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 text-xs text-slate-900 dark:text-white focus:outline-none focus:border-blue-500"
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <label className="text-[11px] font-mono text-slate-500 dark:text-slate-400">Degree</label>
-                    <input
-                      type="text"
-                      value={degree}
-                      onChange={(e) => setDegree(e.target.value)}
-                      placeholder="B.Tech"
-                      className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 text-xs text-slate-900 dark:text-white focus:outline-none focus:border-blue-500"
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <label className="text-[11px] font-mono text-slate-500 dark:text-slate-400">Branch / Specialization</label>
-                    <input
-                      type="text"
-                      value={branch}
-                      onChange={(e) => setBranch(e.target.value)}
-                      placeholder="CSE (AI/ML)"
-                      className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 text-xs text-slate-900 dark:text-white focus:outline-none focus:border-blue-500"
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <label className="text-[11px] font-mono text-slate-500 dark:text-slate-400">Year of Study</label>
-                    <input
-                      type="text"
-                      value={gradYear}
-                      onChange={(e) => setGradYear(e.target.value)}
-                      placeholder="2nd Year"
-                      className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 text-xs text-slate-900 dark:text-white focus:outline-none focus:border-blue-500 font-mono"
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <label className="text-[11px] font-mono text-slate-500 dark:text-slate-400">CGPA</label>
-                    <input
-                      type="text"
-                      value={cgpa}
-                      onChange={(e) => setCgpa(e.target.value)}
-                      placeholder="Optional (e.g. 8.75)"
-                      className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 text-xs text-slate-900 dark:text-white focus:outline-none focus:border-blue-500 font-mono"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              {/* 4. Technical Skills (Categorized) */}
+              {/* 3. Technical Skills (Categorized) */}
               <div className="p-6 rounded-[2rem] bg-white dark:bg-[#0d1117] border border-slate-200 dark:border-white/10 shadow-sm space-y-4">
                 <div className="flex items-center justify-between border-b border-slate-100 dark:border-white/5 pb-3">
                   <h3 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
                     <Code className="w-4 h-4 text-blue-600 dark:text-cyan-400" />
-                    <span>4. Technical Skills ({skillCategories.length} Categories)</span>
+                    <span>3. Technical Skills ({skillCategories.length} Categories)</span>
                   </h3>
                   <button
                     onClick={handleAddSkillCategory}
@@ -954,50 +1079,69 @@ ${resumeParticipations.length > 0 ? `PARTICIPATIONS & EVENTS\n${resumeParticipat
                 </div>
 
                 <div className="space-y-3">
-                  {skillCategories.map((cat) => (
-                    <div
-                      key={cat.id}
-                      className="p-3.5 rounded-xl bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/5 flex items-start gap-3"
-                    >
-                      <div className="w-1/3 min-w-[120px]">
-                        <input
-                          type="text"
-                          value={cat.category}
-                          onChange={(e) => handleUpdateSkillCategory(cat.id, 'category', e.target.value)}
-                          placeholder="Category Name"
-                          className="w-full px-2.5 py-1.5 rounded-lg bg-white dark:bg-[#0d1117] border border-slate-200 dark:border-white/10 text-xs font-bold text-slate-900 dark:text-white focus:outline-none focus:border-blue-500"
-                        />
-                      </div>
-                      <div className="flex-1">
-                        <input
-                          type="text"
-                          value={cat.skills}
-                          onChange={(e) => handleUpdateSkillCategory(cat.id, 'skills', e.target.value)}
-                          placeholder="Comma-separated skills (e.g. Python, SQL)"
-                          className="w-full px-2.5 py-1.5 rounded-lg bg-white dark:bg-[#0d1117] border border-slate-200 dark:border-white/10 text-xs text-slate-800 dark:text-slate-200 focus:outline-none focus:border-blue-500 font-mono"
-                        />
-                      </div>
-                      {skillCategories.length > 1 && (
-                        <button
-                          onClick={() => handleRemoveSkillCategory(cat.id)}
-                          className="p-1.5 text-slate-400 hover:text-red-500 rounded-lg cursor-pointer"
-                          title="Remove Category"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      )}
+                  {skillCategories.length === 0 ? (
+                    <div className="p-4 rounded-xl bg-slate-50 dark:bg-white/5 border border-dashed border-slate-200 dark:border-white/10 text-center">
+                      <p className="text-xs text-slate-500 dark:text-slate-400">
+                        No technical skills categorized yet.
+                      </p>
+                      <button
+                        onClick={handleAddSkillCategory}
+                        className="mt-2 text-xs text-blue-600 dark:text-cyan-400 hover:underline font-mono"
+                      >
+                        + Add Skill Category
+                      </button>
                     </div>
-                  ))}
+                  ) : (
+                    skillCategories.map((cat) => (
+                      <div
+                        key={cat.id}
+                        className="p-3.5 rounded-xl bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/5 flex items-start gap-3"
+                      >
+                        <div className="w-1/3 min-w-[120px]">
+                          <input
+                            type="text"
+                            value={cat.category}
+                            onChange={(e) => handleUpdateSkillCategory(cat.id, 'category', e.target.value)}
+                            placeholder="Category Name"
+                            className="w-full px-2.5 py-1.5 rounded-lg bg-white dark:bg-[#0d1117] border border-slate-200 dark:border-white/10 text-xs font-bold text-slate-900 dark:text-white focus:outline-none focus:border-blue-500 uppercase"
+                          />
+                        </div>
+                        <div className="flex-1">
+                          <input
+                            type="text"
+                            value={cat.skills}
+                            onChange={(e) => handleUpdateSkillCategory(cat.id, 'skills', e.target.value)}
+                            placeholder="Comma-separated skills (e.g. Python, SQL)"
+                            className="w-full px-2.5 py-1.5 rounded-lg bg-white dark:bg-[#0d1117] border border-slate-200 dark:border-white/10 text-xs text-slate-800 dark:text-slate-200 focus:outline-none focus:border-blue-500 font-mono"
+                          />
+                        </div>
+                        {skillCategories.length > 1 && (
+                          <button
+                            onClick={() => handleRemoveSkillCategory(cat.id)}
+                            className="p-1.5 text-slate-400 hover:text-red-500 rounded-lg cursor-pointer"
+                            title="Remove Category"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        )}
+                      </div>
+                    ))
+                  )}
                 </div>
               </div>
 
-              {/* 5. Technical Projects */}
+              {/* 4. Selected Projects */}
               <div className="p-6 rounded-[2rem] bg-white dark:bg-[#0d1117] border border-slate-200 dark:border-white/10 shadow-sm space-y-4">
                 <div className="flex items-center justify-between border-b border-slate-100 dark:border-white/5 pb-3">
-                  <h3 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                    <Briefcase className="w-4 h-4 text-blue-600 dark:text-cyan-400" />
-                    <span>5. Technical Projects ({resumeProjects.length})</span>
-                  </h3>
+                  <div>
+                    <h3 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                      <Briefcase className="w-4 h-4 text-blue-600 dark:text-cyan-400" />
+                      <span>4. Selected Projects ({resumeProjects.length})</span>
+                    </h3>
+                    <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5 font-mono">
+                      Export uses compact [Code] repository links. Live demo URLs are omitted to keep PDF 1-page compact.
+                    </p>
+                  </div>
                   <button
                     onClick={handleAddProject}
                     className="px-2.5 py-1 rounded-lg bg-blue-50 dark:bg-white/5 text-blue-600 dark:text-cyan-400 text-xs font-mono font-bold flex items-center gap-1 hover:bg-blue-100 dark:hover:bg-white/10 cursor-pointer"
@@ -1008,166 +1152,306 @@ ${resumeParticipations.length > 0 ? `PARTICIPATIONS & EVENTS\n${resumeParticipat
                 </div>
 
                 <div className="space-y-4">
-                  {resumeProjects.map((p) => (
-                    <div
-                      key={p.id}
-                      className="p-4 rounded-2xl bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/5 space-y-3"
-                    >
-                      <div className="flex items-start justify-between gap-2">
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 flex-1">
-                          <input
-                            type="text"
-                            value={p.title}
-                            onChange={(e) => {
-                              const val = e.target.value;
-                              setResumeProjects((prev) => prev.map((item) => (item.id === p.id ? { ...item, title: val } : item)));
-                            }}
-                            placeholder="Project Title"
-                            className="px-3 py-1.5 rounded-lg bg-white dark:bg-[#0d1117] border border-slate-200 dark:border-white/10 text-xs font-bold text-slate-900 dark:text-white focus:outline-none"
-                          />
-                          <input
-                            type="text"
-                            value={p.techStack}
-                            onChange={(e) => {
-                              const val = e.target.value;
-                              setResumeProjects((prev) => prev.map((item) => (item.id === p.id ? { ...item, techStack: val } : item)));
-                            }}
-                            placeholder="Tech Stack (e.g. React | Node.js | PostgreSQL)"
-                            className="px-3 py-1.5 rounded-lg bg-white dark:bg-[#0d1117] border border-slate-200 dark:border-white/10 text-xs font-mono text-slate-600 dark:text-slate-300 focus:outline-none"
-                          />
-                          <input
-                            type="text"
-                            value={p.githubUrl || ''}
-                            onChange={(e) => {
-                              const val = e.target.value;
-                              setResumeProjects((prev) => prev.map((item) => (item.id === p.id ? { ...item, githubUrl: val } : item)));
-                            }}
-                            placeholder="GitHub URL (optional)"
-                            className="px-3 py-1.5 rounded-lg bg-white dark:bg-[#0d1117] border border-slate-200 dark:border-white/10 text-xs font-mono text-blue-600 dark:text-cyan-400 focus:outline-none"
-                          />
-                          <input
-                            type="text"
-                            value={p.liveUrl || ''}
-                            onChange={(e) => {
-                              const val = e.target.value;
-                              setResumeProjects((prev) => prev.map((item) => (item.id === p.id ? { ...item, liveUrl: val } : item)));
-                            }}
-                            placeholder="Live Demo URL (optional)"
-                            className="px-3 py-1.5 rounded-lg bg-white dark:bg-[#0d1117] border border-slate-200 dark:border-white/10 text-xs font-mono text-emerald-600 dark:text-emerald-400 focus:outline-none"
-                          />
-                        </div>
-                        <button
-                          onClick={() => handleRemoveProject(p.id)}
-                          className="p-1.5 text-slate-400 hover:text-red-500 rounded-lg hover:bg-red-50 dark:hover:bg-red-950/20 cursor-pointer"
-                          title="Remove Project"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      </div>
-
-                      {/* Bullets */}
-                      <div className="space-y-2">
-                        <div className="flex items-center justify-between text-[11px] font-mono text-slate-400">
-                          <span>Project-Specific Bullets:</span>
-                          <button
-                            onClick={() => handleAddProjectBullet(p.id)}
-                            className="text-blue-500 hover:underline flex items-center gap-0.5"
-                          >
-                            <Plus className="w-3 h-3" /> Add Bullet
-                          </button>
-                        </div>
-                        {p.bullets.map((b, bIdx) => (
-                          <div key={bIdx} className="flex items-start gap-2">
-                            <span className="text-slate-400 mt-2">•</span>
+                  {resumeProjects.length === 0 ? (
+                    <div className="p-4 rounded-xl bg-slate-50 dark:bg-white/5 border border-dashed border-slate-200 dark:border-white/10 text-center">
+                      <p className="text-xs text-slate-500 dark:text-slate-400">
+                        No projects added yet.
+                      </p>
+                      <button
+                        onClick={handleAddProject}
+                        className="mt-2 text-xs text-blue-600 dark:text-cyan-400 hover:underline font-mono"
+                      >
+                        + Add Project
+                      </button>
+                    </div>
+                  ) : (
+                    resumeProjects.map((p) => (
+                      <div
+                        key={p.id}
+                        className="p-4 rounded-2xl bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/5 space-y-3"
+                      >
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 flex-1">
                             <input
                               type="text"
-                              value={b}
-                              onChange={(e) => handleUpdateProjectBullet(p.id, bIdx, e.target.value)}
-                              className="flex-1 px-3 py-1.5 rounded-lg bg-white dark:bg-[#0d1117] border border-slate-200 dark:border-white/10 text-xs text-slate-800 dark:text-slate-200 focus:outline-none"
+                              value={p.title}
+                              onChange={(e) => {
+                                const val = e.target.value;
+                                setResumeProjects((prev) => prev.map((item) => (item.id === p.id ? { ...item, title: val } : item)));
+                              }}
+                              placeholder="Project Title"
+                              className="px-3 py-1.5 rounded-lg bg-white dark:bg-[#0d1117] border border-slate-200 dark:border-white/10 text-xs font-bold text-slate-900 dark:text-white focus:outline-none"
                             />
-                            {p.bullets.length > 1 && (
-                              <button
-                                onClick={() => handleRemoveProjectBullet(p.id, bIdx)}
-                                className="p-1.5 text-slate-400 hover:text-red-400 cursor-pointer"
-                              >
-                                <Trash2 className="w-3.5 h-3.5" />
-                              </button>
-                            )}
+                            <input
+                              type="text"
+                              value={p.techStack}
+                              onChange={(e) => {
+                                const val = e.target.value;
+                                setResumeProjects((prev) => prev.map((item) => (item.id === p.id ? { ...item, techStack: val } : item)));
+                              }}
+                              placeholder="Tech Stack (e.g. React • Node.js • PostgreSQL)"
+                              className="px-3 py-1.5 rounded-lg bg-white dark:bg-[#0d1117] border border-slate-200 dark:border-white/10 text-xs font-mono text-slate-600 dark:text-slate-300 focus:outline-none"
+                            />
+                            <input
+                              type="text"
+                              value={p.githubUrl || ''}
+                              onChange={(e) => {
+                                const val = e.target.value;
+                                setResumeProjects((prev) => prev.map((item) => (item.id === p.id ? { ...item, githubUrl: val } : item)));
+                              }}
+                              placeholder="GitHub Repo URL (e.g. https://github.com/...)"
+                              className="sm:col-span-2 px-3 py-1.5 rounded-lg bg-white dark:bg-[#0d1117] border border-slate-200 dark:border-white/10 text-xs font-mono text-blue-600 dark:text-cyan-400 focus:outline-none"
+                            />
                           </div>
-                        ))}
+                          <button
+                            onClick={() => handleRemoveProject(p.id)}
+                            className="p-1.5 text-slate-400 hover:text-red-500 rounded-lg hover:bg-red-50 dark:hover:bg-red-950/20 cursor-pointer"
+                            title="Remove Project"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
+
+                        {/* Bullets */}
+                        <div className="space-y-2">
+                          <div className="flex items-center justify-between text-[11px] font-mono text-slate-400">
+                            <span>Project-Specific Bullets:</span>
+                            <button
+                              onClick={() => handleAddProjectBullet(p.id)}
+                              className="text-blue-500 hover:underline flex items-center gap-0.5 cursor-pointer"
+                            >
+                              <Plus className="w-3 h-3" /> Add Bullet
+                            </button>
+                          </div>
+                          {p.bullets.map((b, bIdx) => (
+                            <div key={bIdx} className="flex items-start gap-2">
+                              <span className="text-slate-400 mt-2">•</span>
+                              <input
+                                type="text"
+                                value={b}
+                                onChange={(e) => handleUpdateProjectBullet(p.id, bIdx, e.target.value)}
+                                className="flex-1 px-3 py-1.5 rounded-lg bg-white dark:bg-[#0d1117] border border-slate-200 dark:border-white/10 text-xs text-slate-800 dark:text-slate-200 focus:outline-none"
+                              />
+                              {p.bullets.length > 1 && (
+                                <button
+                                  onClick={() => handleRemoveProjectBullet(p.id, bIdx)}
+                                  className="p-1.5 text-slate-400 hover:text-red-400 cursor-pointer"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              )}
+                            </div>
+                          ))}
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                    ))
+                  )}
+                </div>
+              </div>
+
+              {/* 5. Education */}
+              <div className="p-6 rounded-[2rem] bg-white dark:bg-[#0d1117] border border-slate-200 dark:border-white/10 shadow-sm space-y-4">
+                <div className="flex items-center justify-between border-b border-slate-100 dark:border-white/5 pb-3">
+                  <h3 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                    <GraduationCap className="w-4 h-4 text-blue-600 dark:text-cyan-400" />
+                    <span>5. Education</span>
+                  </h3>
+                  <span className="text-[10px] font-mono text-slate-400">Academic Standing</span>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                  <div className="space-y-1 sm:col-span-2">
+                    <label className="text-[11px] font-mono text-slate-500 dark:text-slate-400">University / Institution</label>
+                    <input
+                      type="text"
+                      value={university}
+                      onChange={(e) => setUniversity(e.target.value)}
+                      placeholder="e.g. University Name"
+                      className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 text-xs text-slate-900 dark:text-white focus:outline-none focus:border-blue-500"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[11px] font-mono text-slate-500 dark:text-slate-400">Degree</label>
+                    <input
+                      type="text"
+                      value={degree}
+                      onChange={(e) => setDegree(e.target.value)}
+                      placeholder="e.g. B.Tech"
+                      className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 text-xs text-slate-900 dark:text-white focus:outline-none focus:border-blue-500"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[11px] font-mono text-slate-500 dark:text-slate-400">Branch / Specialization</label>
+                    <input
+                      type="text"
+                      value={branch}
+                      onChange={(e) => setBranch(e.target.value)}
+                      placeholder="e.g. Computer Science & Engineering"
+                      className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 text-xs text-slate-900 dark:text-white focus:outline-none focus:border-blue-500"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[11px] font-mono text-slate-500 dark:text-slate-400">Year / Graduation Period</label>
+                    <input
+                      type="text"
+                      value={gradYear}
+                      onChange={(e) => setGradYear(e.target.value)}
+                      placeholder="e.g. 2025–2029"
+                      className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 text-xs text-slate-900 dark:text-white focus:outline-none focus:border-blue-500 font-mono"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[11px] font-mono text-slate-500 dark:text-slate-400">CGPA / Marks</label>
+                    <input
+                      type="text"
+                      value={cgpa}
+                      onChange={(e) => setCgpa(e.target.value)}
+                      placeholder="Optional (e.g. 8.75 or 9.1)"
+                      className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 text-xs text-slate-900 dark:text-white focus:outline-none focus:border-blue-500 font-mono"
+                    />
+                  </div>
                 </div>
               </div>
 
               {/* 6. Certifications / Programs */}
-              <div className="p-6 rounded-[2rem] bg-white dark:bg-[#0d1117] border border-slate-200 dark:border-white/10 shadow-sm space-y-4">
+              <div className="p-6 rounded-[2rem] bg-white dark:bg-[#0d1117] border border-slate-200 dark:border-white/10 shadow-sm space-y-5">
                 <div className="flex items-center justify-between border-b border-slate-100 dark:border-white/5 pb-3">
                   <h3 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
                     <Award className="w-4 h-4 text-blue-600 dark:text-cyan-400" />
-                    <span>6. Certifications / Programs ({resumeCertifications.length})</span>
+                    <span>6. Certifications / Programs</span>
                   </h3>
-                  <button
-                    onClick={() =>
-                      setResumeCertifications((prev) => [
-                        ...prev,
-                        { id: `cert-${Date.now()}`, title: 'New Certification / Job Simulation', issuer: 'Issuing Org', date: '2026' },
-                      ])
-                    }
-                    className="px-2.5 py-1 rounded-lg bg-blue-50 dark:bg-white/5 text-blue-600 dark:text-cyan-400 text-xs font-mono font-bold flex items-center gap-1 hover:bg-blue-100 dark:hover:bg-white/10 cursor-pointer"
-                  >
-                    <Plus className="w-3.5 h-3.5" />
-                    <span>Add</span>
-                  </button>
                 </div>
 
-                <div className="space-y-2.5">
-                  {resumeCertifications.map((cert) => (
-                    <div
-                      key={cert.id}
-                      className="p-3 rounded-xl bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/5 flex items-center justify-between gap-2"
+                {/* LinkedIn Extractor & Review Panel */}
+                <LinkedInCertificationsManager
+                  resumeCertifications={resumeCertifications}
+                  onAddCertification={handleAddCertification}
+                  onAddMultipleCertifications={handleAddMultipleCertifications}
+                  onUpdateCertification={handleUpdateCertification}
+                  onRemoveCertification={handleRemoveCertification}
+                  plannedCertifications={plannedCertifications}
+                  onAddPlannedCertification={handleAddPlannedCertification}
+                  onRemovePlannedCertification={handleRemovePlannedCertification}
+                  includePlannedOnResume={includePlannedOnResume}
+                  onToggleIncludePlanned={setIncludePlannedOnResume}
+                  isDemoMode={Boolean(isDemoMode)}
+                />
+
+                {/* Approved Resume Certifications List */}
+                <div className="pt-4 border-t border-slate-100 dark:border-white/5 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <h4 className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 flex items-center gap-2">
+                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
+                      <span>Approved Resume Certifications ({resumeCertifications.length})</span>
+                    </h4>
+                    <button
+                      onClick={() =>
+                        handleAddCertification({
+                          id: `cert-manual-${Date.now()}`,
+                          title: '',
+                          issuer: '',
+                          date: '',
+                          source: 'manual',
+                          status: 'completed',
+                        })
+                      }
+                      disabled={isDemoMode}
+                      className="px-2.5 py-1 rounded-lg bg-blue-50 dark:bg-white/5 text-blue-600 dark:text-cyan-400 text-xs font-mono font-bold flex items-center gap-1 hover:bg-blue-100 dark:hover:bg-white/10 cursor-pointer disabled:opacity-50"
                     >
-                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 flex-1">
-                        <input
-                          type="text"
-                          value={cert.title}
-                          onChange={(e) => {
-                            const val = e.target.value;
-                            setResumeCertifications((prev) => prev.map((item) => (item.id === cert.id ? { ...item, title: val } : item)));
-                          }}
-                          placeholder="Certification Title"
-                          className="px-2.5 py-1 rounded-lg bg-white dark:bg-[#0d1117] border border-slate-200 dark:border-white/10 text-xs font-semibold text-slate-900 dark:text-white focus:outline-none"
-                        />
-                        <input
-                          type="text"
-                          value={cert.issuer}
-                          onChange={(e) => {
-                            const val = e.target.value;
-                            setResumeCertifications((prev) => prev.map((item) => (item.id === cert.id ? { ...item, issuer: val } : item)));
-                          }}
-                          placeholder="Issuing Organization"
-                          className="px-2.5 py-1 rounded-lg bg-white dark:bg-[#0d1117] border border-slate-200 dark:border-white/10 text-xs text-slate-700 dark:text-slate-300 focus:outline-none"
-                        />
-                        <input
-                          type="text"
-                          value={cert.date}
-                          onChange={(e) => {
-                            const val = e.target.value;
-                            setResumeCertifications((prev) => prev.map((item) => (item.id === cert.id ? { ...item, date: val } : item)));
-                          }}
-                          placeholder="Date (e.g. July 2026)"
-                          className="px-2.5 py-1 rounded-lg bg-white dark:bg-[#0d1117] border border-slate-200 dark:border-white/10 text-xs font-mono text-slate-600 dark:text-slate-400 focus:outline-none"
-                        />
-                      </div>
-                      <button
-                        onClick={() => setResumeCertifications((prev) => prev.filter((item) => item.id !== cert.id))}
-                        className="p-1.5 text-slate-400 hover:text-red-400 cursor-pointer"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
+                      <Plus className="w-3.5 h-3.5" />
+                      <span>Add Row</span>
+                    </button>
+                  </div>
+
+                  {resumeCertifications.length === 0 ? (
+                    <div className="p-4 rounded-xl bg-slate-50 dark:bg-white/5 border border-dashed border-slate-200 dark:border-white/10 text-center">
+                      <p className="text-xs text-slate-500 dark:text-slate-400">
+                        No certifications added to your resume yet.
+                      </p>
+                      <p className="text-[11px] text-slate-400 dark:text-slate-500 mt-0.5">
+                        Upload your LinkedIn profile PDF above to extract verified credentials, or click "+ Add Manually".
+                      </p>
                     </div>
-                  ))}
+                  ) : (
+                    <div className="space-y-2.5">
+                      {resumeCertifications.map((cert) => (
+                        <div
+                          key={cert.id}
+                          className="p-3 rounded-xl bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/5 flex flex-col sm:flex-row sm:items-center justify-between gap-2"
+                        >
+                          <div className="grid grid-cols-1 sm:grid-cols-4 gap-2 flex-1">
+                            <input
+                              type="text"
+                              value={cert.title}
+                              onChange={(e) => {
+                                const val = e.target.value;
+                                handleUpdateCertification(cert.id, { title: val });
+                              }}
+                              placeholder="Certification Title"
+                              className="px-2.5 py-1 rounded-lg bg-white dark:bg-[#0d1117] border border-slate-200 dark:border-white/10 text-xs font-semibold text-slate-900 dark:text-white focus:outline-none"
+                            />
+                            <input
+                              type="text"
+                              value={cert.issuer}
+                              onChange={(e) => {
+                                const val = e.target.value;
+                                handleUpdateCertification(cert.id, { issuer: val });
+                              }}
+                              placeholder="Issuing Organization"
+                              className="px-2.5 py-1 rounded-lg bg-white dark:bg-[#0d1117] border border-slate-200 dark:border-white/10 text-xs text-slate-700 dark:text-slate-300 focus:outline-none"
+                            />
+                            <input
+                              type="text"
+                              value={cert.date}
+                              onChange={(e) => {
+                                const val = e.target.value;
+                                handleUpdateCertification(cert.id, { date: val });
+                              }}
+                              placeholder="Date / Year"
+                              className="px-2.5 py-1 rounded-lg bg-white dark:bg-[#0d1117] border border-slate-200 dark:border-white/10 text-xs font-mono text-slate-600 dark:text-slate-400 focus:outline-none"
+                            />
+                            <div className="flex items-center gap-1.5">
+                              <input
+                                type="url"
+                                value={cert.credentialUrl || ''}
+                                onChange={(e) => {
+                                  const val = e.target.value;
+                                  handleUpdateCertification(cert.id, { credentialUrl: val });
+                                }}
+                                placeholder="Verification URL"
+                                className="w-full px-2.5 py-1 rounded-lg bg-white dark:bg-[#0d1117] border border-slate-200 dark:border-white/10 text-[11px] font-mono text-slate-600 dark:text-slate-400 focus:outline-none"
+                              />
+                              {cert.credentialUrl && isValidUrl(cert.credentialUrl) && (
+                                <a
+                                  href={normalizeUrl(cert.credentialUrl)}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="p-1 text-blue-600 dark:text-cyan-400 hover:text-blue-700 shrink-0"
+                                  title="Test URL"
+                                >
+                                  <ExternalLink className="w-3.5 h-3.5" />
+                                </a>
+                              )}
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2 self-end sm:self-center">
+                            {cert.source && (
+                              <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-slate-200 dark:bg-white/10 text-slate-600 dark:text-slate-400">
+                                {cert.source === 'linkedin_pdf' ? 'LinkedIn' : cert.source}
+                              </span>
+                            )}
+                            <button
+                              onClick={() => handleRemoveCertification(cert.id)}
+                              className="p-1.5 text-slate-400 hover:text-red-400 cursor-pointer"
+                              title="Delete certification"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -1257,25 +1541,27 @@ ${resumeParticipations.length > 0 ? `PARTICIPATIONS & EVENTS\n${resumeParticipat
                 </div>
 
                 {/* Scaled ATS Paper Preview Card */}
-                <div className="p-6 rounded-2xl bg-white text-slate-900 shadow-xl border border-slate-200 font-sans text-[11px] leading-tight space-y-3 max-h-[780px] overflow-y-auto">
+                <div className="p-6 rounded-2xl bg-white text-slate-900 shadow-xl border border-slate-200 font-sans text-[11px] leading-relaxed space-y-3.5 max-h-[780px] overflow-y-auto">
                   
-                  {/* Header */}
-                  <div className="text-center space-y-0.5 pb-2 border-b border-slate-300">
-                    <h1 className="text-base font-bold tracking-tight text-slate-950 uppercase">
+                  {/* Left-Aligned Header */}
+                  <div className="text-left space-y-0.5 pb-2.5 border-b border-slate-300">
+                    <h1 className="text-base sm:text-lg font-bold tracking-tight text-slate-950 uppercase">
                       {fullName}
                     </h1>
-                    <div className="text-xs font-semibold text-slate-700">
-                      {headline}
-                    </div>
-                    <div className="text-[10px] text-slate-600 flex items-center justify-center flex-wrap gap-x-2">
+                    {headline && (
+                      <div className="text-xs font-semibold text-slate-700">
+                        {headline}
+                      </div>
+                    )}
+                    <div className="text-[10px] text-slate-600 flex items-center flex-wrap gap-x-2 pt-0.5">
+                      {cleanLocation(location) && <span>{cleanLocation(location)}</span>}
+                      {cleanLocation(location) && email && <span>•</span>}
                       {email && <span>{email}</span>}
                       {email && phone && <span>•</span>}
                       {phone && <span>{phone}</span>}
-                      {phone && cleanLocation(location) && <span>•</span>}
-                      {cleanLocation(location) && <span>{cleanLocation(location)}</span>}
                     </div>
                     {(isValidUrl(githubUrl) || isValidUrl(linkedinUrl)) && (
-                      <div className="text-[10px] text-slate-600 flex items-center justify-center flex-wrap gap-x-2">
+                      <div className="text-[10px] text-slate-600 flex items-center flex-wrap gap-x-2">
                         {isValidUrl(githubUrl) && (
                           <a
                             href={normalizeUrl(githubUrl)}
@@ -1301,113 +1587,156 @@ ${resumeParticipations.length > 0 ? `PARTICIPATIONS & EVENTS\n${resumeParticipat
                     )}
                   </div>
 
-                  {/* 1. Summary */}
-                  <div className="space-y-1">
-                    <div className="text-[10px] font-bold uppercase tracking-wider text-slate-900 border-b border-slate-300 pb-0.5">
-                      Professional Summary
-                    </div>
-                    <p className="text-[10px] text-slate-700 leading-snug">
-                      {summary}
-                    </p>
-                  </div>
-
-                  {/* 2. Education */}
-                  <div className="space-y-1">
-                    <div className="text-[10px] font-bold uppercase tracking-wider text-slate-900 border-b border-slate-300 pb-0.5">
-                      Education
-                    </div>
-                    <div className="text-[10px] text-slate-700 space-y-0.5">
-                      <div className="font-bold text-slate-950">{university}</div>
-                      <div className="flex items-baseline justify-between">
-                        <span>{[degree || 'B.Tech', branch, gradYear].filter(Boolean).join(' • ')}</span>
-                        {cgpa && cgpa.trim() !== '' && <span className="font-semibold text-slate-900">CGPA: {cgpa.trim()}</span>}
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* 3. Skills */}
-                  <div className="space-y-1">
-                    <div className="text-[10px] font-bold uppercase tracking-wider text-slate-900 border-b border-slate-300 pb-0.5">
-                      Technical Skills
-                    </div>
-                    <div className="text-[9.5px] text-slate-700 space-y-0.5">
-                      {skillCategories.map((c) => (
-                        <div key={c.id}>
-                          <strong className="font-semibold text-slate-900">• {c.category}:</strong> {c.skills}
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* 4. Projects */}
-                  <div className="space-y-2">
-                    <div className="text-[10px] font-bold uppercase tracking-wider text-slate-900 border-b border-slate-300 pb-0.5">
-                      Technical Projects
-                    </div>
-                    <div className="space-y-2">
-                      {resumeProjects.map((p) => (
-                        <div key={p.id} className="space-y-0.5">
-                          <div className="flex items-baseline justify-between text-[10px]">
-                            <span className="font-bold text-slate-950">{p.title}</span>
-                            <span className="text-[9px] font-mono text-slate-600">{p.techStack}</span>
-                          </div>
-                          {(isValidUrl(p.githubUrl) || isValidUrl(p.liveUrl)) && (
-                            <div className="text-[8.5px] text-blue-600 flex items-center gap-2">
-                              {isValidUrl(p.githubUrl) && (
-                                <a
-                                  href={normalizeUrl(p.githubUrl!)}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="hover:underline"
-                                >
-                                  GitHub ↗
-                                </a>
-                              )}
-                              {isValidUrl(p.liveUrl) && (
-                                <a
-                                  href={normalizeUrl(p.liveUrl!)}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="hover:underline"
-                                >
-                                  Live Demo ↗
-                                </a>
-                              )}
-                            </div>
-                          )}
-                          <ul className="space-y-0.5 pl-3 list-disc text-[9px] text-slate-700">
-                            {p.bullets.map((b, i) => (
-                              <li key={i}>{b}</li>
-                            ))}
-                          </ul>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* 5. Certifications */}
-                  {resumeCertifications.length > 0 && (
+                  {/* 1. PROFILE */}
+                  {summary && (
                     <div className="space-y-1">
-                      <div className="text-[10px] font-bold uppercase tracking-wider text-slate-900 border-b border-slate-300 pb-0.5">
-                        Certifications / Programs
+                      <div className="text-[10.5px] font-bold uppercase tracking-wider text-[#0f766e]">
+                        Profile
                       </div>
-                      <ul className="space-y-0.5 pl-3 list-disc text-[9px] text-slate-700">
-                        {resumeCertifications.map((c) => (
-                          <li key={c.id}>
-                            <strong className="font-semibold text-slate-950">{c.title}</strong> — {c.issuer} ({c.date})
-                          </li>
-                        ))}
-                      </ul>
+                      <p className="text-[10px] text-slate-700 leading-normal text-justify">
+                        {summary}
+                      </p>
                     </div>
                   )}
 
-                  {/* 6. Participations */}
+                  {/* 2. TECHNICAL SKILLS (Tabular Layout) */}
+                  {skillCategories.length > 0 && (
+                    <div className="space-y-1">
+                      <div className="text-[10.5px] font-bold uppercase tracking-wider text-[#0f766e]">
+                        Technical Skills
+                      </div>
+                      <div className="space-y-1 text-[10px] text-slate-700">
+                        {skillCategories.map((c) => (
+                          <div key={c.id} className="grid grid-cols-[110px_1fr] items-baseline gap-2">
+                            <span className="font-bold text-slate-900 uppercase text-[9.5px]">
+                              {c.category}:
+                            </span>
+                            <span className="text-slate-800">{c.skills}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* 3. SELECTED PROJECTS */}
+                  {resumeProjects.length > 0 && (
+                    <div className="space-y-2">
+                      <div className="text-[10.5px] font-bold uppercase tracking-wider text-[#0f766e]">
+                        Selected Projects
+                      </div>
+                      <div className="space-y-2.5">
+                        {resumeProjects.map((p) => (
+                          <div key={p.id} className="space-y-0.5">
+                            <div className="flex items-baseline justify-between text-[10px]">
+                              <span className="font-bold text-slate-950 flex items-center gap-1.5">
+                                <span>{p.title}</span>
+                                {isValidUrl(p.githubUrl) && (
+                                  <a
+                                    href={normalizeUrl(p.githubUrl!)}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="text-blue-600 hover:underline font-mono text-[9px] font-normal"
+                                  >
+                                    [Code]
+                                  </a>
+                                )}
+                              </span>
+                              <span className="text-[9px] font-mono text-slate-500 italic">{p.techStack}</span>
+                            </div>
+                            <ul className="space-y-0.5 pl-3 list-disc text-[9.5px] text-slate-700 leading-normal">
+                              {p.bullets.map((b, i) => (
+                                <li key={i}>{b}</li>
+                              ))}
+                            </ul>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* 4. EDUCATION */}
+                  {university && (
+                    <div className="space-y-1">
+                      <div className="text-[10.5px] font-bold uppercase tracking-wider text-[#0f766e]">
+                        Education
+                      </div>
+                      <div className="text-[10px] text-slate-700 space-y-0.5">
+                        <div className="flex items-baseline justify-between">
+                          <span className="font-bold text-slate-950">
+                            {[degree, branch].filter(Boolean).join(' in ') || 'Undergraduate Degree'}
+                          </span>
+                          {gradYear && <span className="font-mono text-slate-600 text-[9px]">{gradYear}</span>}
+                        </div>
+                        <div className="flex items-baseline justify-between text-slate-600 text-[9.5px]">
+                          <span>{[university, cleanLocation(location)].filter(Boolean).join(' • ')}</span>
+                          {cgpa && cgpa.trim() !== '' && (
+                            <span className="font-semibold text-slate-900">CGPA: {cgpa.trim()}</span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* 5. CERTIFICATIONS (2-Column Grid) */}
+                  {resumeCertifications.length > 0 && (
+                    <div className="space-y-1">
+                      <div className="text-[10.5px] font-bold uppercase tracking-wider text-[#0f766e]">
+                        Certifications
+                      </div>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-3 gap-y-1 text-[9.5px] text-slate-700">
+                        {resumeCertifications.map((c) => (
+                          <div key={c.id} className="flex items-start gap-1">
+                            <span className="text-slate-400">•</span>
+                            <div className="flex-1 leading-tight">
+                              <span className="font-semibold text-slate-900">{c.title}</span>
+                              {c.issuer && <span className="text-slate-600"> — {c.issuer}</span>}
+                              {c.date && <span className="text-slate-500 font-mono text-[8.5px]"> ({c.date})</span>}
+                              {c.credentialUrl && isValidUrl(c.credentialUrl) && (
+                                <a
+                                  href={normalizeUrl(c.credentialUrl)}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="text-blue-600 hover:underline ml-1 font-mono text-[8.5px]"
+                                >
+                                  [Credential]
+                                </a>
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* 5b. PLANNED CERTIFICATIONS (TARGET) */}
+                  {includePlannedOnResume && plannedCertifications.length > 0 && (
+                    <div className="space-y-1">
+                      <div className="text-[10.5px] font-bold uppercase tracking-wider text-slate-500 flex items-center justify-between">
+                        <span>Planned Certifications (Target)</span>
+                        <span className="text-[8px] font-mono lowercase">[target]</span>
+                      </div>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-3 gap-y-1 text-[9px] text-slate-600 italic">
+                        {plannedCertifications.map((c) => (
+                          <div key={c.id} className="flex items-start gap-1">
+                            <span className="text-slate-400">•</span>
+                            <div className="flex-1 leading-tight">
+                              <span className="font-medium text-slate-800 not-italic">{c.title}</span>
+                              {c.issuer && <span> — {c.issuer}</span>}
+                              {c.date && <span className="font-mono text-[8.5px]"> (Target: {c.date})</span>}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* 6. PARTICIPATIONS & EVENTS */}
                   {resumeParticipations.length > 0 && (
                     <div className="space-y-1">
-                      <div className="text-[10px] font-bold uppercase tracking-wider text-slate-900 border-b border-slate-300 pb-0.5">
+                      <div className="text-[10.5px] font-bold uppercase tracking-wider text-[#0f766e]">
                         Participations & Events
                       </div>
-                      <ul className="space-y-0.5 pl-3 list-disc text-[9px] text-slate-700">
+                      <ul className="space-y-0.5 pl-3 list-disc text-[9.5px] text-slate-700">
                         {resumeParticipations.map((part) => (
                           <li key={part.id}>
                             <strong className="font-semibold text-slate-950">{part.title}:</strong> {part.description}
@@ -1470,23 +1799,25 @@ ${resumeParticipations.length > 0 ? `PARTICIPATIONS & EVENTS\n${resumeParticipat
             {/* A4 Document Centered Canvas */}
             <div className="max-w-4xl mx-auto p-8 sm:p-12 rounded-2xl bg-white text-slate-900 shadow-2xl border border-slate-200 font-sans space-y-5">
               
-              {/* Header */}
-              <div className="text-center space-y-1 pb-3 border-b border-slate-300">
+              {/* Left-Aligned Header */}
+              <div className="text-left space-y-1 pb-3.5 border-b border-slate-300">
                 <h1 className="text-2xl font-bold tracking-tight text-slate-950 uppercase">
                   {fullName}
                 </h1>
-                <div className="text-sm font-semibold text-slate-700">
-                  {headline}
-                </div>
-                <div className="text-xs text-slate-600 flex items-center justify-center flex-wrap gap-x-2.5 pt-1">
+                {headline && (
+                  <div className="text-sm font-semibold text-slate-700">
+                    {headline}
+                  </div>
+                )}
+                <div className="text-xs text-slate-600 flex items-center flex-wrap gap-x-2.5 pt-0.5">
+                  {cleanLocation(location) && <span>{cleanLocation(location)}</span>}
+                  {cleanLocation(location) && email && <span>•</span>}
                   {email && <span>{email}</span>}
                   {email && phone && <span>•</span>}
                   {phone && <span>{phone}</span>}
-                  {phone && cleanLocation(location) && <span>•</span>}
-                  {cleanLocation(location) && <span>{cleanLocation(location)}</span>}
                 </div>
                 {(isValidUrl(githubUrl) || isValidUrl(linkedinUrl)) && (
-                  <div className="text-xs text-slate-600 flex items-center justify-center flex-wrap gap-x-2.5">
+                  <div className="text-xs text-slate-600 flex items-center flex-wrap gap-x-2.5 pt-0.5">
                     {isValidUrl(githubUrl) && (
                       <a
                         href={normalizeUrl(githubUrl)}
@@ -1512,110 +1843,155 @@ ${resumeParticipations.length > 0 ? `PARTICIPATIONS & EVENTS\n${resumeParticipat
                 )}
               </div>
 
-              {/* 1. Summary */}
-              <div className="space-y-1">
-                <h2 className="text-xs font-bold uppercase tracking-wider text-slate-900 border-b border-slate-300 pb-0.5">
-                  Professional Summary
-                </h2>
-                <p className="text-xs text-slate-700 leading-relaxed">
-                  {summary}
-                </p>
-              </div>
-
-              {/* 2. Education */}
-              <div className="space-y-1">
-                <h2 className="text-xs font-bold uppercase tracking-wider text-slate-900 border-b border-slate-300 pb-0.5">
-                  Education
-                </h2>
-                <div className="text-xs text-slate-700 space-y-0.5">
-                  <div className="font-bold text-slate-950 text-sm">{university}</div>
-                  <div className="flex items-baseline justify-between pt-0.5">
-                    <span>{[degree || 'B.Tech', branch, gradYear].filter(Boolean).join(' • ')}</span>
-                    {cgpa && cgpa.trim() !== '' && <span className="font-semibold text-slate-900">CGPA: {cgpa.trim()}</span>}
-                  </div>
-                </div>
-              </div>
-
-              {/* 3. Skills */}
-              <div className="space-y-1">
-                <h2 className="text-xs font-bold uppercase tracking-wider text-slate-900 border-b border-slate-300 pb-0.5">
-                  Technical Skills
-                </h2>
-                <div className="text-xs text-slate-700 space-y-1">
-                  {skillCategories.map((c) => (
-                    <div key={c.id}>
-                      <strong className="font-semibold text-slate-900">• {c.category}:</strong> {c.skills}
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* 4. Projects */}
-              <div className="space-y-3">
-                <h2 className="text-xs font-bold uppercase tracking-wider text-slate-900 border-b border-slate-300 pb-0.5">
-                  Technical Projects
-                </h2>
-                <div className="space-y-3.5">
-                  {resumeProjects.map((p) => (
-                    <div key={p.id} className="space-y-1">
-                      <div className="flex items-baseline justify-between">
-                        <span className="text-xs font-bold text-slate-950">{p.title}</span>
-                        <span className="text-[11px] font-mono text-slate-600">{p.techStack}</span>
-                      </div>
-                      {(isValidUrl(p.githubUrl) || isValidUrl(p.liveUrl)) && (
-                        <div className="text-[11px] text-blue-600 flex items-center gap-3">
-                          {isValidUrl(p.githubUrl) && (
-                            <a
-                              href={normalizeUrl(p.githubUrl!)}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="hover:underline"
-                            >
-                              GitHub ↗
-                            </a>
-                          )}
-                          {isValidUrl(p.liveUrl) && (
-                            <a
-                              href={normalizeUrl(p.liveUrl!)}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="hover:underline"
-                            >
-                              Live Demo ↗
-                            </a>
-                          )}
-                        </div>
-                      )}
-                      <ul className="space-y-1 pl-4 list-disc text-xs text-slate-700 leading-normal">
-                        {p.bullets.map((b, i) => (
-                          <li key={i}>{b}</li>
-                        ))}
-                      </ul>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* 5. Certifications */}
-              {resumeCertifications.length > 0 && (
+              {/* 1. PROFILE */}
+              {summary && (
                 <div className="space-y-1">
-                  <h2 className="text-xs font-bold uppercase tracking-wider text-slate-900 border-b border-slate-300 pb-0.5">
-                    Certifications / Programs
+                  <h2 className="text-xs font-bold uppercase tracking-wider text-[#0f766e]">
+                    Profile
                   </h2>
-                  <ul className="space-y-1 pl-4 list-disc text-xs text-slate-700">
-                    {resumeCertifications.map((cert) => (
-                      <li key={cert.id}>
-                        <strong className="font-semibold text-slate-950">{cert.title}</strong> — {cert.issuer} ({cert.date})
-                      </li>
-                    ))}
-                  </ul>
+                  <p className="text-xs text-slate-700 leading-relaxed text-justify">
+                    {summary}
+                  </p>
                 </div>
               )}
 
-              {/* 6. Participations */}
+              {/* 2. TECHNICAL SKILLS (Tabular Layout) */}
+              {skillCategories.length > 0 && (
+                <div className="space-y-1.5">
+                  <h2 className="text-xs font-bold uppercase tracking-wider text-[#0f766e]">
+                    Technical Skills
+                  </h2>
+                  <div className="space-y-1.5 text-xs text-slate-700">
+                    {skillCategories.map((c) => (
+                      <div key={c.id} className="grid grid-cols-[140px_1fr] items-baseline gap-3">
+                        <span className="font-bold text-slate-900 uppercase text-[11px]">
+                          {c.category}:
+                        </span>
+                        <span className="text-slate-800">{c.skills}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* 3. SELECTED PROJECTS */}
+              {resumeProjects.length > 0 && (
+                <div className="space-y-3">
+                  <h2 className="text-xs font-bold uppercase tracking-wider text-[#0f766e]">
+                    Selected Projects
+                  </h2>
+                  <div className="space-y-3.5">
+                    {resumeProjects.map((p) => (
+                      <div key={p.id} className="space-y-1">
+                        <div className="flex items-baseline justify-between">
+                          <span className="text-xs font-bold text-slate-950 flex items-center gap-2">
+                            <span>{p.title}</span>
+                            {isValidUrl(p.githubUrl) && (
+                              <a
+                                href={normalizeUrl(p.githubUrl!)}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-blue-600 hover:underline font-mono text-[11px] font-normal"
+                              >
+                                [Code]
+                              </a>
+                            )}
+                          </span>
+                          <span className="text-[11px] font-mono text-slate-500 italic">{p.techStack}</span>
+                        </div>
+                        <ul className="space-y-1 pl-4 list-disc text-xs text-slate-700 leading-normal">
+                          {p.bullets.map((b, i) => (
+                            <li key={i}>{b}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* 4. EDUCATION */}
+              {university && (
+                <div className="space-y-1">
+                  <h2 className="text-xs font-bold uppercase tracking-wider text-[#0f766e]">
+                    Education
+                  </h2>
+                  <div className="text-xs text-slate-700 space-y-0.5">
+                    <div className="flex items-baseline justify-between">
+                      <span className="font-bold text-slate-950 text-sm">
+                        {[degree, branch].filter(Boolean).join(' in ') || 'Undergraduate Degree'}
+                      </span>
+                      {gradYear && <span className="font-mono text-slate-600 text-xs">{gradYear}</span>}
+                    </div>
+                    <div className="flex items-baseline justify-between text-slate-600 text-xs">
+                      <span>{[university, cleanLocation(location)].filter(Boolean).join(' • ')}</span>
+                      {cgpa && cgpa.trim() !== '' && (
+                        <span className="font-semibold text-slate-900">CGPA: {cgpa.trim()}</span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* 5. CERTIFICATIONS (2-Column Grid) */}
+              {resumeCertifications.length > 0 && (
+                <div className="space-y-1.5">
+                  <h2 className="text-xs font-bold uppercase tracking-wider text-[#0f766e]">
+                    Certifications
+                  </h2>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1.5 text-xs text-slate-700">
+                    {resumeCertifications.map((cert) => (
+                      <div key={cert.id} className="flex items-start gap-1.5">
+                        <span className="text-slate-400">•</span>
+                        <div className="flex-1 leading-normal">
+                          <span className="font-semibold text-slate-900">{cert.title}</span>
+                          {cert.issuer && <span className="text-slate-600"> — {cert.issuer}</span>}
+                          {cert.date && <span className="text-slate-500 font-mono text-[10px]"> ({cert.date})</span>}
+                          {cert.credentialUrl && isValidUrl(cert.credentialUrl) && (
+                            <a
+                              href={normalizeUrl(cert.credentialUrl)}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-blue-600 hover:underline ml-1 font-mono text-[10px]"
+                            >
+                              [Credential]
+                            </a>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* 5b. PLANNED CERTIFICATIONS (TARGET) */}
+              {includePlannedOnResume && plannedCertifications.length > 0 && (
+                <div className="space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <h2 className="text-xs font-bold uppercase tracking-wider text-slate-500">
+                      Planned Certifications (Target)
+                    </h2>
+                    <span className="text-[10px] font-mono text-slate-400 lowercase">[target]</span>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1.5 text-xs text-slate-600 italic">
+                    {plannedCertifications.map((cert) => (
+                      <div key={cert.id} className="flex items-start gap-1.5">
+                        <span className="text-slate-400">•</span>
+                        <div className="flex-1 leading-normal">
+                          <span className="font-medium text-slate-800 not-italic">{cert.title}</span>
+                          {cert.issuer && <span> — {cert.issuer}</span>}
+                          {cert.date && <span className="font-mono text-[10px]"> (Target: {cert.date})</span>}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* 6. PARTICIPATIONS & EVENTS */}
               {resumeParticipations.length > 0 && (
                 <div className="space-y-1">
-                  <h2 className="text-xs font-bold uppercase tracking-wider text-slate-900 border-b border-slate-300 pb-0.5">
+                  <h2 className="text-xs font-bold uppercase tracking-wider text-[#0f766e]">
                     Participations & Events
                   </h2>
                   <ul className="space-y-1 pl-4 list-disc text-xs text-slate-700">
@@ -1627,6 +2003,12 @@ ${resumeParticipations.length > 0 ? `PARTICIPATIONS & EVENTS\n${resumeParticipat
                   </ul>
                 </div>
               )}
+
+              {/* Bottom Runner */}
+              <div className="pt-6 mt-4 border-t border-slate-200 flex items-center justify-between text-[10px] font-mono text-slate-400">
+                <span>{fullName} • {headline || 'Resume'}</span>
+                <span>1</span>
+              </div>
 
             </div>
           </div>

@@ -12,6 +12,7 @@ import { handleLinkedInAuditRequest } from './api/ai/linkedin-audit.js';
 import { handleInternshipReadyRequest } from './api/ai/internship-ready.js';
 import { handleQuizRequest } from './api/ai/quiz.js';
 import { handleSyllabusPrepRequest } from './api/ai/syllabus-prep.js';
+import { handleExtractCertificationsRequest } from './api/ai/extract-certifications.js';
 
 function aiEngineApiPlugin(): Plugin {
   const attachMiddleware = (server: any) => {
@@ -28,6 +29,7 @@ function aiEngineApiPlugin(): Plugin {
           url.startsWith('/api/ai/linkedin-audit') ||
           url.startsWith('/api/ai/internship-ready') ||
           url.startsWith('/api/ai/syllabus-prep') ||
+          url.startsWith('/api/ai/extract-certifications') ||
           url.startsWith('/api/ai/quiz') ||
           url.startsWith('/api/engine-ai'))
       ) {
@@ -205,6 +207,31 @@ function aiEngineApiPlugin(): Plugin {
               }
             }
             await handleSyllabusPrepRequest(req, res);
+          } catch (err: any) {
+            res.statusCode = 500;
+            res.setHeader('Content-Type', 'application/json');
+            res.end(JSON.stringify({ status: 'error', error: err?.message || 'Server error' }));
+          }
+        });
+        return;
+      }
+
+      // LinkedIn Profile Certifications Extraction: /api/ai/extract-certifications
+      if (url.startsWith('/api/ai/extract-certifications')) {
+        let body = '';
+        req.on('data', (chunk: any) => {
+          body += chunk;
+        });
+        req.on('end', async () => {
+          try {
+            if (body) {
+              try {
+                req.body = JSON.parse(body);
+              } catch {
+                req.body = {};
+              }
+            }
+            await handleExtractCertificationsRequest(req, res);
           } catch (err: any) {
             res.statusCode = 500;
             res.setHeader('Content-Type', 'application/json');

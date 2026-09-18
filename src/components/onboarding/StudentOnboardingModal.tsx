@@ -283,16 +283,16 @@ export const StudentOnboardingModal: React.FC<StudentOnboardingModalProps> = ({ 
                   required
                   value={degree}
                   onChange={(e) => setDegree(e.target.value)}
-                  className="w-full px-4 py-2.5 rounded-2xl bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 text-xs text-slate-900 dark:text-white focus:outline-none focus:border-blue-500"
+                  className="w-full px-4 py-2.5 rounded-2xl bg-slate-50 dark:bg-[#161b22] border border-slate-200 dark:border-white/10 text-xs text-slate-900 dark:text-white focus:outline-none focus:border-blue-500 [color-scheme:light] dark:[color-scheme:dark] transition-colors cursor-pointer"
                 >
-                  <option value="" className="text-slate-400">Select Degree</option>
-                  <option value="B.Tech">B.Tech / B.E.</option>
-                  <option value="B.S.">B.S. / Bachelor of Science</option>
-                  <option value="BCA">BCA</option>
-                  <option value="M.Tech">M.Tech / M.E.</option>
-                  <option value="M.S.">M.S. / Master of Science</option>
-                  <option value="MCA">MCA</option>
-                  <option value="Other">Other Degree</option>
+                  <option value="" className="bg-white dark:bg-[#161b22] text-slate-400 dark:text-slate-500">Select Degree</option>
+                  <option value="B.Tech" className="bg-white dark:bg-[#161b22] text-slate-900 dark:text-slate-100">B.Tech / B.E.</option>
+                  <option value="B.S." className="bg-white dark:bg-[#161b22] text-slate-900 dark:text-slate-100">B.S. / Bachelor of Science</option>
+                  <option value="BCA" className="bg-white dark:bg-[#161b22] text-slate-900 dark:text-slate-100">BCA</option>
+                  <option value="M.Tech" className="bg-white dark:bg-[#161b22] text-slate-900 dark:text-slate-100">M.Tech / M.E.</option>
+                  <option value="M.S." className="bg-white dark:bg-[#161b22] text-slate-900 dark:text-slate-100">M.S. / Master of Science</option>
+                  <option value="MCA" className="bg-white dark:bg-[#161b22] text-slate-900 dark:text-slate-100">MCA</option>
+                  <option value="Other" className="bg-white dark:bg-[#161b22] text-slate-900 dark:text-slate-100">Other Degree</option>
                 </select>
               </div>
 
@@ -312,14 +312,14 @@ export const StudentOnboardingModal: React.FC<StudentOnboardingModalProps> = ({ 
                 <select
                   value={yearOfStudy}
                   onChange={(e) => setYearOfStudy(e.target.value)}
-                  className="w-full px-4 py-2.5 rounded-2xl bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 text-xs text-slate-900 dark:text-white focus:outline-none focus:border-blue-500"
+                  className="w-full px-4 py-2.5 rounded-2xl bg-slate-50 dark:bg-[#161b22] border border-slate-200 dark:border-white/10 text-xs text-slate-900 dark:text-white focus:outline-none focus:border-blue-500 [color-scheme:light] dark:[color-scheme:dark] transition-colors cursor-pointer"
                 >
-                  <option value="" className="text-slate-400">Select Year</option>
-                  <option value="1st Year">1st Year</option>
-                  <option value="2nd Year">2nd Year</option>
-                  <option value="3rd Year">3rd Year</option>
-                  <option value="4th Year">4th Year</option>
-                  <option value="Graduate">Graduate / Masters</option>
+                  <option value="" className="bg-white dark:bg-[#161b22] text-slate-400 dark:text-slate-500">Select Year</option>
+                  <option value="1st Year" className="bg-white dark:bg-[#161b22] text-slate-900 dark:text-slate-100">1st Year</option>
+                  <option value="2nd Year" className="bg-white dark:bg-[#161b22] text-slate-900 dark:text-slate-100">2nd Year</option>
+                  <option value="3rd Year" className="bg-white dark:bg-[#161b22] text-slate-900 dark:text-slate-100">3rd Year</option>
+                  <option value="4th Year" className="bg-white dark:bg-[#161b22] text-slate-900 dark:text-slate-100">4th Year</option>
+                  <option value="Graduate" className="bg-white dark:bg-[#161b22] text-slate-900 dark:text-slate-100">Graduate / Masters</option>
                 </select>
               </div>
 

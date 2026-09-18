@@ -1,3 +1,4 @@
+// Vercel Serverless Function & Vite Dev Middleware Handler for Timepass Quiz Generation
 import { GoogleGenAI, Type } from '@google/genai';
 
 let aiClient = null;
@@ -34,6 +35,7 @@ const quizResponseSchema = {
             items: { type: Type.STRING },
           },
           correctAnswerIndex: { type: Type.INTEGER },
+          explanation: { type: Type.STRING },
         },
         required: ['question', 'options', 'correctAnswerIndex'],
       },
@@ -42,15 +44,26 @@ const quizResponseSchema = {
   required: ['questions'],
 };
 
-function isRateLimitError(err) {
+// Candidate models prioritized for low latency, active availability, and resilience
+const CANDIDATE_MODELS = [
+  'gemini-3.1-flash-lite',
+  'gemini-3.6-flash',
+  'gemini-3.8-flash',
+];
+
+function isRateLimitOrServiceUnavailable(err) {
   const status = err?.status || err?.statusCode || 0;
   const msg = String(err?.message || '').toLowerCase();
   return (
     status === 429 ||
+    status === 503 ||
     msg.includes('429') ||
+    msg.includes('503') ||
     msg.includes('resource_exhausted') ||
     msg.includes('rate limit') ||
-    msg.includes('quota')
+    msg.includes('quota') ||
+    msg.includes('unavailable') ||
+    msg.includes('high demand')
   );
 }
 
@@ -118,6 +131,9 @@ function parseAndValidateQuestions(rawText, expectedCount) {
           String(opt).trim().replace(/\$(\d+(?:,\d+)*(?:\.\d+)?)/g, '₹$1')
         ),
         correctAnswerIndex: Math.floor(item.correctAnswerIndex),
+        explanation: item.explanation
+          ? String(item.explanation).trim().replace(/\$(\d+(?:,\d+)*(?:\.\d+)?)/g, '₹$1')
+          : undefined,
       });
     }
   }
@@ -128,12 +144,13 @@ function parseAndValidateQuestions(rawText, expectedCount) {
 
 /**
  * Handles AI-powered quiz question generation for Timepass Quiz.
- * Strict reliability constraints:
- * 1. Use the fastest suitable Gemini model already configured in V4 (gemini-3.8-flash).
- * 2. Make exactly ONE AI request per quiz generation attempt (no automatic retry loops).
- * 3. Compact structured JSON only with minimal schema.
- * 4. Send only minimal required context: topic + difficulty + questionCount.
- * 5. Distinct, descriptive error codes (RATE_LIMIT, TIMEOUT, SERVICE_UNAVAILABLE, GENERAL).
+ * Resilient V5 flow:
+ * 1. Supports any valid user topic without hardcoding.
+ * 2. Uses candidate model fallback cascade (gemini-3.1-flash-lite, gemini-3.6-flash, gemini-3.8-flash).
+ * 3. Supports Beginner, Intermediate, and Expert difficulty levels.
+ * 4. Supports timed vs untimed quiz modes.
+ * 5. Returns explanations for structured review.
+ * 6. Proper error status mapping (429, 503, 504, 500) instead of unexplained errors.
  */
 export async function handleQuizRequest(req, res) {
   if (req.method !== 'POST') {
@@ -143,11 +160,48 @@ export async function handleQuizRequest(req, res) {
     return;
   }
 
-  const body = req.body || {};
-  const topic = String(body.topic || 'Data Structures').trim().slice(0, 80);
-  const difficulty = ['Easy', 'Medium', 'Hard'].includes(body.difficulty)
-    ? body.difficulty
-    : 'Medium';
+  let body = req.body;
+  if (!body && typeof req.on === 'function') {
+    try {
+      body = await new Promise((resolve) => {
+        let raw = '';
+        req.on('data', (chunk) => { raw += chunk; });
+        req.on('end', () => {
+          try {
+            resolve(JSON.parse(raw || '{}'));
+          } catch {
+            resolve({});
+          }
+        });
+        req.on('error', () => resolve({}));
+      });
+    } catch {
+      body = {};
+    }
+  } else if (typeof body === 'string') {
+    try {
+      body = JSON.parse(body);
+    } catch {
+      body = {};
+    }
+  }
+  body = body || {};
+
+  const topic = String(body.topic || 'General Knowledge').trim().slice(0, 100);
+
+  // Normalize difficulty: Beginner, Intermediate, Expert
+  let difficulty = 'Intermediate';
+  const rawDiff = String(body.difficulty || '').trim().toLowerCase();
+  if (rawDiff === 'beginner' || rawDiff === 'easy') {
+    difficulty = 'Beginner';
+  } else if (rawDiff === 'expert' || rawDiff === 'hard') {
+    difficulty = 'Expert';
+  } else {
+    difficulty = 'Intermediate';
+  }
+
+  const quizMode = String(body.quizMode || '').trim().toLowerCase() === 'timed' ? 'timed' : 'untimed';
+
   const allowedCounts = [5, 10, 15];
   const questionCount = allowedCounts.includes(Number(body.questionCount))
     ? Number(body.questionCount)
@@ -168,69 +222,65 @@ export async function handleQuizRequest(req, res) {
   }
 
   const systemInstruction =
-    'You are a high-speed quiz generator. Output only valid JSON matching the schema. Exactly 4 options per question. correctAnswerIndex must be 0, 1, 2, or 3. Any pricing or currency must strictly use Indian Rupees (₹), never USD ($).';
+    'You are a high-speed quiz generator. Output only valid JSON matching the schema. Exactly 4 options per question. correctAnswerIndex must be 0, 1, 2, or 3. Any pricing or currency must strictly use Indian Rupees (₹), never USD ($). Do not output markdown or text outside JSON.';
 
-  const prompt = `Generate a ${questionCount}-question multiple-choice quiz on "${topic}" (${difficulty} difficulty). Provide clear, concise questions with 4 distinct options and one correct answer.`;
+  const prompt = `Generate a ${questionCount}-question multiple-choice quiz on "${topic}" (${difficulty} difficulty, ${quizMode} mode).
+Difficulty Calibration:
+- Beginner: Foundational concepts, straightforward definitions, and entry-level problem solving.
+- Intermediate: Practical scenarios, core principles, applied problems, and moderate complexity.
+- Expert: Advanced edge cases, tricky gotchas, deep architectural nuances, and complex analytical scenarios.
 
-  // Use fastest suitable model configured in V4
-  const modelName = 'gemini-3.8-flash';
+Requirements:
+- Exactly ${questionCount} questions.
+- Each question MUST have exactly 4 distinct, plausible options.
+- Exactly one correct answer with correctAnswerIndex (0, 1, 2, or 3).
+- Provide a clear, 1-2 sentence explanation for why the correct option is right.
+- Ensure all questions are freshly generated and unique.`;
 
-  try {
-    // Exactly ONE AI request attempt
-    const response = await ai.models.generateContent({
-      model: modelName,
-      contents: prompt,
-      config: {
-        systemInstruction,
-        temperature: 0.2,
-        responseMimeType: 'application/json',
-        responseSchema: quizResponseSchema,
-      },
-    });
+  let rawText = '';
+  let lastError = null;
 
-    const rawText = response?.text || '';
-    const questions = parseAndValidateQuestions(rawText, questionCount);
-
-    if (!questions || questions.length === 0) {
-      res.statusCode = 422;
-      res.setHeader('Content-Type', 'application/json');
-      res.end(
-        JSON.stringify({
-          status: 'error',
-          code: 'MALFORMED_RESPONSE',
-          error: "Couldn't generate the quiz. Please try again.",
-        })
-      );
-      return;
-    }
-
-    res.statusCode = 200;
-    res.setHeader('Content-Type', 'application/json');
-    res.end(
-      JSON.stringify({
-        status: 'success',
-        data: {
-          topic,
-          difficulty,
-          questions,
+  for (const modelName of CANDIDATE_MODELS) {
+    try {
+      const response = await ai.models.generateContent({
+        model: modelName,
+        contents: prompt,
+        config: {
+          systemInstruction,
+          temperature: 0.3,
+          responseMimeType: 'application/json',
+          responseSchema: quizResponseSchema,
         },
-      })
-    );
-  } catch (err) {
-    if (isRateLimitError(err)) {
-      res.statusCode = 429;
+      });
+
+      const text = response?.text || '';
+      if (text) {
+        rawText = text;
+        break;
+      }
+    } catch (modelErr) {
+      lastError = modelErr;
+      // If temporary demand or rate limit, fall through to next candidate model
+      continue;
+    }
+  }
+
+  if (!rawText) {
+    if (isRateLimitOrServiceUnavailable(lastError)) {
+      const is503 = lastError?.status === 503 || String(lastError?.message || '').toLowerCase().includes('503');
+      res.statusCode = is503 ? 503 : 429;
       res.setHeader('Content-Type', 'application/json');
       res.end(
         JSON.stringify({
           status: 'error',
-          code: 'RATE_LIMIT',
+          code: is503 ? 'SERVICE_UNAVAILABLE' : 'RATE_LIMIT',
           error: 'The AI service encountered a temporary hiccup or rate limit.',
         })
       );
       return;
     }
 
-    if (isTimeoutError(err)) {
+    if (isTimeoutError(lastError)) {
       res.statusCode = 504;
       res.setHeader('Content-Type', 'application/json');
       res.end(
@@ -249,10 +299,41 @@ export async function handleQuizRequest(req, res) {
       JSON.stringify({
         status: 'error',
         code: 'GENERAL',
-        error: "Couldn't generate the quiz. Please try again.",
+        error: lastError?.message || "Couldn't generate the quiz. Please try again.",
       })
     );
+    return;
   }
+
+  const questions = parseAndValidateQuestions(rawText, questionCount);
+
+  if (!questions || questions.length === 0) {
+    res.statusCode = 422;
+    res.setHeader('Content-Type', 'application/json');
+    res.end(
+      JSON.stringify({
+        status: 'error',
+        code: 'MALFORMED_RESPONSE',
+        error: "Couldn't generate valid questions for this topic. Please try again.",
+      })
+    );
+    return;
+  }
+
+  res.statusCode = 200;
+  res.setHeader('Content-Type', 'application/json');
+  res.end(
+    JSON.stringify({
+      status: 'success',
+      data: {
+        topic,
+        difficulty,
+        quizMode,
+        questionCount: questions.length,
+        questions,
+      },
+    })
+  );
 }
 
 export default async function handler(req, res) {

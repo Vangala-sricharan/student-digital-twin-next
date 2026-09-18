@@ -88,14 +88,23 @@ export const SyllabusPrepView: React.FC<SyllabusPrepViewProps> = ({ onBackToHub 
       try {
         const saved = await loadSyllabusPrepState(user.id, profile?.id, false);
         if (isMounted && saved) {
-          if (saved.parsedDoc) setParsedDoc(saved.parsedDoc);
-          if (saved.pastedSyllabus) setPastedSyllabus(saved.pastedSyllabus);
-          if (saved.structuredData) setPersistedStructuredData(saved.structuredData);
-          if (saved.rawText) setPersistedRawText(saved.rawText);
-          if (saved.checklistState) setChecklistState(saved.checklistState);
-          if (saved.completedUnitTopics) setCompletedUnitTopics(saved.completedUnitTopics);
-          if (saved.unitProgressOverrides) setUnitProgressOverrides(saved.unitProgressOverrides);
-          if (saved.qaEntries) setQaEntries(saved.qaEntries);
+          const hasSavedDoc = Boolean(
+            saved.parsedDoc &&
+            (saved.parsedDoc.fileType === 'pdf' || saved.parsedDoc.fileType === 'ppt' || saved.parsedDoc.fileType === 'pptx') &&
+            saved.parsedDoc.extractedText?.trim()
+          );
+          const hasSavedText = Boolean(saved.pastedSyllabus && saved.pastedSyllabus.trim().length > 0);
+
+          if (hasSavedDoc || hasSavedText) {
+            if (saved.parsedDoc) setParsedDoc(saved.parsedDoc);
+            if (saved.pastedSyllabus) setPastedSyllabus(saved.pastedSyllabus);
+            if (saved.structuredData) setPersistedStructuredData(saved.structuredData);
+            if (saved.rawText) setPersistedRawText(saved.rawText);
+            if (saved.checklistState) setChecklistState(saved.checklistState);
+            if (saved.completedUnitTopics) setCompletedUnitTopics(saved.completedUnitTopics);
+            if (saved.unitProgressOverrides) setUnitProgressOverrides(saved.unitProgressOverrides);
+            if (saved.qaEntries) setQaEntries(saved.qaEntries);
+          }
         }
       } catch (err) {
         console.warn('[SyllabusPrep] Hydration notice:', err);
@@ -114,8 +123,10 @@ export const SyllabusPrepView: React.FC<SyllabusPrepViewProps> = ({ onBackToHub 
       if (structuredData.isAcademicSubject === false) {
         setParseError('Please upload the correct PPT/PDF of a subject.');
         setParseErrorSupportingText(
-          structuredData.rejectionReason || 'This document does not appear to contain academic subject material for Syllabus Prep.'
+          structuredData.rejectionReason || 'This document does not contain enough academic subject/course material to generate an exam preparation guide.'
         );
+        setPersistedStructuredData(null);
+        setPersistedRawText('');
         return;
       }
 
@@ -144,10 +155,28 @@ export const SyllabusPrepView: React.FC<SyllabusPrepViewProps> = ({ onBackToHub 
         );
       }
     } else if (job?.status === 'error' && isError) {
-      setParseError('Please upload the correct PPT/PDF of a subject.');
-      setParseErrorSupportingText('AI document analysis could not extract academic subject material. Please upload a clear subject syllabus, lecture slides, or course module outline.');
+      setParseError(job.error || 'Unable to generate the preparation guide right now. Please try again.');
+      setParseErrorSupportingText(
+        (job as any).supportingText || 'Please upload the correct PPT/PDF of a subject or verify your connection.'
+      );
+      setPersistedStructuredData(null);
+      setPersistedRawText('');
     }
   }, [job?.status, structuredData, rawText, isError]);
+
+  // Check if valid input is present
+  const hasValidInput = Boolean(
+    (parsedDoc && (parsedDoc.fileType === 'pdf' || parsedDoc.fileType === 'ppt' || parsedDoc.fileType === 'pptx') && parsedDoc.extractedText?.trim().length > 0) ||
+    (pastedSyllabus && pastedSyllabus.trim().length > 0)
+  );
+
+  // Active dataset resolution - strictly guarded by valid input presence and non-error status
+  const activeStructuredData = (hasValidInput && !isError && job?.status !== 'error')
+    ? (structuredData || persistedStructuredData)
+    : null;
+  const activeRawText = (hasValidInput && !isError && job?.status !== 'error')
+    ? (rawText || persistedRawText)
+    : '';
 
   // Persist interactive updates (checklists, topic checkoffs)
   const persistCurrentState = (updatedChecklist?: Record<string, boolean>, updatedTopics?: Record<string, boolean>, updatedOverrides?: Record<string, number>, updatedQa?: any[]) => {
@@ -173,10 +202,6 @@ export const SyllabusPrepView: React.FC<SyllabusPrepViewProps> = ({ onBackToHub 
     );
   };
 
-  // Active dataset resolution
-  const activeStructuredData = structuredData || persistedStructuredData;
-  const activeRawText = rawText || persistedRawText;
-
   // Extract structured sub-objects
   const docSummary = activeStructuredData?.documentSummary;
   const units = useMemo(() => Array.isArray(activeStructuredData?.units) ? activeStructuredData.units : [], [activeStructuredData]);
@@ -195,9 +220,22 @@ export const SyllabusPrepView: React.FC<SyllabusPrepViewProps> = ({ onBackToHub 
     const file = event.target.files?.[0];
     if (!file) return;
 
-    setParsingDoc(true);
+    // Immediately clear previous analysis state when replacing or uploading a new file
+    setParsedDoc(null);
+    setPersistedStructuredData(null);
+    setPersistedRawText('');
+    setChecklistState({});
+    setCompletedUnitTopics({});
+    setUnitProgressOverrides({});
+    setQaEntries([]);
     setParseError(null);
     setParseErrorSupportingText(null);
+    reset();
+    if (user?.id && !isDemoMode) {
+      clearSyllabusPrepState(user.id, profile?.id);
+    }
+
+    setParsingDoc(true);
 
     try {
       const doc = await parseAcademicDocument(file);
@@ -210,8 +248,13 @@ export const SyllabusPrepView: React.FC<SyllabusPrepViewProps> = ({ onBackToHub 
 
       if (!validation.isValid) {
         setParseError('Please upload the correct PPT/PDF of a subject.');
-        setParseErrorSupportingText(validation.rejectionReason || 'This document does not appear to contain academic subject material for Syllabus Prep.');
+        setParseErrorSupportingText(
+          validation.supportingText || 'This document does not contain enough academic subject/course material to generate an exam preparation guide.'
+        );
         setParsedDoc(null);
+        setPersistedStructuredData(null);
+        setPersistedRawText('');
+        reset();
         setParsingDoc(false);
         return;
       }
@@ -221,10 +264,36 @@ export const SyllabusPrepView: React.FC<SyllabusPrepViewProps> = ({ onBackToHub 
     } catch (err: any) {
       console.error('File parsing error:', err);
       setParseError('Please upload the correct PPT/PDF of a subject.');
-      setParseErrorSupportingText(err.message || 'Unable to parse document. Please upload a standard PDF, PPT, PPTX, or text file.');
+      setParseErrorSupportingText(
+        err.message || 'This document does not contain enough academic subject/course material to generate an exam preparation guide.'
+      );
       setParsedDoc(null);
+      setPersistedStructuredData(null);
+      setPersistedRawText('');
+      reset();
     } finally {
       setParsingDoc(false);
+    }
+  };
+
+  // Remove uploaded document
+  const handleRemoveFile = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setParsedDoc(null);
+    setPersistedStructuredData(null);
+    setPersistedRawText('');
+    setChecklistState({});
+    setCompletedUnitTopics({});
+    setUnitProgressOverrides({});
+    setQaEntries([]);
+    setParseError(null);
+    setParseErrorSupportingText(null);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+    reset();
+    if (user?.id && !isDemoMode) {
+      clearSyllabusPrepState(user.id, profile?.id);
     }
   };
 
@@ -232,10 +301,16 @@ export const SyllabusPrepView: React.FC<SyllabusPrepViewProps> = ({ onBackToHub 
   const handleGeneratePrepGuide = async () => {
     if (!profile || isRunning) return;
 
+    if (!hasValidInput) {
+      setParseError('Please upload a PDF/PPT/PPTX or enter syllabus text to generate your exam preparation guide.');
+      setParseErrorSupportingText('A valid course syllabus, lecture slides (PDF/PPT/PPTX), or course outline text is required.');
+      return;
+    }
+
     const textToAnalyze = (parsedDoc?.extractedText || pastedSyllabus || '').trim();
-    if (!textToAnalyze) {
-      setParseError('Please upload the correct PPT/PDF of a subject.');
-      setParseErrorSupportingText('This document does not appear to contain academic subject material for Syllabus Prep.');
+    if (!textToAnalyze || textToAnalyze.length < 15) {
+      setParseError('Please upload a PDF/PPT/PPTX or enter syllabus text to generate your exam preparation guide.');
+      setParseErrorSupportingText('No readable text found. Please upload a PDF/PPT/PPTX or enter course module text.');
       return;
     }
 
@@ -248,7 +323,11 @@ export const SyllabusPrepView: React.FC<SyllabusPrepViewProps> = ({ onBackToHub 
 
     if (!validation.isValid) {
       setParseError('Please upload the correct PPT/PDF of a subject.');
-      setParseErrorSupportingText(validation.supportingText || 'This document does not appear to contain academic subject material for Syllabus Prep.');
+      setParseErrorSupportingText(
+        validation.supportingText || 'This document does not contain enough academic subject/course material to generate an exam preparation guide.'
+      );
+      setPersistedStructuredData(null);
+      setPersistedRawText('');
       return;
     }
 
@@ -269,7 +348,7 @@ export const SyllabusPrepView: React.FC<SyllabusPrepViewProps> = ({ onBackToHub 
       careerGoals[0]
     );
 
-    await execute({
+    const result = await execute({
       engineId: 'syllabus-prep',
       studentContext,
       documentText: textToAnalyze,
@@ -285,6 +364,15 @@ export const SyllabusPrepView: React.FC<SyllabusPrepViewProps> = ({ onBackToHub 
         pastedText: pastedSyllabus,
       },
     });
+
+    if (result && result.status === 'error') {
+      setParseError(result.error || 'Unable to generate the preparation guide right now. Please try again.');
+      setParseErrorSupportingText(
+        (result as any).supportingText || 'Please verify the uploaded document or try again.'
+      );
+      setPersistedStructuredData(null);
+      setPersistedRawText('');
+    }
   };
 
   // Reset entire analysis and clear storage
@@ -649,9 +737,20 @@ export const SyllabusPrepView: React.FC<SyllabusPrepViewProps> = ({ onBackToHub 
                     <span>•</span>
                     <span>{Math.round(parsedDoc.fileSize / 1024)} KB</span>
                   </div>
-                  <p className="text-[10px] text-emerald-600 dark:text-emerald-400 font-mono">
-                    ✓ Academic material verified. Click to replace file.
-                  </p>
+                  <div className="flex items-center justify-center gap-3 pt-1">
+                    <button
+                      type="button"
+                      id="remove-syllabus-file-btn"
+                      onClick={handleRemoveFile}
+                      className="px-2.5 py-1 rounded-lg bg-red-100 hover:bg-red-200 dark:bg-red-950/40 dark:hover:bg-red-900/60 text-red-700 dark:text-red-300 text-[11px] font-mono font-medium flex items-center gap-1.5 transition-colors cursor-pointer"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                      <span>Remove file</span>
+                    </button>
+                    <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-mono">
+                      ✓ Ready for analysis
+                    </span>
+                  </div>
                 </div>
               ) : (
                 <div className="space-y-2">
@@ -662,7 +761,7 @@ export const SyllabusPrepView: React.FC<SyllabusPrepViewProps> = ({ onBackToHub 
                     Click to browse or drag & drop syllabus document
                   </div>
                   <div className="text-[11px] text-slate-500 dark:text-slate-400 font-mono">
-                    Supports PDF, PPT, PPTX, DOCX, TXT (Max 20MB)
+                    Supports PDF, PPT, PPTX (Max 20MB)
                   </div>
                 </div>
               )}
@@ -676,8 +775,14 @@ export const SyllabusPrepView: React.FC<SyllabusPrepViewProps> = ({ onBackToHub 
               <textarea
                 value={pastedSyllabus}
                 onChange={(e) => {
-                  setPastedSyllabus(e.target.value);
-                  if (e.target.value.trim()) setParsedDoc(null);
+                  const val = e.target.value;
+                  setPastedSyllabus(val);
+                  if (val.trim()) {
+                    setParsedDoc(null);
+                    setPersistedStructuredData(null);
+                    setPersistedRawText('');
+                    reset();
+                  }
                 }}
                 placeholder="Paste course syllabus, unit modules, or lecture notes text here..."
                 rows={3}
@@ -686,39 +791,49 @@ export const SyllabusPrepView: React.FC<SyllabusPrepViewProps> = ({ onBackToHub 
             </div>
 
             {/* Rejection / Validation Error State */}
-            {parseError && (
+            {(parseError || (isError && job?.error)) && (
               <div className="p-4 rounded-xl bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-900/50 flex items-start gap-3 text-red-700 dark:text-red-400">
                 <AlertCircle className="w-5 h-5 shrink-0 mt-0.5" />
                 <div className="space-y-1 text-xs">
-                  <span className="font-bold font-mono uppercase block">{parseError}</span>
-                  {parseErrorSupportingText && (
+                  <span className="font-bold font-mono uppercase block">{parseError || job?.error}</span>
+                  {(parseErrorSupportingText || (job as any)?.supportingText) && (
                     <p className="text-slate-600 dark:text-slate-300 leading-relaxed">
-                      {parseErrorSupportingText}
+                      {parseErrorSupportingText || (job as any)?.supportingText}
                     </p>
                   )}
                 </div>
               </div>
             )}
 
-            {/* Generate Button */}
-            <div className="flex items-center justify-end gap-3 pt-2">
-              <button
-                onClick={handleGeneratePrepGuide}
-                disabled={(!parsedDoc && !pastedSyllabus.trim()) || isRunning || parsingDoc}
-                className="px-6 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 disabled:opacity-50 disabled:cursor-not-allowed text-white text-xs font-bold font-mono tracking-wider flex items-center gap-2 shadow-sm transition-all cursor-pointer"
-              >
-                <Sparkles className="w-4 h-4" />
-                <span>{isRunning ? 'Analyzing Syllabus...' : 'Generate Exam Prep Guide'}</span>
-              </button>
+            {/* Generate Button Row */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-2">
+              {!hasValidInput && !activeStructuredData && !parseError && (
+                <p className="text-xs text-slate-500 dark:text-slate-400 font-mono">
+                  Please upload a PDF/PPT/PPTX or enter syllabus text to generate your exam preparation guide.
+                </p>
+              )}
+              <div className="sm:ml-auto">
+                <button
+                  id="generate-prep-guide-btn"
+                  onClick={handleGeneratePrepGuide}
+                  disabled={!hasValidInput || isRunning || parsingDoc}
+                  className="px-6 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 disabled:opacity-50 disabled:cursor-not-allowed text-white text-xs font-bold font-mono tracking-wider flex items-center gap-2 shadow-sm transition-all cursor-pointer"
+                >
+                  <Sparkles className="w-4 h-4" />
+                  <span>{isRunning ? 'Analyzing Syllabus...' : 'Generate Exam Prep Guide'}</span>
+                </button>
+              </div>
             </div>
           </div>
         </div>
 
         {/* AI PROCESSING STATE */}
-        <AIProcessingCard job={job} engineName="Syllabus & Exam Prep Engine" />
+        {(isRunning || (isError && job?.startTime)) && (
+          <AIProcessingCard job={job} engineName="Syllabus & Exam Prep Engine" onRetry={handleGeneratePrepGuide} />
+        )}
 
-        {/* MAIN RESULTS DISPLAY (Only shown when verified academic content is generated) */}
-        {activeStructuredData && activeStructuredData.isAcademicSubject !== false && (
+        {/* MAIN RESULTS DISPLAY (Only shown when valid input exists and verified academic content is generated) */}
+        {hasValidInput && !isError && job?.status !== 'error' && activeStructuredData && activeStructuredData.isAcademicSubject !== false && (
           <div className="space-y-6">
 
             {/* Action Bar */}
