@@ -21,7 +21,7 @@ export const AboutFounder: React.FC = () => {
         </div>
 
         {/* Founder Bio Card */}
-        <div className="mt-14 max-w-4xl mx-auto rounded-[2.5rem] bg-white dark:bg-[#0d1117] border border-slate-200 dark:border-white/10 shadow-xl dark:shadow-2xl overflow-hidden transition-colors">
+        <div className="mt-14 max-w-4xl mx-auto rounded-2xl bg-white dark:bg-[#0b0f19] border border-slate-200/90 dark:border-white/10 shadow-lg dark:shadow-2xl overflow-hidden transition-colors">
           <div className="p-8 sm:p-12 grid grid-cols-1 md:grid-cols-12 gap-8 items-center">
             
             {/* Left: Avatar & Identity badge */}

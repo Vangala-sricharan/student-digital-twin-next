@@ -54,9 +54,9 @@ export const AiCareerEngine: React.FC = () => {
             return (
               <div
                 key={i}
-                className="p-7 rounded-[2rem] bg-slate-50 dark:bg-[#0d1117] border border-slate-200 dark:border-white/10 hover:border-slate-300 dark:hover:border-white/20 transition-all space-y-4 shadow-sm"
+                className="p-7 rounded-2xl bg-white dark:bg-[#0b0f19] border border-slate-200/90 dark:border-white/10 hover:border-slate-300 dark:hover:border-white/20 transition-all space-y-4 shadow-xs dark:shadow-md"
               >
-                <div className="w-12 h-12 rounded-2xl bg-blue-500/10 dark:bg-white/5 border border-blue-500/20 dark:border-white/10 flex items-center justify-center text-blue-600 dark:text-cyan-400">
+                <div className="w-12 h-12 rounded-xl bg-blue-500/10 dark:bg-white/5 border border-blue-500/20 dark:border-white/10 flex items-center justify-center text-blue-600 dark:text-cyan-400">
                   <Icon className="w-6 h-6" />
                 </div>
 
@@ -77,10 +77,10 @@ export const AiCareerEngine: React.FC = () => {
           })}
 
           {/* Engine Concept Callout */}
-          <div className="p-8 rounded-[2rem] bg-gradient-to-br from-blue-50 to-indigo-50/50 dark:from-blue-900/30 dark:via-slate-900 dark:to-[#0d1117] border border-blue-500/30 text-slate-900 dark:text-white shadow-xl space-y-4 flex flex-col justify-between relative overflow-hidden group">
+          <div className="p-8 rounded-2xl bg-gradient-to-br from-blue-50 to-indigo-50/50 dark:from-blue-950/40 dark:via-[#0b0f19] dark:to-[#0b0f19] border border-blue-500/30 text-slate-900 dark:text-white shadow-md dark:shadow-xl space-y-4 flex flex-col justify-between relative overflow-hidden group">
             <div className="absolute top-0 right-0 w-64 h-64 bg-blue-500/10 rounded-full blur-3xl pointer-events-none" />
             <div>
-              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-blue-500/10 dark:bg-white/10 border border-blue-500/20 dark:border-white/10 text-blue-700 dark:text-white text-[10px] font-mono font-bold uppercase tracking-wider">
+              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-md bg-blue-500/10 dark:bg-white/10 border border-blue-500/20 dark:border-white/10 text-blue-700 dark:text-white text-[10px] font-mono font-bold uppercase tracking-wider">
                 <Cpu className="w-3 h-3 text-blue-600 dark:text-cyan-400" />
                 <span>11 Core Engines</span>
               </div>

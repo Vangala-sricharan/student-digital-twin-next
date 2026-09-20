@@ -62,7 +62,7 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({ onNavigate
     <div className="space-y-8 animate-in fade-in duration-300">
       
       {/* 1. Student Digital Twin Editorial Hero Surface */}
-      <div className="p-6 sm:p-8 rounded-2xl bg-white dark:bg-[#0d1117] border border-slate-200/90 dark:border-white/10 shadow-sm relative overflow-hidden transition-all">
+      <div className="p-6 sm:p-8 rounded-2xl bg-white dark:bg-[#0b0f19] border border-slate-200/90 dark:border-white/10 shadow-sm relative overflow-hidden transition-all">
         
         {/* Soft atmospheric gradient accent */}
         <div className="absolute top-0 right-0 w-[30rem] h-[30rem] bg-gradient-to-bl from-blue-600/10 via-indigo-500/5 to-transparent rounded-full blur-3xl pointer-events-none" />
@@ -87,7 +87,7 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({ onNavigate
                   </div>
                 )}
               </div>
-              <div className="absolute -bottom-1 -right-1 p-1.5 bg-blue-600 text-white rounded-full shadow-sm ring-4 ring-white dark:ring-[#0d1117]">
+              <div className="absolute -bottom-1 -right-1 p-1.5 bg-blue-600 text-white rounded-full shadow-sm ring-4 ring-white dark:ring-[#0b0f19]">
                 <CheckCircle2 className="w-3.5 h-3.5" />
               </div>
             </div>
@@ -217,7 +217,7 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({ onNavigate
         {/* Metric 1: Verified Skills Ontology */}
         <div
           onClick={() => onNavigateTab('skills')}
-          className="p-6 rounded-2xl bg-white dark:bg-[#0d1117] border border-slate-200/90 dark:border-white/10 shadow-sm hover:border-blue-500/40 transition-all cursor-pointer group relative overflow-hidden"
+          className="p-6 rounded-2xl bg-white dark:bg-[#0b0f19] border border-slate-200/90 dark:border-white/10 shadow-sm hover:border-blue-500/40 transition-all cursor-pointer group relative overflow-hidden"
         >
           <div className="flex items-center justify-between mb-3">
             <span className="text-[11px] font-mono uppercase tracking-wider text-slate-500 dark:text-slate-400 font-bold">
@@ -242,7 +242,7 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({ onNavigate
         {/* Metric 2: Proof-of-Work Repositories */}
         <div
           onClick={() => onNavigateTab('projects')}
-          className="p-6 rounded-2xl bg-white dark:bg-[#0d1117] border border-slate-200/90 dark:border-white/10 shadow-sm hover:border-indigo-500/40 transition-all cursor-pointer group relative overflow-hidden"
+          className="p-6 rounded-2xl bg-white dark:bg-[#0b0f19] border border-slate-200/90 dark:border-white/10 shadow-sm hover:border-indigo-500/40 transition-all cursor-pointer group relative overflow-hidden"
         >
           <div className="flex items-center justify-between mb-3">
             <span className="text-[11px] font-mono uppercase tracking-wider text-slate-500 dark:text-slate-400 font-bold">
@@ -267,7 +267,7 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({ onNavigate
         {/* Metric 3: Academic & Milestone Distinctions */}
         <div
           onClick={() => onNavigateTab('achievements')}
-          className="p-6 rounded-2xl bg-white dark:bg-[#0d1117] border border-slate-200/90 dark:border-white/10 shadow-sm hover:border-amber-500/40 transition-all cursor-pointer group relative overflow-hidden"
+          className="p-6 rounded-2xl bg-white dark:bg-[#0b0f19] border border-slate-200/90 dark:border-white/10 shadow-sm hover:border-amber-500/40 transition-all cursor-pointer group relative overflow-hidden"
         >
           <div className="flex items-center justify-between mb-3">
             <span className="text-[11px] font-mono uppercase tracking-wider text-slate-500 dark:text-slate-400 font-bold">
@@ -298,7 +298,7 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({ onNavigate
         <div className="lg:col-span-8 space-y-7">
           
           {/* Living Skills Ontology Section */}
-          <div className="p-6 sm:p-7 rounded-2xl bg-white dark:bg-[#0d1117] border border-slate-200/90 dark:border-white/10 shadow-sm space-y-5 transition-all">
+          <div className="p-6 sm:p-7 rounded-2xl bg-white dark:bg-[#0b0f19] border border-slate-200/90 dark:border-white/10 shadow-sm space-y-5 transition-all">
             <div className="flex items-center justify-between">
               <div>
                 <h3 className="text-lg font-extrabold text-slate-900 dark:text-white tracking-tight">
@@ -354,7 +354,7 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({ onNavigate
           </div>
 
           {/* Proof-of-Work Architecture Repositories */}
-          <div className="p-6 sm:p-7 rounded-2xl bg-white dark:bg-[#0d1117] border border-slate-200/90 dark:border-white/10 shadow-sm space-y-5 transition-all">
+          <div className="p-6 sm:p-7 rounded-2xl bg-white dark:bg-[#0b0f19] border border-slate-200/90 dark:border-white/10 shadow-sm space-y-5 transition-all">
             <div className="flex items-center justify-between">
               <div>
                 <h3 className="text-lg font-extrabold text-slate-900 dark:text-white tracking-tight">
@@ -449,7 +449,7 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({ onNavigate
         <div className="lg:col-span-4 space-y-7">
           
           {/* AI Career Intelligence Surface */}
-          <div className="p-6 rounded-2xl bg-gradient-to-br from-blue-900/10 via-slate-50 dark:via-[#0d1117] to-white dark:to-[#0d1117] border border-blue-500/20 dark:border-blue-500/30 text-slate-800 dark:text-white space-y-4 shadow-sm transition-all">
+          <div className="p-6 rounded-2xl bg-gradient-to-br from-blue-900/10 via-slate-50 dark:via-[#0b0f19] to-white dark:to-[#0b0f19] border border-blue-500/20 dark:border-blue-500/30 text-slate-800 dark:text-white space-y-4 shadow-sm transition-all">
             <div className="flex items-center gap-2">
               <Sparkles className="w-4 h-4 text-blue-600 dark:text-cyan-400" />
               <h3 className="text-xs font-bold text-slate-900 dark:text-white font-mono uppercase tracking-wider">
@@ -480,7 +480,7 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({ onNavigate
           </div>
 
           {/* Career Milestones & Roadmap */}
-          <div className="p-6 rounded-2xl bg-white dark:bg-[#0d1117] border border-slate-200/90 dark:border-white/10 shadow-sm space-y-4 transition-all">
+          <div className="p-6 rounded-2xl bg-white dark:bg-[#0b0f19] border border-slate-200/90 dark:border-white/10 shadow-sm space-y-4 transition-all">
             <div className="flex items-center justify-between">
               <h3 className="text-sm font-bold text-slate-900 dark:text-white">
                 Career Goals & Roadmap
@@ -522,7 +522,7 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({ onNavigate
           </div>
 
           {/* Institutional Affiliation */}
-          <div className="p-6 rounded-2xl bg-white dark:bg-[#0d1117] border border-slate-200/90 dark:border-white/10 shadow-sm space-y-3 transition-all">
+          <div className="p-6 rounded-2xl bg-white dark:bg-[#0b0f19] border border-slate-200/90 dark:border-white/10 shadow-sm space-y-3 transition-all">
             <h3 className="text-sm font-bold text-slate-900 dark:text-white">
               Institutional Affiliation
             </h3>

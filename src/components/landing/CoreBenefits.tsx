@@ -72,13 +72,13 @@ export const CoreBenefits: React.FC = () => {
             return (
               <div
                 key={idx}
-                className="group relative p-7 rounded-[2rem] bg-white dark:bg-[#0d1117] border border-slate-200 dark:border-white/10 hover:border-slate-300 dark:hover:border-white/20 transition-all duration-300 shadow-md space-y-4"
+                className="group relative p-7 rounded-2xl bg-white dark:bg-[#0b0f19] border border-slate-200/90 dark:border-white/10 hover:border-blue-400/50 dark:hover:border-blue-500/30 transition-all duration-250 shadow-xs dark:shadow-lg space-y-4"
               >
                 <div className="flex items-center justify-between">
-                  <div className="w-12 h-12 rounded-2xl bg-blue-500/10 dark:bg-white/5 border border-blue-500/20 dark:border-white/10 flex items-center justify-center text-blue-600 dark:text-cyan-400 group-hover:scale-105 transition-transform">
+                  <div className="w-11 h-11 rounded-xl bg-blue-500/10 dark:bg-white/5 border border-blue-500/20 dark:border-white/10 flex items-center justify-center text-blue-600 dark:text-cyan-400 group-hover:scale-105 transition-transform">
                     <Icon className="w-5 h-5" />
                   </div>
-                  <span className="text-[10px] font-mono px-2.5 py-1 rounded-full bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/5 text-slate-600 dark:text-slate-400 font-semibold uppercase tracking-wider">
+                  <span className="text-[10px] font-mono px-2.5 py-1 rounded-md bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 text-slate-600 dark:text-slate-400 font-semibold uppercase tracking-wider">
                     {b.tag}
                   </span>
                 </div>

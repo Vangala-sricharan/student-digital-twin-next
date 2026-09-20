@@ -53,11 +53,11 @@ export const ReadinessDiagnostics: React.FC = () => {
             return (
               <div
                 key={index}
-                className="p-8 rounded-[2rem] bg-white dark:bg-[#0d1117] border border-slate-200 dark:border-white/10 hover:border-slate-300 dark:hover:border-white/20 transition-all space-y-5 flex flex-col justify-between shadow-md"
+                className="p-8 rounded-2xl bg-white dark:bg-[#0b0f19] border border-slate-200/90 dark:border-white/10 hover:border-slate-300 dark:hover:border-white/20 transition-all space-y-5 flex flex-col justify-between shadow-xs dark:shadow-md"
               >
                 <div className="space-y-4">
                   <div className="flex items-center justify-between">
-                    <div className="w-12 h-12 rounded-2xl bg-blue-500/10 dark:bg-white/5 border border-blue-500/20 dark:border-white/10 flex items-center justify-center text-blue-600 dark:text-cyan-400">
+                    <div className="w-12 h-12 rounded-xl bg-blue-500/10 dark:bg-white/5 border border-blue-500/20 dark:border-white/10 flex items-center justify-center text-blue-600 dark:text-cyan-400">
                       <Icon className="w-6 h-6" />
                     </div>
                     <div className="text-right">

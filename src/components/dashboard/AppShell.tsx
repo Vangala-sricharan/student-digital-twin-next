@@ -166,7 +166,7 @@ export const AppShell: React.FC<AppShellProps> = ({
       )}
 
       {/* Top Application Bar */}
-      <header className="sticky top-0 z-30 w-full bg-white/80 dark:bg-[#02040a]/80 backdrop-blur-md border-b border-slate-200 dark:border-white/5 shadow-sm transition-colors">
+      <header className="sticky top-0 z-30 w-full bg-white/90 dark:bg-[#02040a]/90 backdrop-blur-xl border-b border-slate-200/90 dark:border-white/10 shadow-2xs transition-colors">
         <div className="px-4 sm:px-8 lg:px-10 h-16 flex items-center justify-between">
           
           <div className="flex items-center gap-3 sm:gap-4">
@@ -183,7 +183,7 @@ export const AppShell: React.FC<AppShellProps> = ({
               {isDemoMode && (
                 <div
                   id="badge-demo-mode-view-only"
-                  className="hidden sm:inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border border-blue-500 bg-blue-500/10 text-blue-600 dark:text-cyan-400 font-mono text-[10px] font-bold tracking-wider uppercase shadow-xs select-none"
+                  className="hidden sm:inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md border border-blue-500/40 bg-blue-500/10 text-blue-600 dark:text-cyan-400 font-mono text-[10px] font-bold tracking-wider uppercase select-none"
                 >
                   <span className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse" />
                   <span>DEMO MODE — VIEW ONLY</span>
@@ -335,7 +335,7 @@ export const AppShell: React.FC<AppShellProps> = ({
           </div>
 
           {/* Twin Status Summary Card (Full or Compact) */}
-          <div className={`rounded-xl bg-white dark:bg-[#0d1117] border border-slate-200/90 dark:border-white/10 shadow-sm dark:shadow-xl transition-all ${
+          <div className={`rounded-xl bg-white dark:bg-[#0b0f19] border border-slate-200/90 dark:border-white/10 shadow-xs dark:shadow-xl transition-all ${
             isCollapsed ? 'p-3.5 text-center' : 'p-5 space-y-3.5'
           }`}>
             {isCollapsed ? (
@@ -370,7 +370,7 @@ export const AppShell: React.FC<AppShellProps> = ({
           </div>
 
           {/* Navigation Links */}
-          <nav className={`rounded-xl bg-white dark:bg-[#0d1117] border border-slate-200/90 dark:border-white/10 shadow-sm dark:shadow-xl transition-all ${
+          <nav className={`rounded-xl bg-white dark:bg-[#0b0f19] border border-slate-200/90 dark:border-white/10 shadow-xs dark:shadow-xl transition-all ${
             isCollapsed ? 'p-2 space-y-3' : 'p-3.5 space-y-4'
           }`}>
             

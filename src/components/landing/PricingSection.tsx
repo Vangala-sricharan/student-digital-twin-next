@@ -86,14 +86,14 @@ export const PricingSection: React.FC<PricingSectionProps> = ({ onNavigate }) =>
           {plans.map((plan, i) => (
             <div
               key={i}
-              className={`relative flex flex-col justify-between p-8 rounded-[2rem] transition-all duration-300 ${
+              className={`relative flex flex-col justify-between p-8 rounded-2xl transition-all duration-300 ${
                 plan.popular
-                  ? 'bg-slate-50 dark:bg-[#0d1117] border-2 border-blue-500 shadow-xl lg:-translate-y-2'
-                  : 'bg-slate-50 dark:bg-[#0d1117] border border-slate-200 dark:border-white/10 hover:border-slate-300 dark:hover:border-white/20 shadow-md'
+                  ? 'bg-white dark:bg-[#0b0f19] border-2 border-blue-500 shadow-xl lg:-translate-y-2'
+                  : 'bg-white dark:bg-[#0b0f19] border border-slate-200/90 dark:border-white/10 hover:border-slate-300 dark:hover:border-white/20 shadow-xs dark:shadow-md'
               }`}
             >
               {plan.popular && (
-                <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 px-3.5 py-1 rounded-full bg-blue-600 text-white text-[10px] font-bold font-mono uppercase tracking-widest shadow-md">
+                <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 px-3.5 py-1 rounded-md bg-blue-600 text-white text-[10px] font-bold font-mono uppercase tracking-widest shadow-md">
                   {plan.badge}
                 </div>
               )}
@@ -104,7 +104,7 @@ export const PricingSection: React.FC<PricingSectionProps> = ({ onNavigate }) =>
                     {plan.name}
                   </h3>
                   {!plan.popular && (
-                    <span className="text-[10px] font-mono px-2.5 py-1 rounded-full bg-slate-200/70 dark:bg-white/5 border border-slate-300/80 dark:border-white/10 text-slate-700 dark:text-slate-400 font-semibold uppercase tracking-wider">
+                    <span className="text-[10px] font-mono px-2.5 py-1 rounded-md bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 text-slate-700 dark:text-slate-400 font-semibold uppercase tracking-wider">
                       {plan.badge}
                     </span>
                   )}

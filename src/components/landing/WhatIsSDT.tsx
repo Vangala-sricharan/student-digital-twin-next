@@ -22,7 +22,7 @@ export const WhatIsSDT: React.FC = () => {
         {/* 6 Key Pillars Grid */}
         <div className="mt-14 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           
-          <div className="p-6 rounded-2xl bg-slate-50 dark:bg-[#0d1117] border border-slate-200 dark:border-white/10 hover:border-slate-300 dark:hover:border-white/20 transition-all space-y-3 shadow-sm">
+          <div className="p-6 rounded-2xl bg-white dark:bg-[#0b0f19] border border-slate-200/90 dark:border-white/10 hover:border-slate-300 dark:hover:border-white/20 transition-all space-y-3 shadow-xs dark:shadow-md">
             <div className="w-10 h-10 rounded-xl bg-blue-500/10 dark:bg-white/5 border border-blue-500/20 dark:border-white/10 flex items-center justify-center text-blue-600 dark:text-cyan-400">
               <Network className="w-5 h-5" />
             </div>
@@ -34,7 +34,7 @@ export const WhatIsSDT: React.FC = () => {
             </p>
           </div>
 
-          <div className="p-6 rounded-2xl bg-slate-50 dark:bg-[#0d1117] border border-slate-200 dark:border-white/10 hover:border-slate-300 dark:hover:border-white/20 transition-all space-y-3 shadow-sm">
+          <div className="p-6 rounded-2xl bg-white dark:bg-[#0b0f19] border border-slate-200/90 dark:border-white/10 hover:border-slate-300 dark:hover:border-white/20 transition-all space-y-3 shadow-xs dark:shadow-md">
             <div className="w-10 h-10 rounded-xl bg-blue-500/10 dark:bg-white/5 border border-blue-500/20 dark:border-white/10 flex items-center justify-center text-blue-600 dark:text-blue-400">
               <BarChart3 className="w-5 h-5" />
             </div>
@@ -46,7 +46,7 @@ export const WhatIsSDT: React.FC = () => {
             </p>
           </div>
 
-          <div className="p-6 rounded-2xl bg-slate-50 dark:bg-[#0d1117] border border-slate-200 dark:border-white/10 hover:border-slate-300 dark:hover:border-white/20 transition-all space-y-3 shadow-sm">
+          <div className="p-6 rounded-2xl bg-white dark:bg-[#0b0f19] border border-slate-200/90 dark:border-white/10 hover:border-slate-300 dark:hover:border-white/20 transition-all space-y-3 shadow-xs dark:shadow-md">
             <div className="w-10 h-10 rounded-xl bg-cyan-500/10 dark:bg-white/5 border border-cyan-500/20 dark:border-white/10 flex items-center justify-center text-cyan-600 dark:text-cyan-300">
               <Brain className="w-5 h-5" />
             </div>
@@ -58,7 +58,7 @@ export const WhatIsSDT: React.FC = () => {
             </p>
           </div>
 
-          <div className="p-6 rounded-2xl bg-slate-50 dark:bg-[#0d1117] border border-slate-200 dark:border-white/10 hover:border-slate-300 dark:hover:border-white/20 transition-all space-y-3 shadow-sm">
+          <div className="p-6 rounded-2xl bg-white dark:bg-[#0b0f19] border border-slate-200/90 dark:border-white/10 hover:border-slate-300 dark:hover:border-white/20 transition-all space-y-3 shadow-xs dark:shadow-md">
             <div className="w-10 h-10 rounded-xl bg-emerald-500/10 dark:bg-white/5 border border-emerald-500/20 dark:border-white/10 flex items-center justify-center text-emerald-600 dark:text-emerald-400">
               <FileCheck className="w-5 h-5" />
             </div>
@@ -70,7 +70,7 @@ export const WhatIsSDT: React.FC = () => {
             </p>
           </div>
 
-          <div className="p-6 rounded-2xl bg-slate-50 dark:bg-[#0d1117] border border-slate-200 dark:border-white/10 hover:border-slate-300 dark:hover:border-white/20 transition-all space-y-3 shadow-sm">
+          <div className="p-6 rounded-2xl bg-white dark:bg-[#0b0f19] border border-slate-200/90 dark:border-white/10 hover:border-slate-300 dark:hover:border-white/20 transition-all space-y-3 shadow-xs dark:shadow-md">
             <div className="w-10 h-10 rounded-xl bg-amber-500/10 dark:bg-white/5 border border-amber-500/20 dark:border-white/10 flex items-center justify-center text-amber-600 dark:text-amber-400">
               <Award className="w-5 h-5" />
             </div>
@@ -82,7 +82,7 @@ export const WhatIsSDT: React.FC = () => {
             </p>
           </div>
 
-          <div className="p-6 rounded-2xl bg-slate-50 dark:bg-[#0d1117] border border-slate-200 dark:border-white/10 hover:border-slate-300 dark:hover:border-white/20 transition-all space-y-3 shadow-sm">
+          <div className="p-6 rounded-2xl bg-white dark:bg-[#0b0f19] border border-slate-200/90 dark:border-white/10 hover:border-slate-300 dark:hover:border-white/20 transition-all space-y-3 shadow-xs dark:shadow-md">
             <div className="w-10 h-10 rounded-xl bg-purple-500/10 dark:bg-white/5 border border-purple-500/20 dark:border-white/10 flex items-center justify-center text-purple-600 dark:text-purple-400">
               <Layers className="w-5 h-5" />
             </div>
@@ -99,7 +99,7 @@ export const WhatIsSDT: React.FC = () => {
         {/* Highlight Focus: Living Student Graph & Industry Benchmarking */}
         <div className="mt-12 grid grid-cols-1 lg:grid-cols-2 gap-8">
           
-          <div className="p-8 rounded-[2rem] bg-slate-50 dark:bg-[#0d1117] border border-slate-200 dark:border-white/10 text-slate-900 dark:text-white space-y-4 relative overflow-hidden group shadow-md">
+          <div className="p-8 rounded-2xl bg-white dark:bg-[#0b0f19] border border-slate-200/90 dark:border-white/10 text-slate-900 dark:text-white space-y-4 relative overflow-hidden group shadow-xs dark:shadow-md">
             <div className="absolute top-0 right-0 w-64 h-64 bg-blue-500/10 rounded-full blur-3xl pointer-events-none" />
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-500/10 border border-blue-500/20 text-blue-600 dark:text-blue-400 text-[10px] font-mono font-bold uppercase tracking-widest">
               <GitFork className="w-3 h-3" />
@@ -111,7 +111,7 @@ export const WhatIsSDT: React.FC = () => {
             </p>
           </div>
 
-          <div className="p-8 rounded-[2rem] bg-slate-50 dark:bg-[#0d1117] border border-slate-200 dark:border-white/10 text-slate-900 dark:text-white space-y-4 relative overflow-hidden group shadow-md">
+          <div className="p-8 rounded-2xl bg-white dark:bg-[#0b0f19] border border-slate-200/90 dark:border-white/10 text-slate-900 dark:text-white space-y-4 relative overflow-hidden group shadow-xs dark:shadow-md">
             <div className="absolute top-0 right-0 w-64 h-64 bg-cyan-500/10 rounded-full blur-3xl pointer-events-none" />
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-cyan-500/10 border border-cyan-500/20 text-cyan-700 dark:text-cyan-300 text-[10px] font-mono font-bold uppercase tracking-widest">
               <BarChart3 className="w-3 h-3" />
