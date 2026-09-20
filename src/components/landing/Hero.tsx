@@ -157,13 +157,13 @@ export const Hero: React.FC<HeroProps> = ({ onNavigate }) => {
           {/* 2 & 3. Center-Right Staging Area: Centered Digital Twin & Right Profile Card */}
           <div className="lg:col-span-7 xl:col-span-7 relative flex flex-col lg:flex-row items-center justify-center lg:justify-end min-h-[340px] sm:min-h-[380px] lg:min-h-[400px] xl:min-h-[440px]">
             
-            {/* The Dominant Central Digital Twin Visual (Big, Broad, Solid Centerpiece shifted clearly toward Center-Right) */}
-            <div className="w-full max-w-[380px] sm:max-w-[430px] lg:max-w-[420px] xl:max-w-[465px] 2xl:max-w-[500px] lg:absolute lg:left-[-10%] xl:left-[-6%] 2xl:left-[-2%] lg:top-1/2 lg:-translate-y-1/2 z-20 my-4 lg:my-0">
+            {/* The Dominant Central Digital Twin Visual (Centered naturally between Left Hero text and Right Profile Card) */}
+            <div className="w-full max-w-[380px] sm:max-w-[430px] lg:max-w-[420px] xl:max-w-[465px] 2xl:max-w-[500px] lg:absolute lg:left-[-15%] xl:left-[-11%] 2xl:left-[-7%] lg:top-1/2 lg:-translate-y-1/2 z-20 my-4 lg:my-0">
               <CentralDigitalTwin />
             </div>
 
-            {/* Right Profile Showcase Card (Kept in current position on the right) */}
-            <div className="relative z-10 shrink-0 w-full max-w-[280px] sm:max-w-[300px] xl:max-w-[325px] mt-4 lg:mt-0 flex justify-center lg:justify-end lg:ml-auto">
+            {/* Right Profile Showcase Card (Enlarged, prominent dashboard card) */}
+            <div className="relative z-10 shrink-0 w-full max-w-[320px] sm:max-w-[350px] lg:max-w-[340px] xl:max-w-[370px] 2xl:max-w-[390px] mt-4 lg:mt-0 flex justify-center lg:justify-end lg:ml-auto">
               <CreatorShowcaseCard onExploreDemo={() => onNavigate('/demo')} />
             </div>
 

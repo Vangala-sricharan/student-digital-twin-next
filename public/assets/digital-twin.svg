@@ -1,0 +1,74 @@
+<svg viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg" width="512" height="512">
+  <defs>
+    <linearGradient id="sdtLogoGrad" x1="25%" y1="0%" x2="75%" y2="100%">
+      <stop offset="0%" stop-color="#c084fc" />
+      <stop offset="40%" stop-color="#9333ea" />
+      <stop offset="75%" stop-color="#6366f1" />
+      <stop offset="100%" stop-color="#3b82f6" />
+    </linearGradient>
+  </defs>
+
+  <!-- Rear Head (The Twin - Offset) -->
+  <path
+    d="M 335 45 C 365 45, 392 75, 404 115 C 410 135, 414 155, 414 175 C 414 185, 406 188, 404 195 C 402 202, 422 218, 438 230 C 438 236, 428 244, 418 246 C 416 252, 422 255, 426 260 C 424 264, 416 266, 414 270 C 416 274, 422 277, 424 282 C 424 288, 416 292, 414 296 C 414 305, 426 312, 428 320 C 428 332, 412 348, 392 355 C 386 375, 385 415, 385 455 L 232 455 L 232 355 C 202 325, 175 275, 175 205 C 175 115, 245 45, 335 45 Z"
+    fill="url(#sdtLogoGrad)"
+  />
+
+  <!-- Front Head (Primary) -->
+  <path
+    d="M 255 45 C 285 45, 312 75, 324 115 C 330 135, 334 155, 334 175 C 334 185, 326 188, 324 195 C 322 202, 342 218, 358 230 C 358 236, 348 244, 338 246 C 336 252, 342 255, 346 260 C 344 264, 336 266, 334 270 C 336 274, 342 277, 344 282 C 344 288, 336 292, 334 296 C 334 305, 346 312, 348 320 C 348 332, 332 348, 312 355 C 306 375, 305 415, 305 455 L 152 455 L 152 355 C 122 325, 95 275, 95 205 C 95 115, 165 45, 255 45 Z"
+    fill="url(#sdtLogoGrad)"
+    stroke="#ffffff"
+    stroke-width="12"
+    stroke-linejoin="round"
+    stroke-linecap="round"
+  />
+
+  <!-- 5 Circuit Traces -->
+  <!-- Trace 1: Top cranial circuit - turns UP 90 degrees -->
+  <path
+    d="M 95 165 L 210 165 L 210 115"
+    stroke="#ffffff"
+    stroke-width="14"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+  />
+  <circle cx="210" cy="115" r="16" fill="url(#sdtLogoGrad)" stroke="#ffffff" stroke-width="12" />
+
+  <!-- Trace 2: Forehead horizontal circuit -->
+  <path
+    d="M 95 220 L 255 220"
+    stroke="#ffffff"
+    stroke-width="14"
+    stroke-linecap="round"
+  />
+  <circle cx="255" cy="220" r="16" fill="url(#sdtLogoGrad)" stroke="#ffffff" stroke-width="12" />
+
+  <!-- Trace 3: Mid-face horizontal circuit -->
+  <path
+    d="M 97 275 L 205 275"
+    stroke="#ffffff"
+    stroke-width="14"
+    stroke-linecap="round"
+  />
+  <circle cx="205" cy="275" r="16" fill="url(#sdtLogoGrad)" stroke="#ffffff" stroke-width="12" />
+
+  <!-- Trace 4: Lower cheek/jaw horizontal circuit -->
+  <path
+    d="M 108 330 L 245 330"
+    stroke="#ffffff"
+    stroke-width="14"
+    stroke-linecap="round"
+  />
+  <circle cx="245" cy="330" r="16" fill="url(#sdtLogoGrad)" stroke="#ffffff" stroke-width="12" />
+
+  <!-- Trace 5: Neck circuit - turns DOWN 90 degrees -->
+  <path
+    d="M 152 385 L 200 385 L 200 425"
+    stroke="#ffffff"
+    stroke-width="14"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+  />
+  <circle cx="200" cy="425" r="16" fill="url(#sdtLogoGrad)" stroke="#ffffff" stroke-width="12" />
+</svg>
