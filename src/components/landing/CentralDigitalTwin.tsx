@@ -13,12 +13,12 @@ export const CentralDigitalTwin: React.FC<CentralDigitalTwinProps> = ({ classNam
       <style>{`
         @keyframes twinBreathingGlow {
           0%, 100% { 
-            filter: drop-shadow(0 0 30px rgba(168,85,247,0.5)) drop-shadow(0 0 65px rgba(56,189,248,0.3)); 
+            filter: drop-shadow(0 0 12px rgba(168,85,247,0.35)) drop-shadow(0 0 20px rgba(56,189,248,0.2)); 
             transform: translateY(0px); 
           }
           50% { 
-            filter: drop-shadow(0 0 45px rgba(168,85,247,0.75)) drop-shadow(0 0 90px rgba(56,189,248,0.45)); 
-            transform: translateY(-6px); 
+            filter: drop-shadow(0 0 18px rgba(168,85,247,0.45)) drop-shadow(0 0 28px rgba(56,189,248,0.25)); 
+            transform: translateY(-4px); 
           }
         }
         @keyframes labelFloatSlow {
@@ -48,27 +48,11 @@ export const CentralDigitalTwin: React.FC<CentralDigitalTwinProps> = ({ classNam
       {/* Visual Focal Point Stage — Substantially Enlarged, Broad & Solid Centerpiece */}
       <div className="relative w-full max-w-[380px] sm:max-w-[430px] lg:max-w-[420px] xl:max-w-[465px] 2xl:max-w-[500px] mx-auto aspect-[520/540] flex items-center justify-center">
         
-        {/* Soft Volumetric Nebula Light Halo (Deep Space Cyan, Royal Blue & Galactic Violet) */}
+        {/* Subtle Controlled Backdrop Glow (Deep Purple & Navy, Tightly Confined) */}
         <div 
-          className="absolute inset-0 sm:-inset-2 rounded-full blur-[95px] pointer-events-none opacity-80 dark:opacity-95"
+          className="absolute inset-6 rounded-full blur-[35px] pointer-events-none opacity-20 dark:opacity-25"
           style={{
-            background: 'radial-gradient(circle, rgba(14, 165, 233, 0.65) 0%, rgba(59, 130, 246, 0.5) 28%, rgba(147, 51, 234, 0.45) 55%, rgba(192, 132, 252, 0.25) 72%, transparent 85%)'
-          }}
-        />
-
-        {/* Subtle Violet-Magenta Crown Rim Nebula Plume */}
-        <div 
-          className="absolute left-1/5 -top-10 w-[300px] h-[280px] rounded-full blur-[85px] pointer-events-none opacity-55 dark:opacity-75"
-          style={{
-            background: 'radial-gradient(circle, rgba(192, 132, 252, 0.6) 0%, rgba(147, 51, 234, 0.35) 50%, transparent 75%)'
-          }}
-        />
-
-        {/* Secondary Frontal Electric Cyan Edge Aura */}
-        <div 
-          className="absolute right-2 top-10 w-[320px] h-[320px] rounded-full blur-[80px] pointer-events-none opacity-50 dark:opacity-75"
-          style={{
-            background: 'radial-gradient(circle, rgba(56, 189, 248, 0.6) 0%, rgba(37, 99, 235, 0.3) 50%, transparent 75%)'
+            background: 'radial-gradient(circle, rgba(147, 51, 234, 0.35) 0%, rgba(59, 130, 246, 0.18) 50%, transparent 72%)'
           }}
         />
 
@@ -125,7 +109,7 @@ export const CentralDigitalTwin: React.FC<CentralDigitalTwinProps> = ({ classNam
             id="center-digital-twin-logo"
             src="/assets/digital-twin.png"
             alt="Student Digital Twin"
-            className="w-full h-full object-contain filter drop-shadow-[0_0_35px_rgba(168,85,247,0.65)] drop-shadow-[0_0_75px_rgba(56,189,248,0.4)] transition-all"
+            className="w-full h-full object-contain filter drop-shadow-[0_0_16px_rgba(168,85,247,0.45)] drop-shadow-[0_0_24px_rgba(56,189,248,0.22)] transition-all"
             draggable={false}
           />
         </div>

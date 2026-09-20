@@ -202,7 +202,7 @@ export async function handleSyllabusPrepRequest(req, res) {
 
     const systemInstruction = `You are the Academic Syllabus & Exam Preparation AI for the Student Digital Twin OS.
 CRITICAL DIRECTIVE:
-1. You must analyze the provided uploaded document and generate everything STRICTLY from its actual content.
+1. You must analyze the provided uploaded document and generate everything STRICTLY from its actual text content. NEVER infer or generate the subject, syllabus topics, or units from the filename alone (e.g. filenames like 'Unit11IntroductiontoProbabilitypdf...' must NOT dictate the subject if the content discusses something else). The actual text in the Content block is the sole source of truth.
 2. ZERO HARDCODED SUBJECTS, TOPICS, UNITS, C++, DSA, DBMS, probability/math assumptions, fixed scores, fixed study plans, fixed checklists, fake exam weightages and demo results.
 3. Detect the ACTUAL subject/topic from the uploaded material and preserve the document's terminology.
 4. Any academic subject, course unit, lecture slides (e.g. Unit 2: Arrays), topic deck, textbook chapter, or course notes IS valid academic material. You MUST accept it, detect its real subject and unit structure from the slides/content, and generate the complete exam preparation guide.
@@ -458,16 +458,14 @@ Analyze the document above and return the comprehensive Exam Preparation Guide i
   ]
 }`;
 
-    // Call Gemini with resilient models
-    const modelsToTry = [
-      'gemini-2.5-flash',
-      'gemini-2.0-flash',
-      'gemini-1.5-flash',
-    ];
-    let responseText = null;
-    let lastErr = null;
+    // Call Gemini using direct gemini-3.6-flash model
+    const modelName = 'gemini-3.6-flash';
+    console.log(`[SyllabusPrep API] Using model: ${modelName}`);
 
-    for (const modelName of modelsToTry) {
+    let responseText = null;
+    let geminiErr = null;
+
+    for (let attempt = 1; attempt <= 2; attempt++) {
       try {
         const response = await ai.models.generateContent({
           model: modelName,
@@ -478,18 +476,36 @@ Analyze the document above and return the comprehensive Exam Preparation Guide i
             responseMimeType: 'application/json',
           },
         });
+
         if (response && response.text) {
           responseText = response.text;
+          console.log('[SyllabusPrep API] Gemini analysis completed successfully');
           break;
+        } else {
+          throw new Error('Empty response received from Gemini model.');
         }
       } catch (err) {
-        lastErr = err;
-        console.warn(`[SyllabusPrep API] Model ${modelName} attempt failed:`, err?.message || err);
+        geminiErr = err;
+        const isTransient = err?.message?.includes('503') || err?.message?.includes('UNAVAILABLE') || err?.status === 'UNAVAILABLE';
+        if (attempt === 1 && isTransient) {
+          await new Promise((resolve) => setTimeout(resolve, 1500));
+          continue;
+        }
+        break;
       }
     }
 
     if (!responseText) {
-      throw lastErr || new Error('No response received from AI model.');
+      console.error('[SyllabusPrep API] Gemini analysis failed:', geminiErr?.message || geminiErr);
+      res.statusCode = 502;
+      res.end(
+        JSON.stringify({
+          status: 'error',
+          error: 'Gemini analysis failed. Please verify your document or API connectivity and try again.',
+          details: geminiErr?.message || 'Model execution error',
+        })
+      );
+      return;
     }
 
     // Clean and parse JSON response
