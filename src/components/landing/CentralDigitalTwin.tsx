@@ -1,5 +1,4 @@
 import React from 'react';
-import { BarChart3, TrendingUp, FolderGit2, Target, Bot } from 'lucide-react';
 
 interface CentralDigitalTwinProps {
   className?: string;
@@ -13,44 +12,63 @@ export const CentralDigitalTwin: React.FC<CentralDigitalTwinProps> = ({ classNam
     >
       <style>{`
         @keyframes twinBreathingGlow {
-          0%, 100% { filter: drop-shadow(0 0 35px rgba(168,85,247,0.45)) drop-shadow(0 0 70px rgba(56,189,248,0.25)); transform: translateY(0px); }
-          50% { filter: drop-shadow(0 0 50px rgba(168,85,247,0.65)) drop-shadow(0 0 90px rgba(56,189,248,0.4)); transform: translateY(-7px); }
+          0%, 100% { 
+            filter: drop-shadow(0 0 30px rgba(168,85,247,0.5)) drop-shadow(0 0 65px rgba(56,189,248,0.3)); 
+            transform: translateY(0px); 
+          }
+          50% { 
+            filter: drop-shadow(0 0 45px rgba(168,85,247,0.75)) drop-shadow(0 0 90px rgba(56,189,248,0.45)); 
+            transform: translateY(-6px); 
+          }
         }
         @keyframes labelFloatSlow {
           0%, 100% { transform: translateY(0px); }
-          50% { transform: translateY(-6px); }
+          50% { transform: translateY(-5px); }
         }
         @keyframes labelFloatFast {
           0%, 100% { transform: translateY(0px); }
-          50% { transform: translateY(-8px); }
+          50% { transform: translateY(-7px); }
         }
         @keyframes orbitSubtlePulse {
-          0%, 100% { opacity: 0.3; }
-          50% { opacity: 0.65; }
+          0%, 100% { opacity: 0.35; }
+          50% { opacity: 0.75; }
+        }
+        @keyframes starTwinkleGlow {
+          0%, 100% { opacity: 0.3; transform: scale(0.85); }
+          50% { opacity: 0.95; transform: scale(1.2); }
         }
         .anim-twin-presence { animation: twinBreathingGlow 7s ease-in-out infinite; }
         .anim-label-a { animation: labelFloatSlow 5.5s ease-in-out infinite; }
         .anim-label-b { animation: labelFloatFast 6.5s ease-in-out infinite 1.2s; }
         .anim-label-c { animation: labelFloatSlow 7.5s ease-in-out infinite 2.4s; }
         .anim-orbit-line { animation: orbitSubtlePulse 5s ease-in-out infinite; }
+        .anim-star-twinkle { animation: starTwinkleGlow 4s ease-in-out infinite; }
       `}</style>
 
       {/* Massive Visual Focal Point Stage */}
-      <div className="relative w-full max-w-[500px] sm:max-w-[560px] lg:max-w-[520px] xl:max-w-[620px] 2xl:max-w-[680px] mx-auto aspect-[520/540] flex items-center justify-center">
+      <div className="relative w-full max-w-[480px] sm:max-w-[520px] lg:max-w-[460px] xl:max-w-[540px] 2xl:max-w-[580px] mx-auto aspect-[520/540] flex items-center justify-center">
         
-        {/* Deep Volumetric Blue-Cyan Nebula Core Behind Head (Harmonized with Blue Galaxy) */}
+        {/* Soft Volumetric Nebula Light Halo (Deep Space Cyan, Royal Blue & Galactic Violet) */}
         <div 
-          className="absolute inset-4 sm:inset-6 rounded-full blur-[90px] pointer-events-none opacity-65 dark:opacity-85"
+          className="absolute inset-2 sm:inset-4 rounded-full blur-[90px] pointer-events-none opacity-70 dark:opacity-90"
           style={{
-            background: 'radial-gradient(circle, rgba(14, 165, 233, 0.55) 0%, rgba(37, 99, 235, 0.45) 35%, rgba(147, 51, 234, 0.2) 65%, transparent 80%)'
+            background: 'radial-gradient(circle, rgba(14, 165, 233, 0.6) 0%, rgba(59, 130, 246, 0.45) 30%, rgba(147, 51, 234, 0.35) 60%, transparent 80%)'
           }}
         />
 
-        {/* Secondary Frontal Electric Cyan Edge Glow */}
+        {/* Subtle Violet-Magenta Crown Rim Nebula Plume */}
         <div 
-          className="absolute right-2 top-10 w-[340px] h-[340px] rounded-full blur-[75px] pointer-events-none opacity-40 dark:opacity-65"
+          className="absolute left-1/4 -top-8 w-[280px] h-[260px] rounded-full blur-[80px] pointer-events-none opacity-45 dark:opacity-65"
           style={{
-            background: 'radial-gradient(circle, rgba(56, 189, 248, 0.55) 0%, rgba(37, 99, 235, 0.3) 50%, transparent 75%)'
+            background: 'radial-gradient(circle, rgba(192, 132, 252, 0.55) 0%, rgba(147, 51, 234, 0.3) 50%, transparent 75%)'
+          }}
+        />
+
+        {/* Secondary Frontal Electric Cyan Edge Aura */}
+        <div 
+          className="absolute right-4 top-12 w-[300px] h-[300px] rounded-full blur-[75px] pointer-events-none opacity-40 dark:opacity-65"
+          style={{
+            background: 'radial-gradient(circle, rgba(56, 189, 248, 0.55) 0%, rgba(37, 99, 235, 0.25) 50%, transparent 75%)'
           }}
         />
 
@@ -62,27 +80,27 @@ export const CentralDigitalTwin: React.FC<CentralDigitalTwinProps> = ({ classNam
           xmlns="http://www.w3.org/2000/svg"
         >
           <defs>
-            {/* Solid Volumetric 3D Material Gradient for Head: Violet to Royal Purple to Indigo */}
+            {/* Solid Volumetric 3D Material Gradient for Head: Lavender to Royal Amethyst to Midnight Indigo */}
             <linearGradient id="solidHeadBodyGrad" x1="15%" y1="10%" x2="85%" y2="90%">
-              <stop offset="0%" stopColor="#d8b4fe" />
-              <stop offset="18%" stopColor="#c084fc" />
-              <stop offset="42%" stopColor="#9333ea" />
-              <stop offset="70%" stopColor="#6b21a8" />
-              <stop offset="90%" stopColor="#4c1d95" />
+              <stop offset="0%" stopColor="#e9d5ff" />
+              <stop offset="15%" stopColor="#c084fc" />
+              <stop offset="38%" stopColor="#9333ea" />
+              <stop offset="65%" stopColor="#6b21a8" />
+              <stop offset="85%" stopColor="#4c1d95" />
               <stop offset="100%" stopColor="#2e1065" />
             </linearGradient>
 
-            {/* Rear Twin Shadow Profile (Creates iconic dual-depth) */}
+            {/* Rear Twin Shadow Profile (Creates iconic stereoscopic 3D depth) */}
             <linearGradient id="twinDepthRearGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-              <stop offset="0%" stopColor="#7c3aed" stopOpacity="0.75" />
-              <stop offset="50%" stopColor="#4338ca" stopOpacity="0.6" />
-              <stop offset="100%" stopColor="#1e1b4b" stopOpacity="0.85" />
+              <stop offset="0%" stopColor="#818cf8" stopOpacity="0.8" />
+              <stop offset="45%" stopColor="#4f46e5" stopOpacity="0.65" />
+              <stop offset="100%" stopColor="#1e1b4b" stopOpacity="0.9" />
             </linearGradient>
 
-            {/* Dimensional 3D Spherical Catchlight Shader */}
+            {/* Dimensional 3D Spherical Cranial Catchlight Shader */}
             <radialGradient id="cranialSpecularGlow" cx="42%" cy="28%" r="55%">
-              <stop offset="0%" stopColor="#ffffff" stopOpacity="0.55" />
-              <stop offset="25%" stopColor="#e9d5ff" stopOpacity="0.3" />
+              <stop offset="0%" stopColor="#ffffff" stopOpacity="0.6" />
+              <stop offset="25%" stopColor="#f3e8ff" stopOpacity="0.35" />
               <stop offset="65%" stopColor="#a855f7" stopOpacity="0" />
             </radialGradient>
 
@@ -95,11 +113,19 @@ export const CentralDigitalTwin: React.FC<CentralDigitalTwinProps> = ({ classNam
               <stop offset="100%" stopColor="#0284c7" />
             </linearGradient>
 
-            {/* Circuit Cutout Trench Shader: Deep Recessed Depth */}
+            {/* Subtle Neon Purple/Violet Cranial Crest Rim Light */}
+            <linearGradient id="rearCranialRimLight" x1="100%" y1="0%" x2="0%" y2="100%">
+              <stop offset="0%" stopColor="#f0abfc" />
+              <stop offset="30%" stopColor="#c084fc" />
+              <stop offset="70%" stopColor="#a855f7" />
+              <stop offset="100%" stopColor="#6366f1" />
+            </linearGradient>
+
+            {/* Circuit Cutout Trench Shader: Deep Recessed 3D Inset Depth */}
             <linearGradient id="circuitTrenchGrad" x1="0%" y1="0%" x2="100%" y2="0%">
-              <stop offset="0%" stopColor="#1e1035" />
-              <stop offset="60%" stopColor="#2e1065" />
-              <stop offset="100%" stopColor="#3b0764" />
+              <stop offset="0%" stopColor="#120726" />
+              <stop offset="60%" stopColor="#240e4f" />
+              <stop offset="100%" stopColor="#330a5c" />
             </linearGradient>
 
             {/* Glowing Circuit Core Filament */}
@@ -111,7 +137,7 @@ export const CentralDigitalTwin: React.FC<CentralDigitalTwinProps> = ({ classNam
             </linearGradient>
 
             {/* Neon Bloom Filter */}
-            <filter id="neonRimBloom" x="-20%" y="-20%" width="140%" height="140%">
+            <filter id="neonRimBloom" x="-25%" y="-25%" width="150%" height="150%">
               <feGaussianBlur in="SourceGraphic" stdDeviation="5" result="blur" />
               <feMerge>
                 <feMergeNode in="blur" />
@@ -119,36 +145,36 @@ export const CentralDigitalTwin: React.FC<CentralDigitalTwinProps> = ({ classNam
               </feMerge>
             </filter>
 
-            {/* Heavy Monolithic Dimensional Shadow */}
-            <filter id="heavyMonolithShadow" x="-25%" y="-25%" width="150%" height="150%">
-              <feDropShadow dx="-6" dy="16" stdDeviation="22" floodColor="#0a051d" floodOpacity="0.85" />
+            {/* Heavy Monolithic Dimensional Space Shadow */}
+            <filter id="heavyMonolithShadow" x="-30%" y="-30%" width="160%" height="160%">
+              <feDropShadow dx="-4" dy="16" stdDeviation="24" floodColor="#040212" floodOpacity="0.9" />
             </filter>
           </defs>
 
-          {/* 1. Orbit Ellipses & Constellation Tracers */}
+          {/* 1. Orbit Ellipses & Constellation Night-Rail Tracks */}
           <g className="anim-orbit-line pointer-events-none">
-            {/* Outer Orbit Path */}
+            {/* Outer Celestial Night-Rail Path */}
             <ellipse
               cx="285"
               cy="270"
-              rx="240"
-              ry="195"
+              rx="235"
+              ry="190"
               transform="rotate(-18 285 270)"
               stroke="#38bdf8"
-              strokeWidth="1.5"
+              strokeWidth="1.6"
               strokeOpacity="0.45"
               strokeDasharray="5 7"
               fill="none"
             />
-            {/* Inner Concentric Orbit Path */}
+            {/* Inner Concentric Orbit Night-Rail Path */}
             <ellipse
               cx="275"
               cy="275"
-              rx="205"
-              ry="155"
+              rx="200"
+              ry="150"
               transform="rotate(22 275 275)"
               stroke="#c084fc"
-              strokeWidth="1.2"
+              strokeWidth="1.3"
               strokeOpacity="0.4"
               strokeDasharray="4 6"
               fill="none"
@@ -160,58 +186,17 @@ export const CentralDigitalTwin: React.FC<CentralDigitalTwinProps> = ({ classNam
             <circle cx="125" cy="395" r="3.5" fill="#818cf8" />
           </g>
 
-          {/* 2. Constellation Connecting Lines to Floating Badges */}
-          {/* Connector to "Skills Analysis" (Top) */}
-          <path
-            d="M 290 65 L 260 18"
-            stroke="#c084fc"
-            strokeWidth="1.8"
-            strokeDasharray="3 3"
-            strokeOpacity="0.8"
-          />
-          <circle cx="290" cy="65" r="4" fill="#e9d5ff" filter="url(#neonRimBloom)" />
+          {/* Subtle Night-Sky Micro-Stars & Dust around Silhouette */}
+          <g className="anim-star-twinkle pointer-events-none opacity-80">
+            <circle cx="75" cy="110" r="1.5" fill="#ffffff" filter="url(#neonRimBloom)" />
+            <circle cx="210" cy="45" r="1.8" fill="#e9d5ff" />
+            <circle cx="450" cy="130" r="1.5" fill="#38bdf8" />
+            <circle cx="475" cy="290" r="1.8" fill="#c084fc" filter="url(#neonRimBloom)" />
+            <circle cx="95" cy="460" r="1.4" fill="#a5f3fc" />
+            <circle cx="370" cy="505" r="1.6" fill="#818cf8" />
+          </g>
 
-          {/* Connector to "Real-time Insights" (Upper Left) */}
-          <path
-            d="M 120 125 L 30 80"
-            stroke="#38bdf8"
-            strokeWidth="1.8"
-            strokeDasharray="3 3"
-            strokeOpacity="0.8"
-          />
-          <circle cx="120" cy="125" r="4" fill="#38bdf8" filter="url(#neonRimBloom)" />
-
-          {/* Connector to "Projects" (Upper Right) */}
-          <path
-            d="M 380 150 L 450 90"
-            stroke="#a855f7"
-            strokeWidth="1.8"
-            strokeDasharray="3 3"
-            strokeOpacity="0.8"
-          />
-          <circle cx="380" cy="150" r="4" fill="#a855f7" filter="url(#neonRimBloom)" />
-
-          {/* Connector to "Career Growth" (Far Upper Right) */}
-          <path
-            d="M 415 220 L 490 170"
-            stroke="#818cf8"
-            strokeWidth="1.8"
-            strokeDasharray="3 3"
-            strokeOpacity="0.7"
-          />
-          <circle cx="415" cy="220" r="4" fill="#818cf8" filter="url(#neonRimBloom)" />
-
-          {/* Connector to "AI Guidance" (Bottom Left) */}
-          <path
-            d="M 165 375 L 70 380"
-            stroke="#c084fc"
-            strokeWidth="1.8"
-            strokeDasharray="3 3"
-            strokeOpacity="0.8"
-          />
-          <circle cx="165" cy="375" r="4" fill="#c084fc" filter="url(#neonRimBloom)" />
-
-          {/* 3. Rear Head Silhouette (Offset 3D Twin Depth) */}
+          {/* 3. Rear Head Silhouette (Offset 3D Twin Depth with Neon Purple/Indigo Rim) */}
           <path
             d="M 345 55 
                C 260 55, 190 115, 190 205 
@@ -225,9 +210,10 @@ export const CentralDigitalTwin: React.FC<CentralDigitalTwinProps> = ({ classNam
                C 410 222, 420 165, 402 125 
                C 382 82, 365 55, 345 55 Z"
             fill="url(#twinDepthRearGrad)"
-            stroke="#818cf8"
+            stroke="url(#rearCranialRimLight)"
             strokeWidth="2.5"
-            strokeOpacity="0.4"
+            strokeOpacity="0.6"
+            filter="url(#neonRimBloom)"
           />
 
           {/* 4. PRIMARY SOLID HEAD MONOLITH (Heavy Visual Weight, Solid Opaque Mass) */}
@@ -271,12 +257,12 @@ export const CentralDigitalTwin: React.FC<CentralDigitalTwinProps> = ({ classNam
               stroke="#ffffff"
               strokeWidth="4"
               strokeLinecap="round"
-              strokeOpacity="0.6"
+              strokeOpacity="0.65"
               fill="none"
             />
           </g>
 
-          {/* 5. FOUR SOLID EMBEDDED CIRCUIT CUTOUTS WITH GLOWING TERMINAL NODES */}
+          {/* 5. EMBEDDED CYBERNETIC CIRCUITS WITH GLOWING TERMINAL NODES */}
           
           {/* Circuit 1: Top cranial circuit - turns UP 90 degrees */}
           <g>
@@ -438,7 +424,7 @@ export const CentralDigitalTwin: React.FC<CentralDigitalTwinProps> = ({ classNam
             filter="url(#neonRimBloom)"
           />
 
-          {/* Inner Cyan Glow Contour along Face */}
+          {/* Inner Cyan Glow Contour along Facial Edge */}
           <path
             d="M 265 60
                C 283 60, 298 85, 318 126 
@@ -447,70 +433,26 @@ export const CentralDigitalTwin: React.FC<CentralDigitalTwinProps> = ({ classNam
                C 322 330, 331 340, 326 350 
                C 320 372, 308 388, 295 395"
             stroke="#38bdf8"
-            strokeWidth="2"
+            strokeWidth="2.2"
             strokeLinecap="round"
-            strokeOpacity="0.6"
+            strokeOpacity="0.75"
             fill="none"
           />
+
+          {/* Rear Cranial Silhouette Neon Violet Rim Light */}
+          <path
+            d="M 265 55
+               C 175 55, 105 115, 105 205 
+               C 105 275, 132 320, 162 345 
+               L 162 475"
+            stroke="url(#rearCranialRimLight)"
+            strokeWidth="3.5"
+            strokeLinecap="round"
+            strokeOpacity="0.7"
+            fill="none"
+            filter="url(#neonRimBloom)"
+          />
         </svg>
-
-        {/* 7. Repositioned Floating Intelligence Badges Orbiting Around the Heavy Visual Centerpiece */}
-        
-        {/* Label 1: Skills Analysis (Top Center) */}
-        <div 
-          id="badge-skills-analysis"
-          className="anim-label-a absolute -top-5 sm:-top-7 left-1/2 -translate-x-1/2 z-30"
-        >
-          <div className="px-4 py-2 sm:px-5 sm:py-2.5 rounded-xl bg-white/95 dark:bg-[#060c24]/95 backdrop-blur-md border border-slate-200/90 dark:border-blue-500/50 text-slate-900 dark:text-white shadow-xl dark:shadow-[0_0_25px_rgba(37,99,235,0.45)] flex items-center gap-2 text-xs sm:text-sm font-bold whitespace-nowrap transition-all">
-            <BarChart3 className="w-4 h-4 text-blue-600 dark:text-cyan-400 shrink-0" />
-            <span className="tracking-wide">Skills Analysis</span>
-          </div>
-        </div>
-
-        {/* Label 2: Real-time Insights (Upper Left Flank) */}
-        <div 
-          id="badge-realtime-insights"
-          className="anim-label-b absolute top-[9%] -left-4 sm:-left-7 lg:-left-9 xl:-left-12 z-30"
-        >
-          <div className="px-3.5 py-2 sm:px-4 sm:py-2 rounded-xl bg-white/95 dark:bg-[#060c24]/95 backdrop-blur-md border border-slate-200/90 dark:border-cyan-500/50 text-slate-900 dark:text-white shadow-xl dark:shadow-[0_0_24px_rgba(6,182,212,0.45)] flex items-center gap-2 text-xs sm:text-sm font-bold whitespace-nowrap transition-all">
-            <TrendingUp className="w-4 h-4 text-blue-600 dark:text-cyan-300 shrink-0" />
-            <span className="tracking-wide">Real-time Insights</span>
-          </div>
-        </div>
-
-        {/* Label 3: Projects (Upper Right Flank) */}
-        <div 
-          id="badge-projects"
-          className="anim-label-c absolute top-[3%] right-1 sm:-right-4 lg:-right-2 xl:-right-8 z-30"
-        >
-          <div className="px-4 py-2 sm:px-4.5 sm:py-2 rounded-xl bg-white/95 dark:bg-[#060c24]/95 backdrop-blur-md border border-slate-200/90 dark:border-sky-500/50 text-slate-900 dark:text-white shadow-xl dark:shadow-[0_0_24px_rgba(14,165,233,0.45)] flex items-center gap-2 text-xs sm:text-sm font-bold whitespace-nowrap transition-all">
-            <FolderGit2 className="w-4 h-4 text-sky-600 dark:text-sky-400 shrink-0" />
-            <span className="tracking-wide">Projects</span>
-          </div>
-        </div>
-
-        {/* Label 4: Career Growth (Far Upper Right) */}
-        <div 
-          id="badge-career-growth"
-          className="anim-label-a absolute top-[14%] right-[-14%] sm:right-[-18%] xl:right-[-28%] hidden sm:flex z-30"
-        >
-          <div className="px-4 py-2 sm:px-5 sm:py-2.5 rounded-xl bg-white/95 dark:bg-[#060c24]/95 backdrop-blur-md border border-slate-200/90 dark:border-indigo-500/50 text-slate-900 dark:text-white shadow-xl dark:shadow-[0_0_25px_rgba(99,102,241,0.45)] flex items-center gap-2 text-xs sm:text-sm font-bold whitespace-nowrap transition-all">
-            <Target className="w-4 h-4 text-indigo-600 dark:text-indigo-400 shrink-0" />
-            <span className="tracking-wide">Career Growth</span>
-          </div>
-        </div>
-
-        {/* Label 5: AI Guidance (Bottom Left Flank) */}
-        <div 
-          id="badge-ai-guidance"
-          className="anim-label-b absolute bottom-[27%] -left-4 sm:-left-7 lg:-left-9 xl:-left-12 z-30"
-        >
-          <div className="px-4 py-2 sm:px-5 sm:py-2.5 rounded-xl bg-white/95 dark:bg-[#060c24]/95 backdrop-blur-md border border-slate-200/90 dark:border-blue-500/50 text-slate-900 dark:text-white shadow-xl dark:shadow-[0_0_25px_rgba(37,99,235,0.45)] flex items-center gap-2 text-xs sm:text-sm font-bold whitespace-nowrap transition-all">
-            <Bot className="w-4 h-4 text-blue-600 dark:text-cyan-400 shrink-0" />
-            <span className="tracking-wide">AI Guidance</span>
-          </div>
-        </div>
-
       </div>
     </div>
   );

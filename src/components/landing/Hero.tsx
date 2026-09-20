@@ -1,5 +1,5 @@
 import React from 'react';
-import { Play, Sparkles, ArrowRight } from 'lucide-react';
+import { Play, Sparkles, ArrowRight, BarChart3, TrendingUp, FolderGit2, Target, Bot } from 'lucide-react';
 import { CreatorShowcaseCard } from './CreatorShowcaseCard';
 import { CentralDigitalTwin } from './CentralDigitalTwin';
 import { CinematicSpaceBackground } from './CinematicSpaceBackground';
@@ -27,16 +27,75 @@ export const Hero: React.FC<HeroProps> = ({ onNavigate }) => {
 
       {/* Foreground Hero Canvas matching reference image composition */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 sm:gap-10 lg:gap-6 xl:gap-8 items-center">
+        
+        {/* Top Centered Block: Horizontal Row of All 5 Labels + Eyebrow Badge */}
+        <div className="flex flex-col items-center justify-center text-center mb-6 sm:mb-8 lg:mb-10">
           
-          {/* 1. Left Column: Hero Copy, CTAs & Statistics */}
-          <div className="lg:col-span-5 space-y-6 text-center lg:text-left z-20">
-            
+          {/* Horizontal Row of 5 Labels: Skills Analysis | Real-time Insights | Projects | Career Growth | AI Guidance */}
+          <div className="w-full overflow-x-auto no-scrollbar py-1.5 flex items-center justify-center">
+            <div className="flex items-center justify-center gap-2.5 sm:gap-3.5 md:gap-4 lg:gap-5 shrink-0">
+              {/* 1. Skills Analysis */}
+              <div 
+                id="badge-skills-analysis"
+                className="px-3.5 py-1.5 sm:px-4 sm:py-2 rounded-xl bg-white/95 dark:bg-[#060c24]/95 backdrop-blur-md border border-slate-200/90 dark:border-blue-500/50 text-slate-900 dark:text-white shadow-xl dark:shadow-[0_0_25px_rgba(37,99,235,0.45)] flex items-center gap-2 text-xs sm:text-sm font-bold whitespace-nowrap transition-transform hover:-translate-y-0.5"
+              >
+                <BarChart3 className="w-4 h-4 text-blue-600 dark:text-cyan-400 shrink-0" />
+                <span className="tracking-wide">Skills Analysis</span>
+              </div>
+
+              {/* 2. Real-time Insights */}
+              <div 
+                id="badge-realtime-insights"
+                className="px-3.5 py-1.5 sm:px-4 sm:py-2 rounded-xl bg-white/95 dark:bg-[#060c24]/95 backdrop-blur-md border border-slate-200/90 dark:border-cyan-500/50 text-slate-900 dark:text-white shadow-xl dark:shadow-[0_0_24px_rgba(6,182,212,0.45)] flex items-center gap-2 text-xs sm:text-sm font-bold whitespace-nowrap transition-transform hover:-translate-y-0.5"
+              >
+                <TrendingUp className="w-4 h-4 text-blue-600 dark:text-cyan-300 shrink-0" />
+                <span className="tracking-wide">Real-time Insights</span>
+              </div>
+
+              {/* 3. Projects */}
+              <div 
+                id="badge-projects"
+                className="px-3.5 py-1.5 sm:px-4 sm:py-2 rounded-xl bg-white/95 dark:bg-[#060c24]/95 backdrop-blur-md border border-slate-200/90 dark:border-sky-500/50 text-slate-900 dark:text-white shadow-xl dark:shadow-[0_0_24px_rgba(14,165,233,0.45)] flex items-center gap-2 text-xs sm:text-sm font-bold whitespace-nowrap transition-transform hover:-translate-y-0.5"
+              >
+                <FolderGit2 className="w-4 h-4 text-sky-600 dark:text-sky-400 shrink-0" />
+                <span className="tracking-wide">Projects</span>
+              </div>
+
+              {/* 4. Career Growth */}
+              <div 
+                id="badge-career-growth"
+                className="px-3.5 py-1.5 sm:px-4 sm:py-2 rounded-xl bg-white/95 dark:bg-[#060c24]/95 backdrop-blur-md border border-slate-200/90 dark:border-indigo-500/50 text-slate-900 dark:text-white shadow-xl dark:shadow-[0_0_25px_rgba(99,102,241,0.45)] flex items-center gap-2 text-xs sm:text-sm font-bold whitespace-nowrap transition-transform hover:-translate-y-0.5"
+              >
+                <Target className="w-4 h-4 text-indigo-600 dark:text-indigo-400 shrink-0" />
+                <span className="tracking-wide">Career Growth</span>
+              </div>
+
+              {/* 5. AI Guidance */}
+              <div 
+                id="badge-ai-guidance"
+                className="px-3.5 py-1.5 sm:px-4 sm:py-2 rounded-xl bg-white/95 dark:bg-[#060c24]/95 backdrop-blur-md border border-slate-200/90 dark:border-blue-500/50 text-slate-900 dark:text-white shadow-xl dark:shadow-[0_0_25px_rgba(37,99,235,0.45)] flex items-center gap-2 text-xs sm:text-sm font-bold whitespace-nowrap transition-transform hover:-translate-y-0.5"
+              >
+                <Bot className="w-4 h-4 text-blue-600 dark:text-cyan-400 shrink-0" />
+                <span className="tracking-wide">AI Guidance</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Small gap */}
+          <div className="mt-3.5 sm:mt-4">
             {/* Eyebrow Badge (Matching Reference) */}
             <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-blue-500/10 dark:bg-blue-950/80 border border-blue-500/30 dark:border-cyan-400/40 text-blue-600 dark:text-cyan-400 text-xs font-mono font-semibold backdrop-blur-sm">
               <Sparkles className="w-3.5 h-3.5 text-blue-600 dark:text-cyan-400 shrink-0" />
               <span>AI-Powered • Built for Students • Driven by Your Growth</span>
             </div>
+          </div>
+
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 sm:gap-10 lg:gap-6 xl:gap-8 items-center">
+          
+          {/* 1. Left Column: Hero Copy, CTAs & Statistics */}
+          <div className="lg:col-span-5 space-y-6 text-center lg:text-left z-20">
 
             {/* Headline with Dual Cyan/White Gradient (Matching Reference) */}
             <h1 className="text-3xl sm:text-5xl lg:text-[44px] xl:text-[54px] font-extrabold tracking-tight text-slate-900 dark:text-white leading-[1.08] break-words">
@@ -95,16 +154,16 @@ export const Hero: React.FC<HeroProps> = ({ onNavigate }) => {
 
           </div>
 
-          {/* 2 & 3. Center-Right Staging Area: Massive Central Digital Twin & Right Profile Card */}
+          {/* 2 & 3. Center-Right Staging Area: Centered Digital Twin & Right Profile Card */}
           <div className="lg:col-span-7 xl:col-span-7 relative flex flex-col lg:flex-row items-center justify-center lg:justify-end min-h-[480px] sm:min-h-[540px] xl:min-h-[600px]">
             
-            {/* The Dominant Central Digital Twin Visual (Scaled substantially, dimensional lighting) */}
-            <div className="w-full max-w-[460px] sm:max-w-[520px] lg:max-w-[480px] xl:max-w-[560px] 2xl:max-w-[620px] lg:absolute lg:left-[-14%] xl:left-[-10%] 2xl:left-[-6%] lg:top-1/2 lg:-translate-y-1/2 z-10 my-6 lg:my-0">
+            {/* The Dominant Central Digital Twin Visual (Centered in hero visual area, fully visible and readable) */}
+            <div className="w-full max-w-[440px] sm:max-w-[490px] lg:max-w-[440px] xl:max-w-[500px] 2xl:max-w-[550px] lg:absolute lg:left-[-32%] xl:left-[-26%] 2xl:left-[-20%] lg:top-1/2 lg:-translate-y-1/2 z-20 my-6 lg:my-0">
               <CentralDigitalTwin />
             </div>
 
-            {/* Right Profile Showcase Card (Floats in front of the right aura with full readability) */}
-            <div className="relative z-20 shrink-0 w-full max-w-[390px] sm:max-w-[400px] xl:max-w-[420px] mt-6 lg:mt-0 flex justify-center lg:justify-end">
+            {/* Right Profile Showcase Card (Kept in current position on the right) */}
+            <div className="relative z-10 shrink-0 w-full max-w-[370px] sm:max-w-[390px] xl:max-w-[410px] mt-6 lg:mt-0 flex justify-center lg:justify-end lg:ml-auto">
               <CreatorShowcaseCard onExploreDemo={() => onNavigate('/demo')} />
             </div>
 
