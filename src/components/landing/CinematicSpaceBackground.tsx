@@ -269,7 +269,7 @@ export const CinematicSpaceBackground: React.FC = () => {
       // orbital view occupying ~27% at apex down to ~16% at screen edges.
       const earthCenterX = width * 0.50;
       const earthRadius = Math.max(width * 1.55, height * 1.95, 1450);
-      const earthTopApexY = height * 0.73; // Apex sits at ~73% down the Hero
+      const earthTopApexY = height * 0.70; // Apex sits at ~70% down the Hero
       const earthCenterY = earthTopApexY + earthRadius;
 
       // Function to calculate exact Earth horizon Y for any screen X
@@ -779,25 +779,25 @@ export const CinematicSpaceBackground: React.FC = () => {
       />
 
       {/* 2. Bottom Planetary Tagline Overlays (Preserved, Perfectly Integrated) */}
-      <div className="absolute bottom-5 sm:bottom-7 inset-x-0 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-start sm:items-end justify-between gap-4 pointer-events-none z-[10]">
+      <div className="absolute bottom-2.5 sm:bottom-3.5 inset-x-0 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-start sm:items-end justify-between gap-3 pointer-events-none z-[10]">
         {/* Bottom Left: SAME YOU. BUT MORE POSSIBILITIES. */}
-        <div className="flex items-start gap-2.5 sm:gap-3 text-slate-200 font-mono select-none drop-shadow-[0_2px_8px_rgba(0,0,0,0.9)]">
-          <div className="w-0.5 h-9 sm:h-10 bg-cyan-400 shadow-[0_0_12px_rgba(34,211,238,1)] shrink-0" />
+        <div className="flex items-start gap-2 sm:gap-2.5 text-slate-200 font-mono select-none drop-shadow-[0_2px_8px_rgba(0,0,0,0.9)]">
+          <div className="w-0.5 h-8 sm:h-9 bg-cyan-400 shadow-[0_0_12px_rgba(34,211,238,1)] shrink-0" />
           <div className="leading-tight">
-            <div className="text-[10px] sm:text-[11px] font-extrabold tracking-widest text-white">
+            <div className="text-[9.5px] sm:text-[10px] font-extrabold tracking-widest text-white">
               SAME YOU.
             </div>
-            <div className="text-[10px] sm:text-[11px] font-semibold tracking-wider text-slate-200">
+            <div className="text-[9.5px] sm:text-[10px] font-semibold tracking-wider text-slate-200">
               BUT MORE POSSIBILITIES.
             </div>
-            <div className="text-[9px] sm:text-[10px] text-slate-400 mt-0.5 font-normal tracking-wide">
+            <div className="text-[8.5px] sm:text-[9px] text-slate-400 mt-0.5 font-normal tracking-wide">
               Powered by AI. Built for what's next.
             </div>
           </div>
         </div>
 
         {/* Bottom Right: LEARN BUILD GROW SUCCEED */}
-        <div className="text-[9px] sm:text-[10px] tracking-[0.25em] sm:tracking-[0.3em] font-mono font-bold text-slate-300 uppercase select-none flex items-center gap-1.5 sm:gap-2 drop-shadow-[0_2px_8px_rgba(0,0,0,0.9)]">
+        <div className="text-[8.5px] sm:text-[9.5px] tracking-[0.25em] sm:tracking-[0.3em] font-mono font-bold text-slate-300 uppercase select-none flex items-center gap-1.5 drop-shadow-[0_2px_8px_rgba(0,0,0,0.9)]">
           <span className="text-cyan-400 text-xs">✦</span>
           <span>LEARN BUILD GROW SUCCEED</span>
         </div>

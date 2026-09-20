@@ -125,7 +125,7 @@ export const CinematicDaylightBackground: React.FC = () => {
       </svg>
 
       {/* 4. Daylight Earth Horizon with Radiant Sun Flare */}
-      <div className="absolute bottom-0 left-0 right-0 h-[240px] sm:h-[280px] pointer-events-none overflow-hidden z-[2]">
+      <div className="absolute bottom-0 left-0 right-0 h-[180px] sm:h-[220px] pointer-events-none overflow-hidden z-[2]">
         <svg
           className="absolute bottom-0 left-1/2 -translate-x-1/2 w-[160%] sm:w-[130%] h-full overflow-visible"
           viewBox="0 0 1440 280"
@@ -221,26 +221,26 @@ export const CinematicDaylightBackground: React.FC = () => {
       <div className="absolute inset-y-0 left-0 w-full sm:w-6/12 bg-gradient-to-r from-white/80 via-white/50 to-transparent pointer-events-none z-[3]" />
 
       {/* 6. Bottom Planetary Tagline Overlays */}
-      <div className="absolute bottom-4 sm:bottom-6 inset-x-0 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-start sm:items-end justify-between gap-4 pointer-events-none z-[10]">
+      <div className="absolute bottom-2.5 sm:bottom-3.5 inset-x-0 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-start sm:items-end justify-between gap-3 pointer-events-none z-[10]">
         
         {/* Bottom Left: SAME YOU. BUT MORE POSSIBILITIES. */}
-        <div className="flex items-start gap-2.5 sm:gap-3 text-slate-700 font-mono select-none">
-          <div className="w-0.5 h-9 sm:h-10 bg-blue-600 shadow-[0_0_8px_rgba(37,99,235,0.6)] shrink-0" />
+        <div className="flex items-start gap-2 sm:gap-2.5 text-slate-700 font-mono select-none">
+          <div className="w-0.5 h-8 sm:h-9 bg-blue-600 shadow-[0_0_8px_rgba(37,99,235,0.6)] shrink-0" />
           <div className="leading-tight">
-            <div className="text-[10px] sm:text-[11px] font-extrabold tracking-widest text-slate-900">
+            <div className="text-[9.5px] sm:text-[10px] font-extrabold tracking-widest text-slate-900">
               SAME YOU.
             </div>
-            <div className="text-[10px] sm:text-[11px] font-semibold tracking-wider text-slate-700">
+            <div className="text-[9.5px] sm:text-[10px] font-semibold tracking-wider text-slate-700">
               BUT MORE POSSIBILITIES.
             </div>
-            <div className="text-[9px] sm:text-[10px] text-slate-500 mt-0.5 font-normal tracking-wide">
+            <div className="text-[8.5px] sm:text-[9px] text-slate-500 mt-0.5 font-normal tracking-wide">
               Powered by AI. Built for what's next.
             </div>
           </div>
         </div>
 
         {/* Bottom Right: LEARN BUILD GROW SUCCEED */}
-        <div className="text-[9px] sm:text-[10px] tracking-[0.25em] sm:tracking-[0.3em] font-mono font-bold text-slate-500 uppercase select-none flex items-center gap-1.5 sm:gap-2">
+        <div className="text-[8.5px] sm:text-[9.5px] tracking-[0.25em] sm:tracking-[0.3em] font-mono font-bold text-slate-500 uppercase select-none flex items-center gap-1.5">
           <span className="text-blue-600 text-xs">✦</span>
           <span>LEARN BUILD GROW SUCCEED</span>
         </div>
