@@ -46,9 +46,10 @@ const quizResponseSchema = {
 
 // Candidate models prioritized for low latency, active availability, and resilience
 const CANDIDATE_MODELS = [
-  'gemini-3.1-flash-lite',
-  'gemini-3.6-flash',
   'gemini-3.8-flash',
+  'gemini-3.1-flash-lite',
+  'gemini-flash-latest',
+  'gemini-3.6-flash',
 ];
 
 function isRateLimitOrServiceUnavailable(err) {

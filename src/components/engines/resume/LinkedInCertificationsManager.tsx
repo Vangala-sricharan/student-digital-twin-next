@@ -113,12 +113,12 @@ export const LinkedInCertificationsManager: React.FC<LinkedInCertificationsManag
     // Enforce PDF only
     const isPdf = file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf');
     if (!isPdf) {
-      setErrorMessage('Invalid file format. Please upload an authentic PDF (.pdf) exported from LinkedIn.');
+      setErrorMessage('Invalid file format. Please upload an authentic PDF (.pdf) file.');
       return;
     }
 
-    if (file.size > 10 * 1024 * 1024) {
-      setErrorMessage('File size exceeds 10MB limit. Please upload a standard LinkedIn profile PDF under 10MB.');
+    if (file.size > 15 * 1024 * 1024) {
+      setErrorMessage('File size exceeds 15MB limit. Please upload a standard PDF under 15MB.');
       return;
     }
 
@@ -155,32 +155,32 @@ export const LinkedInCertificationsManager: React.FC<LinkedInCertificationsManag
     setErrorMessage(null);
     setSupportingMessage(null);
     setEmptyMessage(null);
-    setAnalysisStage('Reading LinkedIn profile PDF streams & links...');
+    setAnalysisStage('Extracting document pages and streams...');
 
     try {
       setTimeout(() => {
-        setAnalysisStage('Analyzing certifications & program records with AI...');
-      }, 500);
+        setAnalysisStage('Analyzing certifications & completion programs...');
+      }, 400);
 
       const result = await extractCertificationsFromLinkedInPdf(uploadedFile);
 
       if (result.status === 'error') {
-        setErrorMessage(result.error || 'No certification records could be reliably extracted from this PDF.');
+        setErrorMessage(result.error || 'Could not extract readable text from this PDF.');
         setSupportingMessage(
           result.supportingText ||
-            'Please ensure you upload an authentic LinkedIn profile PDF exported using More -> Save to PDF.'
+            'The document may be password-protected, encrypted, image-only, or corrupted. Please upload an authentic PDF.'
         );
         setDetectedCertifications([]);
       } else if (result.status === 'empty') {
         setEmptyMessage(
           result.supportingText ||
-            'No certifications were found in this LinkedIn PDF. (Skills and projects were preserved, but are not converted into certifications.)'
+            'No certification or program records were found in this PDF. The document was read across all pages, but contains no certification, license, job simulation, or course completion records.'
         );
         setDetectedCertifications([]);
       } else if (result.status === 'success') {
         setDetectedCertifications(result.certifications);
         setAddedSuccessToast(
-          `Detected ${result.certifications.length} certification record(s) from your LinkedIn PDF. Select which ones to add below.`
+          `Detected ${result.certifications.length} certification record(s). Select which ones to add below.`
         );
         setTimeout(() => setAddedSuccessToast(null), 4500);
       }
@@ -209,10 +209,10 @@ export const LinkedInCertificationsManager: React.FC<LinkedInCertificationsManag
   const handleStartEdit = (cert: ExtractedCertificationRecord) => {
     setEditingCertId(cert.id);
     setEditForm({
-      title: cert.title,
-      issuingOrganization: cert.issuingOrganization || '',
+      title: cert.title || cert.name || '',
+      issuingOrganization: cert.issuingOrganization || cert.issuer || '',
       issueYear: cert.issueYear || cert.issueDate || '',
-      verificationUrl: cert.verificationUrl || '',
+      verificationUrl: cert.verificationUrl || cert.credentialUrl || '',
     });
   };
 
@@ -226,10 +226,13 @@ export const LinkedInCertificationsManager: React.FC<LinkedInCertificationsManag
           return {
             ...c,
             title: editForm.title.trim(),
+            name: editForm.title.trim(),
             issuingOrganization: editForm.issuingOrganization.trim() || null,
+            issuer: editForm.issuingOrganization.trim() || null,
             issueYear: editForm.issueYear.trim() || null,
             issueDate: editForm.issueYear.trim() || null,
             verificationUrl: editForm.verificationUrl.trim() || null,
+            credentialUrl: editForm.verificationUrl.trim() || null,
           };
         }
         return c;
@@ -248,13 +251,18 @@ export const LinkedInCertificationsManager: React.FC<LinkedInCertificationsManag
     if (isDemoMode) return;
     if (isDuplicateCertification(cert, resumeCertifications)) return;
 
+    const certTitle = cert.title || cert.name || '';
+    const certIssuer = cert.issuingOrganization || cert.issuer || '';
+    const certDate = cert.issueDate || cert.issueYear || '';
+    const certUrl = cert.verificationUrl || cert.credentialUrl || undefined;
+
     const newCert: ResumeCertificationItem = {
       id: `cert-linkedin-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`,
-      title: cert.title,
-      issuer: cert.issuingOrganization || '',
-      date: cert.issueYear || cert.issueDate || '',
+      title: certTitle,
+      issuer: certIssuer,
+      date: certDate,
       issueYear: cert.issueYear || undefined,
-      credentialUrl: cert.verificationUrl || undefined,
+      credentialUrl: certUrl,
       credentialId: cert.credentialId || undefined,
       source: 'linkedin_pdf',
       sourceEvidence: cert.sourceEvidence,
@@ -263,7 +271,7 @@ export const LinkedInCertificationsManager: React.FC<LinkedInCertificationsManag
     };
 
     onAddCertification(newCert);
-    setAddedSuccessToast(`Added "${cert.title}" to your resume!`);
+    setAddedSuccessToast(`Added "${certTitle}" to your resume!`);
     setTimeout(() => setAddedSuccessToast(null), 3000);
   };
 
@@ -277,19 +285,26 @@ export const LinkedInCertificationsManager: React.FC<LinkedInCertificationsManag
 
     if (selectedItems.length === 0) return;
 
-    const newCerts: ResumeCertificationItem[] = selectedItems.map((cert, index) => ({
-      id: `cert-linkedin-${Date.now()}-${index}-${Math.random().toString(36).substr(2, 5)}`,
-      title: cert.title,
-      issuer: cert.issuingOrganization || '',
-      date: cert.issueYear || cert.issueDate || '',
-      issueYear: cert.issueYear || undefined,
-      credentialUrl: cert.verificationUrl || undefined,
-      credentialId: cert.credentialId || undefined,
-      source: 'linkedin_pdf',
-      sourceEvidence: cert.sourceEvidence,
-      confidence: cert.confidence,
-      status: 'completed',
-    }));
+    const newCerts: ResumeCertificationItem[] = selectedItems.map((cert, index) => {
+      const certTitle = cert.title || cert.name || '';
+      const certIssuer = cert.issuingOrganization || cert.issuer || '';
+      const certDate = cert.issueDate || cert.issueYear || '';
+      const certUrl = cert.verificationUrl || cert.credentialUrl || undefined;
+
+      return {
+        id: `cert-linkedin-${Date.now()}-${index}-${Math.random().toString(36).substr(2, 5)}`,
+        title: certTitle,
+        issuer: certIssuer,
+        date: certDate,
+        issueYear: cert.issueYear || undefined,
+        credentialUrl: certUrl,
+        credentialId: cert.credentialId || undefined,
+        source: 'linkedin_pdf',
+        sourceEvidence: cert.sourceEvidence,
+        confidence: cert.confidence,
+        status: 'completed',
+      };
+    });
 
     onAddMultipleCertifications(newCerts);
     setAddedSuccessToast(`Added ${newCerts.length} selected certification(s) to your resume!`);

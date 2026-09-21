@@ -124,6 +124,12 @@ export interface ExtractedCertificationRecord {
   sourceEvidence: string;
   confidence: number;
   selected?: boolean;
+  name?: string;
+  issuer?: string | null;
+  expirationDate?: string | null;
+  credentialUrl?: string | null;
+  description?: string | null;
+  sourcePage?: number | string | null;
 }
 
 export interface ParticipationItem {

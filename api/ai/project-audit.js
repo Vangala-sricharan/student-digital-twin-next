@@ -408,8 +408,8 @@ export async function handleProjectAuditRequest(req, res) {
   // 6. Build Audit Prompt
   const prompt = buildProjectAuditPrompt(body, gitHubEvidence, studentContext);
 
-  // Proven modern Gemini models with resilient cascade (fast flash-lite first to avoid 503 capacity spikes)
-  const models = ['gemini-3.1-flash-lite', 'gemini-3.6-flash', 'gemini-3.8-flash'];
+  // Proven modern Gemini models with resilient cascade (fast flash-lite and 3.8-flash first)
+  const models = ['gemini-3.8-flash', 'gemini-3.1-flash-lite', 'gemini-flash-latest', 'gemini-3.6-flash'];
   let auditResult = null;
   let rawAiText = '';
 

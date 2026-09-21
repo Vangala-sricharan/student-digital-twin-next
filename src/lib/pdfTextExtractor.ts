@@ -317,7 +317,8 @@ export function decompressFlate(bytes: Uint8Array): string {
 export function extractTextFromOperators(streamContent: string): string[] {
   const parts: string[] = [];
 
-  const regex = /(?:([-\d.]+)\s+([-\d.]+)\s+(Td|TD))|\[([\s\S]*?)\]\s*TJ|\(((?:[^()\\]|\\.)*)\)\s*(?:Tj|['"])|<([0-9a-fA-F\s]+)>\s*(?:Tj|['"])|\b(T\*|ET)\b/g;
+  const regex =
+    /(?:([-\d.]+)\s+([-\d.]+)\s+(Td|TD))|\[([\s\S]*?)\]\s*TJ|\(((?:[^()\\]|\\.)*)\)\s*(?:Tj|['"])|<([0-9a-fA-F\s]+)>\s*(?:Tj|['"])|\b(T\*|ET)\b|(?:([-\d.]+)\s+([-\d.]+)\s+([-\d.]+)\s+([-\d.]+)\s+([-\d.]+)\s+([-\d.]+)\s+Tm)/g;
 
   let match: RegExpExecArray | null;
   while ((match = regex.exec(streamContent)) !== null) {
@@ -365,6 +366,11 @@ export function extractTextFromOperators(streamContent: string): string[] {
     } else if (match[7] !== undefined) {
       // Text positioning / line breaking operators (T*, ET)
       parts.push('\n');
+    } else if (match[13] !== undefined) {
+      // Tm (text matrix): indicates text positioning, separate lines
+      if (parts.length > 0 && parts[parts.length - 1] !== '\n') {
+        parts.push('\n');
+      }
     }
   }
 
@@ -377,19 +383,19 @@ export async function validateAndExtractLinkedInPdf(file: File): Promise<PdfVali
   if (!isPdf) {
     return {
       isValid: false,
-      error: 'Invalid file format. Please upload an authentic PDF (.pdf) exported from LinkedIn.',
+      error: 'Invalid file format. Please upload an authentic PDF (.pdf) file.',
     };
   }
 
-  // 2. File size validation (Min > 0, Max 10MB)
-  const MAX_SIZE = 10 * 1024 * 1024;
+  // 2. File size validation (Min > 0, Max 15MB)
+  const MAX_SIZE = 15 * 1024 * 1024;
   if (file.size === 0) {
     return { isValid: false, error: 'The selected PDF file is empty (0 bytes).' };
   }
   if (file.size > MAX_SIZE) {
     return {
       isValid: false,
-      error: 'File size exceeds 10MB limit. Please upload a standard LinkedIn profile PDF.',
+      error: 'File size exceeds 15MB limit. Please upload a standard PDF under 15MB.',
     };
   }
 
@@ -493,7 +499,11 @@ export async function validateAndExtractLinkedInPdf(file: File): Promise<PdfVali
         streamBytes = bytes.subarray(streamDataStart, actualEnd);
       }
 
-      const isFlate = /FlateDecode/i.test(dictSnippet);
+      const isZlibHeader =
+        streamBytes.length > 2 &&
+        streamBytes[0] === 0x78 &&
+        (streamBytes[1] === 0x01 || streamBytes[1] === 0x5e || streamBytes[1] === 0x9c || streamBytes[1] === 0xda);
+      const isFlate = /FlateDecode|\/Fl\b/i.test(dictSnippet) || isZlibHeader;
       const hasFilter = /Filter/i.test(dictSnippet);
 
       if (streamBytes.length > 0) {
@@ -509,7 +519,7 @@ export async function validateAndExtractLinkedInPdf(file: File): Promise<PdfVali
               if (decompressedOperators.length > 0) {
                 extractedTextParts.push(...decompressedOperators);
               } else {
-                // Extract clean ASCII printable strings if text operators aren't direct
+                // Extract clean printable strings if text operators aren't direct
                 const words = decompressed.match(/[A-Za-z0-9 .,/\\-_:;@()#&+'"–—]{3,}/g) || [];
                 const cleanWords = words.filter(
                   (w) =>
@@ -570,11 +580,11 @@ export async function validateAndExtractLinkedInPdf(file: File): Promise<PdfVali
       finalText = filtered.slice(0, 200).join(' ').trim();
     }
 
-    if (finalText.length < 30) {
+    if (finalText.length < 15) {
       return {
         isValid: false,
         error:
-          'The uploaded PDF does not contain extractable profile text. Please export your profile directly from LinkedIn using More -> Save to PDF.',
+          'Could not extract readable text from this PDF. The document may be scanned, image-only, password-protected, or corrupted.',
       };
     }
 

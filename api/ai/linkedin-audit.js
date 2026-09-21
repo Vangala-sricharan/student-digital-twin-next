@@ -44,8 +44,8 @@ function extractJson(text) {
  * Executes Gemini generation with model cascading and retry on transient high-demand (503) spikes.
  */
 async function generateAuditWithFallback(ai, contents) {
-  // Resilient cascade: fast, low-latency gemini-3.1-flash-lite first, then gemini-3.6-flash and gemini-3.8-flash
-  const candidateModels = ['gemini-3.1-flash-lite', 'gemini-3.6-flash', 'gemini-3.8-flash'];
+  // Resilient cascade prioritizing gemini-3.8-flash and gemini-3.1-flash-lite
+  const candidateModels = ['gemini-3.8-flash', 'gemini-3.1-flash-lite', 'gemini-flash-latest', 'gemini-3.6-flash'];
   let lastError = null;
 
   for (const model of candidateModels) {
@@ -64,7 +64,21 @@ async function generateAuditWithFallback(ai, contents) {
         }
       } catch (err) {
         lastError = err;
-        // Brief pause before retry on transient 503 / rate limit
+        const errMsg = String(err?.message || err);
+        const isQuotaOrRateLimit =
+          err?.status === 429 ||
+          err?.code === 429 ||
+          errMsg.includes('429') ||
+          errMsg.includes('RESOURCE_EXHAUSTED') ||
+          errMsg.includes('quota') ||
+          errMsg.includes('Quota');
+
+        if (isQuotaOrRateLimit) {
+          console.warn(`[LinkedInAudit API] Model ${model} hit quota/rate limit: cascading immediately.`);
+          break; // Immediately cascade to next model
+        }
+
+        // Brief pause before retry on transient 503
         await new Promise((resolve) => setTimeout(resolve, 800));
       }
     }

@@ -353,24 +353,24 @@ export async function executeAiEngine(
         };
       }
 
-      return {
-        engineId: 'syllabus-prep',
-        status: 'error',
-        error: json.error || 'Please upload the correct PPT/PDF of a subject.',
-        supportingText: json.supportingText || 'This document does not contain enough academic subject/course material to generate an exam preparation guide.',
-        data: null,
-        timestamp: new Date().toISOString(),
-      };
+      // If explicit 400 rejection for non-academic document (e.g. resume / invoice):
+      if (res.status === 400 && (json.error?.includes('correct PPT/PDF') || json.error?.includes('non-academic') || json.error?.includes('Syllabus text'))) {
+        return {
+          engineId: 'syllabus-prep',
+          status: 'error',
+          error: json.error,
+          supportingText: json.supportingText || 'This document does not contain enough academic subject/course material to generate an exam preparation guide.',
+          data: null,
+          timestamp: new Date().toISOString(),
+        };
+      }
+
+      // For any server error or rate-limit from the edge endpoint, transparently fall back to internal engine processing
+      console.warn('[SyllabusPrep] Edge API returned non-success, activating internal engine generator:', json.error || res.status);
+      return await processEngineAiRequest(request, onStageUpdate);
     } catch (fetchErr: any) {
-      console.error('[SyllabusPrep] Primary API failed:', fetchErr);
-      return {
-        engineId: 'syllabus-prep',
-        status: 'error',
-        error: 'Unable to generate the preparation guide right now. Please try again.',
-        supportingText: fetchErr?.message || 'Server or network connectivity issue.',
-        data: null,
-        timestamp: new Date().toISOString(),
-      };
+      console.warn('[SyllabusPrep] Edge API network error, falling back to internal engine generator:', fetchErr);
+      return await processEngineAiRequest(request, onStageUpdate);
     }
   }
 
