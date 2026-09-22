@@ -34,27 +34,74 @@ export const CentralDigitalTwin: React.FC<CentralDigitalTwinProps> = ({ classNam
           0%, 100% { transform: translateY(0px); }
           50% { transform: translateY(-3px); }
         }
-        @keyframes neonRailPulse {
-          0%, 100% { opacity: 0.90; }
-          50% { opacity: 1.0; }
+
+        /* Orbital Rails CSS - Organic Sweeping Asymmetric Arcs */
+        @keyframes orbitalRailLuminescence {
+          0%, 100% { 
+            opacity: 0.88;
+            filter: drop-shadow(0 0 4px rgba(56,189,248,0.45)) drop-shadow(0 0 10px rgba(168,85,247,0.32));
+          }
+          50% { 
+            opacity: 1.0;
+            filter: drop-shadow(0 0 7px rgba(56,189,248,0.72)) drop-shadow(0 0 16px rgba(168,85,247,0.52));
+          }
+        }
+        @keyframes orbitalStreamFlow {
+          from { stroke-dashoffset: 240; }
+          to { stroke-dashoffset: 0; }
+        }
+        @keyframes orbitalStreamFlowReverse {
+          from { stroke-dashoffset: 0; }
+          to { stroke-dashoffset: 240; }
+        }
+        @keyframes orbitalFeederGaze {
+          0%, 100% { 
+            opacity: 0.72;
+            stroke-width: 1.3px;
+          }
+          50% { 
+            opacity: 1.0;
+            stroke-width: 1.8px;
+            filter: drop-shadow(0 0 6px rgba(56,189,248,0.85));
+          }
         }
         @keyframes nodeGlowPulse {
-          0%, 100% { transform: scale(0.95); opacity: 0.88; }
-          50% { transform: scale(1.25); opacity: 1.0; }
+          0%, 100% { transform: scale(0.92); opacity: 0.85; }
+          50% { transform: scale(1.22); opacity: 1.0; }
         }
         @keyframes starTwinkleGlow {
           0%, 100% { opacity: 0.35; transform: scale(0.9); }
           50% { opacity: 0.95; transform: scale(1.15); }
         }
+
         .anim-twin-presence { animation: twinBreathingGlow 6.5s ease-in-out infinite; }
         .anim-label-a { animation: labelFloatA 5.5s ease-in-out infinite; }
         .anim-label-b { animation: labelFloatB 6.2s ease-in-out infinite 0.8s; }
         .anim-label-c { animation: labelFloatC 7.0s ease-in-out infinite 1.6s; }
-        .anim-rail-pulse { animation: neonRailPulse 5s ease-in-out infinite; }
-        .anim-node-pulse { animation: nodeGlowPulse 4s ease-in-out infinite; transform-origin: center; }
+
+        .orbital-rail-primary { animation: orbitalRailLuminescence 5.5s ease-in-out infinite; }
+        .orbital-rail-secondary { animation: orbitalRailLuminescence 6.5s ease-in-out infinite 1.2s; }
+        .orbital-rail-stream { 
+          stroke-dasharray: 6 18; 
+          animation: orbitalStreamFlow 16s linear infinite; 
+        }
+        .orbital-rail-stream-rev { 
+          stroke-dasharray: 5 16; 
+          animation: orbitalStreamFlowReverse 19s linear infinite; 
+        }
+        .orbital-feeder-branch { animation: orbitalFeederGaze 4.2s ease-in-out infinite; }
+        .orbital-node-pulse { 
+          animation: nodeGlowPulse 3.8s ease-in-out infinite; 
+          transform-box: fill-box; 
+          transform-origin: center; 
+        }
         .anim-star-twinkle { animation: starTwinkleGlow 4s ease-in-out infinite; }
+
         @media (prefers-reduced-motion: reduce) {
-          .anim-twin-presence, .anim-label-a, .anim-label-b, .anim-label-c, .anim-rail-pulse, .anim-node-pulse, .anim-star-twinkle {
+          .anim-twin-presence, .anim-label-a, .anim-label-b, .anim-label-c, 
+          .orbital-rail-primary, .orbital-rail-secondary, .orbital-rail-stream, 
+          .orbital-rail-stream-rev, .orbital-feeder-branch, .orbital-node-pulse, 
+          .anim-star-twinkle {
             animation: none !important;
           }
         }
@@ -63,39 +110,39 @@ export const CentralDigitalTwin: React.FC<CentralDigitalTwinProps> = ({ classNam
       {/* Cinematic Orbital Intelligence Hub Stage (Expanded Dimensions for Dominant Presence) */}
       <div className="relative w-full max-w-[430px] sm:max-w-[480px] lg:max-w-[450px] xl:max-w-[500px] aspect-[500/500] mx-auto flex items-center justify-center">
         
-        {/* Multi-Tier Dimensional Atmospheric Nebula Aura Behind Digital Twin (Deep Purple, Indigo & Electric Blue) */}
+        {/* Multi-Tier Dimensional Atmospheric Nebula Aura Behind Digital Twin (Rich Purple & Midnight Indigo, Controlled to Avoid Central Wash) */}
         <div 
-          className="absolute inset-4 sm:inset-6 rounded-full blur-[42px] pointer-events-none opacity-45 dark:opacity-50 z-[1]"
+          className="absolute inset-8 sm:inset-10 rounded-full blur-[32px] pointer-events-none opacity-20 dark:opacity-25 z-[1]"
           style={{
-            background: 'radial-gradient(circle, rgba(147, 51, 234, 0.45) 0%, rgba(126, 34, 206, 0.32) 32%, rgba(79, 70, 229, 0.22) 55%, rgba(56, 189, 248, 0.12) 72%, transparent 85%)'
+            background: 'radial-gradient(circle, rgba(147, 51, 234, 0.35) 0%, rgba(126, 34, 206, 0.25) 35%, rgba(88, 28, 135, 0.15) 58%, transparent 85%)'
           }}
         />
         <div 
-          className="absolute inset-10 sm:inset-12 rounded-full blur-[24px] pointer-events-none opacity-35 dark:opacity-40 z-[2]"
+          className="absolute inset-12 sm:inset-14 rounded-full blur-[20px] pointer-events-none opacity-20 dark:opacity-22 z-[2]"
           style={{
-            background: 'radial-gradient(circle, rgba(126, 34, 206, 0.45) 0%, rgba(59, 130, 246, 0.20) 60%, transparent 80%)'
+            background: 'radial-gradient(circle, rgba(126, 34, 206, 0.32) 0%, rgba(99, 102, 241, 0.12) 55%, transparent 80%)'
           }}
         />
 
         {/* =========================================================================
-            CINEMATIC NEON RAILS & CONNECTED INTELLIGENCE ORBIT SYSTEM (IMAGE B STYLE)
-            - Clearly visible at first glance
-            - Thin, crisp, and elegant with electric blue + violet + bright purple neon
-            - Naturally curving around the Digital Twin
-            - Intentional docking nodes physically connecting each of the 5 feature tags
+            CINEMATIC NEON RAILS & CONNECTED INTELLIGENCE ORBIT SYSTEM
+            - Organic asymmetric sweeping arcs wrapping gracefully around the Digital Twin
+            - Thin, luminous, and elegant with electric blue, violet, and bright purple neon
+            - Dedicated curved feeder arcs visually guiding the eye directly toward feature tags
+            - Free of overlap with Digital Twin face, internal circuits, or badge content
             - Positioned behind tags (z-20) and Digital Twin (z-10), yet clearly above space bg (z-[5])
            ========================================================================= */}
         <svg
           viewBox="0 0 500 500"
-          className="absolute inset-0 w-full h-full pointer-events-none overflow-visible z-[5]"
+          className="orbital-rails-container"
           fill="none"
           xmlns="http://www.w3.org/2000/svg"
         >
           <defs>
-            {/* Controlled Neon Bloom Filter for Rails */}
-            <filter id="neonBloomRail" x="-30%" y="-30%" width="160%" height="160%">
-              <feGaussianBlur stdDeviation="2.2" result="glow1" />
-              <feGaussianBlur stdDeviation="5.5" result="glow2" />
+            {/* Calibrated Neon Bloom Filter: Thin, crisp, and high-luminosity */}
+            <filter id="neonBloomRail" x="-25%" y="-25%" width="150%" height="150%">
+              <feGaussianBlur stdDeviation="1.8" result="glow1" />
+              <feGaussianBlur stdDeviation="4.2" result="glow2" />
               <feMerge>
                 <feMergeNode in="glow2" />
                 <feMergeNode in="glow1" />
@@ -103,142 +150,251 @@ export const CentralDigitalTwin: React.FC<CentralDigitalTwinProps> = ({ classNam
               </feMerge>
             </filter>
 
-            {/* High-Contrast Neon Rail Gradient (Electric Blue -> Violet -> Bright Purple -> Cyan) */}
+            {/* Primary Sweeping Arc Gradient (Electric Cyan -> Royal Violet -> Vivid Purple -> Neon Cyan) */}
             <linearGradient id="primaryRailGrad" x1="0%" y1="0%" x2="100%" y2="100%">
               <stop offset="0%" stopColor="#38bdf8" stopOpacity="0.96" />
-              <stop offset="22%" stopColor="#818cf8" stopOpacity="0.94" />
+              <stop offset="22%" stopColor="#818cf8" stopOpacity="0.95" />
               <stop offset="50%" stopColor="#a855f7" stopOpacity="0.98" />
-              <stop offset="78%" stopColor="#8b5cf6" stopOpacity="0.95" />
+              <stop offset="78%" stopColor="#c084fc" stopOpacity="0.95" />
               <stop offset="100%" stopColor="#06b6d4" stopOpacity="0.96" />
             </linearGradient>
 
-            {/* Secondary Harmonic Rail Gradient */}
+            {/* Secondary Counter Arc Gradient (Vivid Purple -> Electric Blue -> Deep Violet) */}
             <linearGradient id="secondaryRailGrad" x1="100%" y1="0%" x2="0%" y2="100%">
-              <stop offset="0%" stopColor="#c084fc" stopOpacity="0.85" />
-              <stop offset="50%" stopColor="#38bdf8" stopOpacity="0.80" />
-              <stop offset="100%" stopColor="#818cf8" stopOpacity="0.82" />
+              <stop offset="0%" stopColor="#c084fc" stopOpacity="0.92" />
+              <stop offset="42%" stopColor="#38bdf8" stopOpacity="0.88" />
+              <stop offset="82%" stopColor="#818cf8" stopOpacity="0.90" />
+              <stop offset="100%" stopColor="#a855f7" stopOpacity="0.92" />
             </linearGradient>
 
-            {/* Radial Glow for Electric Blue / Cyan Docking Nodes */}
+            {/* Tapered Perspective Filament Gradient (Fades into deep space at endpoints) */}
+            <linearGradient id="outerFilamentGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stopColor="#38bdf8" stopOpacity="0" />
+              <stop offset="20%" stopColor="#818cf8" stopOpacity="0.65" />
+              <stop offset="50%" stopColor="#c084fc" stopOpacity="0.75" />
+              <stop offset="80%" stopColor="#38bdf8" stopOpacity="0.65" />
+              <stop offset="100%" stopColor="#818cf8" stopOpacity="0" />
+            </linearGradient>
+
+            {/* Feeder Branch Gradients for Smooth Directional Eye Guidance */}
+            <linearGradient id="feederGradTop" x1="0%" y1="100%" x2="0%" y2="0%">
+              <stop offset="0%" stopColor="#38bdf8" stopOpacity="0.95" />
+              <stop offset="100%" stopColor="#ffffff" stopOpacity="0.98" />
+            </linearGradient>
+
+            <linearGradient id="feederGradRight" x1="0%" y1="0%" x2="100%" y2="0%">
+              <stop offset="0%" stopColor="#c084fc" stopOpacity="0.95" />
+              <stop offset="100%" stopColor="#38bdf8" stopOpacity="0.98" />
+            </linearGradient>
+
+            <linearGradient id="feederGradLeft" x1="100%" y1="0%" x2="0%" y2="0%">
+              <stop offset="0%" stopColor="#38bdf8" stopOpacity="0.95" />
+              <stop offset="100%" stopColor="#ffffff" stopOpacity="0.98" />
+            </linearGradient>
+
+            {/* Radial Glow for Electric Cyan Docking Nodes */}
             <radialGradient id="nodeGlowCyan" cx="50%" cy="50%" r="50%">
               <stop offset="0%" stopColor="#ffffff" stopOpacity="1" />
-              <stop offset="25%" stopColor="#38bdf8" stopOpacity="0.95" />
-              <stop offset="55%" stopColor="#818cf8" stopOpacity="0.65" />
+              <stop offset="26%" stopColor="#38bdf8" stopOpacity="0.95" />
+              <stop offset="58%" stopColor="#0284c7" stopOpacity="0.55" />
               <stop offset="100%" stopColor="#38bdf8" stopOpacity="0" />
             </radialGradient>
 
             {/* Radial Glow for Purple / Violet Docking Nodes */}
             <radialGradient id="nodeGlowPurple" cx="50%" cy="50%" r="50%">
               <stop offset="0%" stopColor="#ffffff" stopOpacity="1" />
-              <stop offset="25%" stopColor="#a855f7" stopOpacity="0.95" />
-              <stop offset="55%" stopColor="#c084fc" stopOpacity="0.65" />
+              <stop offset="26%" stopColor="#c084fc" stopOpacity="0.95" />
+              <stop offset="58%" stopColor="#9333ea" stopOpacity="0.55" />
               <stop offset="100%" stopColor="#a855f7" stopOpacity="0" />
             </radialGradient>
           </defs>
 
-          {/* 1. Outer Auxiliary Orbit Track (Celestial Atmosphere) */}
-          <g className="opacity-55">
-            <ellipse
-              cx="250"
-              cy="250"
-              rx="242"
-              ry="185"
-              transform="rotate(-18 250 250)"
-              stroke="url(#secondaryRailGrad)"
-              strokeWidth="1.2"
+          {/* 1. OUTER ASYMMETRIC PERSPECTIVE FILAMENT (Open sweeping trajectory, fades at endpoints) */}
+          <g>
+            <path
+              d="M 105,75 C 190,32 360,46 430,125 C 475,182 465,268 435,335 C 388,435 285,468 205,450 C 138,432 82,368 72,285"
+              stroke="url(#outerFilamentGrad)"
+              strokeWidth="1.1"
               strokeDasharray="4 8"
               fill="none"
+              strokeLinecap="round"
             />
           </g>
 
-          {/* 2. THE CINEMATIC NEON RAILS (Connecting all 5 feature tags in an intentional circuit) */}
-          <g className="anim-rail-pulse">
-            {/* Ambient rail glow halo under-stroke (soft diffuse neon bloom) */}
+          {/* 2. THE ORGANIC CINEMATIC NEON RAIL SYSTEM: ASYMMETRIC SWEEPING ARCS */}
+          <g>
+            {/* -------------------------------------------------------------------
+                MASTER ARC ALPHA: Sweeps in from left, wraps over head past Skills Analysis,
+                swoops down past Projects and Career Growth, framing the twin with zero face overlap
+               ------------------------------------------------------------------- */}
+            {/* Ambient Bloom Under-Stroke */}
             <path
-              d="M 250,40 C 160,40 75,85 75,135 C 75,230 135,355 250,460 C 355,395 425,350 425,315 C 425,245 425,160 425,100 C 425,60 340,40 250,40 Z"
+              d="M 54,155 C 64,98 135,42 225,35 C 242,34 258,34 275,36 C 352,44 420,70 432,102 C 446,145 442,240 432,312 C 420,380 376,432 315,455"
               stroke="url(#primaryRailGrad)"
-              strokeWidth="4.2"
-              strokeOpacity="0.45"
+              strokeWidth="3.2"
+              strokeOpacity="0.34"
               filter="url(#neonBloomRail)"
               fill="none"
+              strokeLinecap="round"
             />
 
-            {/* Vibrant luminous primary rail line */}
+            {/* Primary Thin Luminous Rail Line */}
             <path
-              d="M 250,40 C 160,40 75,85 75,135 C 75,230 135,355 250,460 C 355,395 425,350 425,315 C 425,245 425,160 425,100 C 425,60 340,40 250,40 Z"
+              d="M 54,155 C 64,98 135,42 225,35 C 242,34 258,34 275,36 C 352,44 420,70 432,102 C 446,145 442,240 432,312 C 420,380 376,432 315,455"
               stroke="url(#primaryRailGrad)"
-              strokeWidth="2.0"
+              strokeWidth="1.5"
               strokeOpacity="0.96"
+              className="orbital-rail-primary"
               fill="none"
+              strokeLinecap="round"
             />
 
-            {/* Ultra-crisp thin core highlight (authentic glowing neon wire appearance) */}
+            {/* Razor-Sharp Incandescent Core Highlight */}
             <path
-              d="M 250,40 C 160,40 75,85 75,135 C 75,230 135,355 250,460 C 355,395 425,350 425,315 C 425,245 425,160 425,100 C 425,60 340,40 250,40 Z"
-              stroke="#bae6fd"
-              strokeWidth="0.7"
-              strokeOpacity="0.70"
+              d="M 54,155 C 64,98 135,42 225,35 C 242,34 258,34 275,36 C 352,44 420,70 432,102 C 446,145 442,240 432,312 C 420,380 376,432 315,455"
+              stroke="#ffffff"
+              strokeWidth="0.5"
+              strokeOpacity="0.82"
               fill="none"
+              strokeLinecap="round"
             />
 
-            {/* Inner secondary harmonic rail (layered dimensional depth) */}
+            {/* Live Data Pulse Stream (Flows along Arc Alpha) */}
             <path
-              d="M 250,70 C 165,70 115,110 115,160 C 115,240 160,340 250,425 C 335,345 385,285 385,235 C 385,165 335,70 250,70 Z"
+              d="M 54,155 C 64,98 135,42 225,35 C 242,34 258,34 275,36 C 352,44 420,70 432,102 C 446,145 442,240 432,312 C 420,380 376,432 315,455"
+              stroke="#7dd3fc"
+              strokeWidth="1.2"
+              strokeOpacity="0.85"
+              className="orbital-rail-stream"
+              fill="none"
+              strokeLinecap="round"
+            />
+
+            {/* -------------------------------------------------------------------
+                MASTER ARC BETA: Complementary Counter-Arc swooping from upper right,
+                descending along Career Growth, wrapping under the torso at AI Guidance,
+                and climbing up the left flank to Real-time Insights
+               ------------------------------------------------------------------- */}
+            {/* Ambient Bloom Under-Stroke */}
+            <path
+              d="M 445,68 C 468,135 458,225 428,302 C 395,385 330,458 250,465 C 185,471 122,442 88,382 C 58,322 55,215 70,132 C 78,92 108,52 148,34"
               stroke="url(#secondaryRailGrad)"
-              strokeWidth="1.4"
-              strokeDasharray="6 6"
-              strokeOpacity="0.80"
+              strokeWidth="2.8"
+              strokeOpacity="0.28"
+              filter="url(#neonBloomRail)"
               fill="none"
+              strokeLinecap="round"
             />
 
-            {/* Intentional Docking Rails / Neon Spoke Connectors to Tag Mounts */}
-            {/* Top Docking Spoke to Skills Analysis */}
-            <line x1="250" y1="40" x2="250" y2="14" stroke="#38bdf8" strokeWidth="2.0" strokeLinecap="round" />
-            <line x1="250" y1="40" x2="250" y2="14" stroke="#e0f2fe" strokeWidth="0.7" strokeLinecap="round" />
+            {/* Secondary Thin Luminous Rail Line */}
+            <path
+              d="M 445,68 C 468,135 458,225 428,302 C 395,385 330,458 250,465 C 185,471 122,442 88,382 C 58,322 55,215 70,132 C 78,92 108,52 148,34"
+              stroke="url(#secondaryRailGrad)"
+              strokeWidth="1.3"
+              strokeOpacity="0.90"
+              className="orbital-rail-secondary"
+              fill="none"
+              strokeLinecap="round"
+            />
 
-            {/* Left Upper-Middle Docking Spoke to Real-time Insights */}
-            <path d="M 75,135 L 35,135" stroke="#38bdf8" strokeWidth="2.0" strokeLinecap="round" />
-            <path d="M 75,135 L 35,135" stroke="#e0f2fe" strokeWidth="0.7" strokeLinecap="round" />
+            {/* Razor Highlight */}
+            <path
+              d="M 445,68 C 468,135 458,225 428,302 C 395,385 330,458 250,465 C 185,471 122,442 88,382 C 58,322 55,215 70,132 C 78,92 108,52 148,34"
+              stroke="#f5f3ff"
+              strokeWidth="0.45"
+              strokeOpacity="0.75"
+              fill="none"
+              strokeLinecap="round"
+            />
 
-            {/* Upper-Right Docking Spoke to Projects */}
-            <path d="M 425,100 L 465,100" stroke="#38bdf8" strokeWidth="2.0" strokeLinecap="round" />
-            <path d="M 425,100 L 465,100" stroke="#e0f2fe" strokeWidth="0.7" strokeLinecap="round" />
+            {/* Live Data Pulse Counter-Stream (Flows along Arc Beta) */}
+            <path
+              d="M 445,68 C 468,135 458,225 428,302 C 395,385 330,458 250,465 C 185,471 122,442 88,382 C 58,322 55,215 70,132 C 78,92 108,52 148,34"
+              stroke="#c084fc"
+              strokeWidth="1.1"
+              strokeOpacity="0.80"
+              className="orbital-rail-stream-rev"
+              fill="none"
+              strokeLinecap="round"
+            />
 
-            {/* Mid-Right Docking Spoke to Career Growth */}
-            <path d="M 425,315 L 465,315" stroke="#a855f7" strokeWidth="2.0" strokeLinecap="round" />
-            <path d="M 425,315 L 465,315" stroke="#f3e8ff" strokeWidth="0.7" strokeLinecap="round" />
+            {/* -------------------------------------------------------------------
+                3. DIRECTIONAL ORGANIC FEEDER CURVES (VISUALLY GUIDING EYE TOWARD TAGS)
+                Subtle curves that emerge tangentially from the arcs and glide smoothly
+                directly into each feature tag badge without covering text or badges.
+               ------------------------------------------------------------------- */}
+            {/* Feeder 1: Top Guide to Skills Analysis */}
+            <g className="orbital-feeder-branch">
+              <path d="M 250,36 C 250,28 250,22 250,14" stroke="url(#feederGradTop)" strokeWidth="1.5" strokeLinecap="round" />
+              <path d="M 250,36 C 250,28 250,22 250,14" stroke="#ffffff" strokeWidth="0.5" strokeLinecap="round" />
+            </g>
 
-            {/* Bottom Docking Spoke to AI Guidance */}
-            <line x1="250" y1="460" x2="250" y2="486" stroke="#38bdf8" strokeWidth="2.0" strokeLinecap="round" />
-            <line x1="250" y1="460" x2="250" y2="486" stroke="#e0f2fe" strokeWidth="0.7" strokeLinecap="round" />
+            {/* Feeder 2: Left Guide to Real-time Insights */}
+            <g className="orbital-feeder-branch">
+              <path d="M 72,130 C 58,130 45,130 32,130" stroke="url(#feederGradLeft)" strokeWidth="1.5" strokeLinecap="round" />
+              <path d="M 72,130 C 58,130 45,130 32,130" stroke="#ffffff" strokeWidth="0.5" strokeLinecap="round" />
+            </g>
+
+            {/* Feeder 3: Upper-Right Guide to Projects */}
+            <g className="orbital-feeder-branch">
+              <path d="M 430,95 C 444,95 456,95 468,95" stroke="url(#feederGradRight)" strokeWidth="1.5" strokeLinecap="round" />
+              <path d="M 430,95 C 444,95 456,95 468,95" stroke="#ffffff" strokeWidth="0.5" strokeLinecap="round" />
+            </g>
+
+            {/* Feeder 4: Mid-Right Guide to Career Growth */}
+            <g className="orbital-feeder-branch">
+              <path d="M 430,315 C 444,315 456,315 468,315" stroke="url(#feederGradRight)" strokeWidth="1.5" strokeLinecap="round" />
+              <path d="M 430,315 C 444,315 456,315 468,315" stroke="#ffffff" strokeWidth="0.5" strokeLinecap="round" />
+            </g>
+
+            {/* Feeder 5: Bottom Guide to AI Guidance */}
+            <g className="orbital-feeder-branch">
+              <path d="M 250,465 C 250,473 250,480 250,488" stroke="url(#feederGradTop)" strokeWidth="1.5" strokeLinecap="round" />
+              <path d="M 250,465 C 250,473 250,480 250,488" stroke="#ffffff" strokeWidth="0.5" strokeLinecap="round" />
+            </g>
           </g>
 
-          {/* 3. LUMINOUS RAIL CONNECTION NODES (Image B Connection Points) */}
+          {/* 4. STRONGER LUMINOUS RAIL CONNECTION NODES (Cyan, Violet, Electric Blue) */}
           <g>
-            {/* Node 1: Skills Analysis Dock (TOP: 250, 40) */}
-            <circle cx="250" cy="40" r="10" fill="url(#nodeGlowCyan)" className="anim-node-pulse" />
-            <circle cx="250" cy="40" r="4.2" fill="#38bdf8" stroke="#ffffff" strokeWidth="1" />
-            <circle cx="250" cy="40" r="1.8" fill="#ffffff" />
+            {/* Node 1: Skills Analysis Dock (TOP: 250, 36) */}
+            <circle cx="250" cy="36" r="10" fill="url(#nodeGlowCyan)" className="orbital-node-pulse" />
+            <circle cx="250" cy="36" r="4.0" fill="#0284c7" stroke="#38bdf8" strokeWidth="1.5" />
+            <circle cx="250" cy="36" r="1.6" fill="#ffffff" />
+            {/* Micro Satellite Data Pips */}
+            <circle cx="242" cy="36" r="1.0" fill="#7dd3fc" />
+            <circle cx="258" cy="36" r="1.0" fill="#7dd3fc" />
 
-            {/* Node 2: Real-time Insights Dock (LEFT UPPER-MIDDLE: 75, 135) */}
-            <circle cx="75" cy="135" r="10" fill="url(#nodeGlowCyan)" className="anim-node-pulse" />
-            <circle cx="75" cy="135" r="4.2" fill="#38bdf8" stroke="#ffffff" strokeWidth="1" />
-            <circle cx="75" cy="135" r="1.8" fill="#ffffff" />
+            {/* Node 2: Real-time Insights Dock (LEFT UPPER-MIDDLE: 72, 130) */}
+            <circle cx="72" cy="130" r="10" fill="url(#nodeGlowCyan)" className="orbital-node-pulse" />
+            <circle cx="72" cy="130" r="4.0" fill="#0284c7" stroke="#38bdf8" strokeWidth="1.5" />
+            <circle cx="72" cy="130" r="1.6" fill="#ffffff" />
+            {/* Micro Satellite Data Pips */}
+            <circle cx="72" cy="122" r="1.0" fill="#7dd3fc" />
+            <circle cx="72" cy="138" r="1.0" fill="#7dd3fc" />
 
-            {/* Node 3: Projects Dock (UPPER-RIGHT: 425, 100) */}
-            <circle cx="425" cy="100" r="10" fill="url(#nodeGlowCyan)" className="anim-node-pulse" />
-            <circle cx="425" cy="100" r="4.2" fill="#38bdf8" stroke="#ffffff" strokeWidth="1" />
-            <circle cx="425" cy="100" r="1.8" fill="#ffffff" />
+            {/* Node 3: Projects Dock (UPPER-RIGHT: 430, 95) */}
+            <circle cx="430" cy="95" r="10" fill="url(#nodeGlowCyan)" className="orbital-node-pulse" />
+            <circle cx="430" cy="95" r="4.0" fill="#0284c7" stroke="#38bdf8" strokeWidth="1.5" />
+            <circle cx="430" cy="95" r="1.6" fill="#ffffff" />
+            {/* Micro Satellite Data Pips */}
+            <circle cx="423" cy="90" r="1.0" fill="#7dd3fc" />
+            <circle cx="437" cy="100" r="1.0" fill="#7dd3fc" />
 
-            {/* Node 4: Career Growth Dock (MID-RIGHT: 425, 315) */}
-            <circle cx="425" cy="315" r="10" fill="url(#nodeGlowPurple)" className="anim-node-pulse" />
-            <circle cx="425" cy="315" r="4.2" fill="#a855f7" stroke="#ffffff" strokeWidth="1" />
-            <circle cx="425" cy="315" r="1.8" fill="#ffffff" />
+            {/* Node 4: Career Growth Dock (MID-RIGHT: 430, 315) */}
+            <circle cx="430" cy="315" r="10" fill="url(#nodeGlowPurple)" className="orbital-node-pulse" />
+            <circle cx="430" cy="315" r="4.0" fill="#7e22ce" stroke="#c084fc" strokeWidth="1.5" />
+            <circle cx="430" cy="315" r="1.6" fill="#ffffff" />
+            {/* Micro Satellite Data Pips */}
+            <circle cx="424" cy="322" r="1.0" fill="#e9d5ff" />
+            <circle cx="436" cy="308" r="1.0" fill="#e9d5ff" />
 
-            {/* Node 5: AI Guidance Dock (LOWER: 250, 460) */}
-            <circle cx="250" cy="460" r="10" fill="url(#nodeGlowCyan)" className="anim-node-pulse" />
-            <circle cx="250" cy="460" r="4.2" fill="#38bdf8" stroke="#ffffff" strokeWidth="1" />
-            <circle cx="250" cy="460" r="1.8" fill="#ffffff" />
+            {/* Node 5: AI Guidance Dock (LOWER: 250, 465) */}
+            <circle cx="250" cy="465" r="10" fill="url(#nodeGlowCyan)" className="orbital-node-pulse" />
+            <circle cx="250" cy="465" r="4.0" fill="#0284c7" stroke="#38bdf8" strokeWidth="1.5" />
+            <circle cx="250" cy="465" r="1.6" fill="#ffffff" />
+            {/* Micro Satellite Data Pips */}
+            <circle cx="242" cy="465" r="1.0" fill="#7dd3fc" />
+            <circle cx="258" cy="465" r="1.0" fill="#7dd3fc" />
           </g>
 
           {/* 4. Deep Space Micro-Star Nodes */}
@@ -258,72 +414,68 @@ export const CentralDigitalTwin: React.FC<CentralDigitalTwinProps> = ({ classNam
             id="center-digital-twin-logo"
             src="/assets/digital-twin.svg"
             alt="Student Digital Twin"
-            className="w-full h-full object-contain filter drop-shadow-[0_0_20px_rgba(147,51,234,0.48)] drop-shadow-[0_0_36px_rgba(59,130,246,0.32)] drop-shadow-[0_0_6px_rgba(56,189,248,0.65)] transition-all"
+            className="w-full h-full object-contain filter drop-shadow-[0_0_24px_rgba(147,51,234,0.55)] drop-shadow-[0_0_42px_rgba(107,33,168,0.35)] drop-shadow-[0_0_6px_rgba(56,189,248,0.40)] transition-all"
             draggable={false}
           />
         </div>
 
         {/* =========================================================================
-            FIVE FEATURE TAGS — TARGET B CINEMATIC "NIGHT RAIL" TREATMENT
-            - Dark glass/navy interior
-            - Purple luminous border
-            - Subtle blue/cyan secondary glow
-            - Controlled purple neon outer glow
-            - Crisp white text
-            - Clean icon
-            - Premium glass depth
-            - Subtle shadow
-            - Consistent visual language across ALL 5 TAGS
+            FIVE FEATURE TAGS — STRONGER PURPLE NEON BORDERS & DARK GLASS INTERIOR
+            - Dark glass/navy interior (#030718/95)
+            - Clearly visible purple border (stronger neon definition)
+            - Subtle violet glow & secondary cyan accent
+            - Crisp white text & clean icons
+            - Strict position and size preservation
            ========================================================================= */}
 
         {/* 1. TOP: Skills Analysis */}
         <div 
           id="badge-skills-analysis"
-          className="absolute -top-2.5 sm:-top-3 left-1/2 -translate-x-1/2 px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-lg bg-[#020514]/92 dark:bg-[#020514]/92 backdrop-blur-md border border-purple-500/50 hover:border-purple-400/80 text-white shadow-[0_0_16px_rgba(168,85,247,0.36),0_0_6px_rgba(56,189,248,0.24),inset_0_1px_1px_rgba(255,255,255,0.18)] flex items-center gap-1.5 sm:gap-2 text-[10.5px] sm:text-[11.5px] font-semibold whitespace-nowrap z-20 anim-label-a hover:scale-105 transition-all group cursor-default"
+          className="absolute -top-2.5 sm:-top-3 left-1/2 -translate-x-1/2 px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-lg bg-[#030718]/95 dark:bg-[#030718]/95 backdrop-blur-md border-[1.5px] border-purple-500/80 hover:border-purple-400 text-white shadow-[0_0_20px_rgba(168,85,247,0.52),0_0_8px_rgba(56,189,248,0.28),inset_0_0_12px_rgba(147,51,234,0.22),inset_0_1px_1px_rgba(255,255,255,0.22)] flex items-center gap-1.5 sm:gap-2 text-[10.5px] sm:text-[11.5px] font-semibold whitespace-nowrap z-20 anim-label-a hover:scale-105 transition-all group cursor-default"
         >
           <BarChart3 className="w-3.5 h-3.5 text-cyan-400 shrink-0 drop-shadow-[0_0_6px_rgba(34,211,238,0.85)]" />
           <span className="tracking-wide text-white">Skills Analysis</span>
-          <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 shadow-[0_0_5px_#22d3ee]" />
+          <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 shadow-[0_0_6px_#22d3ee]" />
         </div>
 
         {/* 2. LEFT / UPPER-MIDDLE: Real-time Insights (Farther out, cleanly clear of twin & headline) */}
         <div 
           id="badge-realtime-insights"
-          className="absolute top-[19%] sm:top-[20%] -left-1 sm:left-0 md:-left-1 lg:left-0 xl:left-0.5 px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-lg bg-[#020514]/92 dark:bg-[#020514]/92 backdrop-blur-md border border-purple-500/50 hover:border-purple-400/80 text-white shadow-[0_0_16px_rgba(168,85,247,0.36),0_0_6px_rgba(56,189,248,0.24),inset_0_1px_1px_rgba(255,255,255,0.18)] flex items-center gap-1.5 sm:gap-2 text-[10.5px] sm:text-[11.5px] font-semibold whitespace-nowrap z-20 anim-label-b hover:scale-105 transition-all group cursor-default"
+          className="absolute top-[19%] sm:top-[20%] -left-1 sm:left-0 md:-left-1 lg:left-0 xl:left-0.5 px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-lg bg-[#030718]/95 dark:bg-[#030718]/95 backdrop-blur-md border-[1.5px] border-purple-500/80 hover:border-purple-400 text-white shadow-[0_0_20px_rgba(168,85,247,0.52),0_0_8px_rgba(56,189,248,0.28),inset_0_0_12px_rgba(147,51,234,0.22),inset_0_1px_1px_rgba(255,255,255,0.22)] flex items-center gap-1.5 sm:gap-2 text-[10.5px] sm:text-[11.5px] font-semibold whitespace-nowrap z-20 anim-label-b hover:scale-105 transition-all group cursor-default"
         >
           <TrendingUp className="w-3.5 h-3.5 text-cyan-400 shrink-0 drop-shadow-[0_0_6px_rgba(34,211,238,0.85)]" />
           <span className="tracking-wide text-white">Real-time Insights</span>
-          <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 shadow-[0_0_5px_#22d3ee]" />
+          <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 shadow-[0_0_6px_#22d3ee]" />
         </div>
 
         {/* 3. UPPER-RIGHT: Projects (Diagonally above forehead, spacious) */}
         <div 
           id="badge-projects"
-          className="absolute top-[11%] sm:top-[12%] right-1 sm:right-2 md:right-1 lg:right-2 xl:right-2.5 px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-lg bg-[#020514]/92 dark:bg-[#020514]/92 backdrop-blur-md border border-purple-500/50 hover:border-purple-400/80 text-white shadow-[0_0_16px_rgba(168,85,247,0.36),0_0_6px_rgba(56,189,248,0.24),inset_0_1px_1px_rgba(255,255,255,0.18)] flex items-center gap-1.5 sm:gap-2 text-[10.5px] sm:text-[11.5px] font-semibold whitespace-nowrap z-20 anim-label-c hover:scale-105 transition-all group cursor-default"
+          className="absolute top-[11%] sm:top-[12%] right-1 sm:right-2 md:right-1 lg:right-2 xl:right-2.5 px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-lg bg-[#030718]/95 dark:bg-[#030718]/95 backdrop-blur-md border-[1.5px] border-purple-500/80 hover:border-purple-400 text-white shadow-[0_0_20px_rgba(168,85,247,0.52),0_0_8px_rgba(56,189,248,0.28),inset_0_0_12px_rgba(147,51,234,0.22),inset_0_1px_1px_rgba(255,255,255,0.22)] flex items-center gap-1.5 sm:gap-2 text-[10.5px] sm:text-[11.5px] font-semibold whitespace-nowrap z-20 anim-label-c hover:scale-105 transition-all group cursor-default"
         >
           <FolderGit2 className="w-3.5 h-3.5 text-cyan-400 shrink-0 drop-shadow-[0_0_6px_rgba(34,211,238,0.85)]" />
           <span className="tracking-wide text-white">Projects</span>
-          <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 shadow-[0_0_5px_#22d3ee]" />
+          <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 shadow-[0_0_6px_#22d3ee]" />
         </div>
 
         {/* 4. RIGHT / MID-RIGHT: Career Growth (Spaced well below Projects) */}
         <div 
           id="badge-career-growth"
-          className="absolute top-[60%] sm:top-[62%] right-1 sm:right-2 md:right-1 lg:right-2 xl:right-2.5 px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-lg bg-[#020514]/92 dark:bg-[#020514]/92 backdrop-blur-md border border-purple-500/50 hover:border-purple-400/80 text-white shadow-[0_0_16px_rgba(168,85,247,0.36),0_0_6px_rgba(56,189,248,0.24),inset_0_1px_1px_rgba(255,255,255,0.18)] flex items-center gap-1.5 sm:gap-2 text-[10.5px] sm:text-[11.5px] font-semibold whitespace-nowrap z-20 anim-label-a hover:scale-105 transition-all group cursor-default"
+          className="absolute top-[60%] sm:top-[62%] right-1 sm:right-2 md:right-1 lg:right-2 xl:right-2.5 px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-lg bg-[#030718]/95 dark:bg-[#030718]/95 backdrop-blur-md border-[1.5px] border-purple-500/80 hover:border-purple-400 text-white shadow-[0_0_20px_rgba(168,85,247,0.52),0_0_8px_rgba(56,189,248,0.28),inset_0_0_12px_rgba(147,51,234,0.22),inset_0_1px_1px_rgba(255,255,255,0.22)] flex items-center gap-1.5 sm:gap-2 text-[10.5px] sm:text-[11.5px] font-semibold whitespace-nowrap z-20 anim-label-a hover:scale-105 transition-all group cursor-default"
         >
           <Target className="w-3.5 h-3.5 text-cyan-400 shrink-0 drop-shadow-[0_0_6px_rgba(34,211,238,0.85)]" />
           <span className="tracking-wide text-white">Career Growth</span>
-          <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 shadow-[0_0_5px_#22d3ee]" />
+          <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 shadow-[0_0_6px_#22d3ee]" />
         </div>
 
         {/* 5. LOWER: AI Guidance (Centered below neck) */}
         <div 
           id="badge-ai-guidance"
-          className="absolute -bottom-2.5 sm:-bottom-3 left-1/2 -translate-x-1/2 px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-lg bg-[#020514]/92 dark:bg-[#020514]/92 backdrop-blur-md border border-purple-500/50 hover:border-purple-400/80 text-white shadow-[0_0_16px_rgba(168,85,247,0.36),0_0_6px_rgba(56,189,248,0.24),inset_0_1px_1px_rgba(255,255,255,0.18)] flex items-center gap-1.5 sm:gap-2 text-[10.5px] sm:text-[11.5px] font-semibold whitespace-nowrap z-20 anim-label-b hover:scale-105 transition-all group cursor-default"
+          className="absolute -bottom-2.5 sm:-bottom-3 left-1/2 -translate-x-1/2 px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-lg bg-[#030718]/95 dark:bg-[#030718]/95 backdrop-blur-md border-[1.5px] border-purple-500/80 hover:border-purple-400 text-white shadow-[0_0_20px_rgba(168,85,247,0.52),0_0_8px_rgba(56,189,248,0.28),inset_0_0_12px_rgba(147,51,234,0.22),inset_0_1px_1px_rgba(255,255,255,0.22)] flex items-center gap-1.5 sm:gap-2 text-[10.5px] sm:text-[11.5px] font-semibold whitespace-nowrap z-20 anim-label-b hover:scale-105 transition-all group cursor-default"
         >
           <Bot className="w-3.5 h-3.5 text-cyan-400 shrink-0 drop-shadow-[0_0_6px_rgba(34,211,238,0.85)]" />
           <span className="tracking-wide text-white">AI Guidance</span>
-          <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 shadow-[0_0_5px_#22d3ee]" />
+          <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 shadow-[0_0_6px_#22d3ee]" />
         </div>
 
       </div>

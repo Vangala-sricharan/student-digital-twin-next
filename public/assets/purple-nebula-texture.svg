@@ -1,0 +1,83 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1920 1080" width="100%" height="100%">
+  <defs>
+    <!-- Rich Purple Core Gradient Centered Lower to Reduce Central Wash -->
+    <radialGradient id="nebulaCorePurple" cx="50%" cy="68%" r="48%">
+      <stop offset="0%" stop-color="#9333ea" stop-opacity="0.30" />
+      <stop offset="28%" stop-color="#7e22ce" stop-opacity="0.22" />
+      <stop offset="55%" stop-color="#581c87" stop-opacity="0.14" />
+      <stop offset="80%" stop-color="#1e1b4b" stop-opacity="0.06" />
+      <stop offset="100%" stop-color="#000208" stop-opacity="0" />
+    </radialGradient>
+
+    <!-- Upper-Right Violet Cluster (Subtle Galaxy Rim) -->
+    <radialGradient id="nebulaClusterRight" cx="78%" cy="26%" r="38%">
+      <stop offset="0%" stop-color="#a855f7" stop-opacity="0.22" />
+      <stop offset="35%" stop-color="#6b21a8" stop-opacity="0.16" />
+      <stop offset="70%" stop-color="#312e81" stop-opacity="0.08" />
+      <stop offset="100%" stop-color="#000208" stop-opacity="0" />
+    </radialGradient>
+
+    <!-- Lower Cosmic Bridge Connecting Horizon to Right -->
+    <radialGradient id="nebulaBridge" cx="60%" cy="65%" r="35%">
+      <stop offset="0%" stop-color="#c084fc" stop-opacity="0.18" />
+      <stop offset="35%" stop-color="#7e22ce" stop-opacity="0.12" />
+      <stop offset="70%" stop-color="#3b0764" stop-opacity="0.06" />
+      <stop offset="100%" stop-color="#000208" stop-opacity="0" />
+    </radialGradient>
+
+    <!-- Lower Deep Magenta Arc -->
+    <radialGradient id="nebulaDeepMagenta" cx="46%" cy="72%" r="30%">
+      <stop offset="0%" stop-color="#c026d3" stop-opacity="0.16" />
+      <stop offset="40%" stop-color="#86198f" stop-opacity="0.10" />
+      <stop offset="80%" stop-color="#4a044e" stop-opacity="0.04" />
+      <stop offset="100%" stop-color="#000208" stop-opacity="0" />
+    </radialGradient>
+
+    <!-- Fractal Cosmic Dust & Gas Filter -->
+    <filter id="cosmicDustFilter" x="0%" y="0%" width="100%" height="100%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.012 0.015" numOctaves="4" result="noise" seed="42" />
+      <feColorMatrix type="matrix" values="
+        0.55 0    0    0 0.45
+        0    0.15 0    0 0.10
+        0    0    0.75 0 0.65
+        0    0    0    0.35 0" in="noise" result="coloredNoise" />
+      <feComposite operator="in" in="coloredNoise" in2="SourceGraphic" />
+    </filter>
+  </defs>
+
+  <!-- Deep Cosmic Blackout Base -->
+  <rect width="100%" height="100%" fill="#000208" fill-opacity="0.1" />
+
+  <!-- Rich Purple Primary Nebulae Clouds -->
+  <circle cx="998" cy="388" r="560" fill="url(#nebulaCorePurple)" />
+  <circle cx="1459" cy="259" r="480" fill="url(#nebulaClusterRight)" />
+  <circle cx="1228" cy="410" r="420" fill="url(#nebulaBridge)" />
+  <circle cx="921" cy="356" r="360" fill="url(#nebulaDeepMagenta)" />
+
+  <!-- Textured Cosmic Dust Veil over Nebula Zones -->
+  <rect x="700" y="80" width="1100" height="650" fill="#7e22ce" filter="url(#cosmicDustFilter)" opacity="0.38" />
+
+  <!-- Interstellar Dust Micro-Pinpoints (Subtle Starlight embedded in purple gas) -->
+  <g fill="#e9d5ff" opacity="0.45">
+    <circle cx="890" cy="240" r="1.2" />
+    <circle cx="950" cy="310" r="0.8" />
+    <circle cx="1020" cy="260" r="1.4" />
+    <circle cx="1080" cy="350" r="0.9" />
+    <circle cx="1140" cy="290" r="1.1" />
+    <circle cx="1220" cy="220" r="1.5" />
+    <circle cx="1290" cy="330" r="0.8" />
+    <circle cx="1340" cy="270" r="1.3" />
+    <circle cx="1410" cy="310" r="0.7" />
+    <circle cx="1480" cy="210" r="1.4" />
+    <circle cx="1530" cy="280" r="0.9" />
+    <circle cx="860" cy="380" r="1.0" />
+    <circle cx="930" cy="420" r="1.3" />
+    <circle cx="1040" cy="400" r="0.8" />
+    <circle cx="1110" cy="450" r="1.2" />
+    <circle cx="1180" cy="390" r="0.9" />
+    <circle cx="1260" cy="440" r="1.4" />
+    <circle cx="1370" cy="380" r="1.1" />
+    <circle cx="1440" cy="430" r="0.8" />
+    <circle cx="1510" cy="360" r="1.2" />
+  </g>
+</svg>

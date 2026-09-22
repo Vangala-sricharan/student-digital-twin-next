@@ -13,14 +13,14 @@ export const Hero: React.FC<HeroProps> = ({ onNavigate }) => {
   return (
     <section 
       id="hero-landing-section"
-      className="relative isolate overflow-hidden pt-4 sm:pt-6 lg:pt-8 pb-12 sm:pb-14 lg:pb-16 border-b border-slate-200/80 dark:border-white/10 bg-[#f8fafc] dark:bg-[#020617] text-slate-900 dark:text-white transition-colors"
+      className="relative isolate overflow-hidden pt-4 sm:pt-6 lg:pt-8 pb-12 sm:pb-14 lg:pb-16 border-b border-slate-200/80 dark:border-white/10 bg-[#f8fafc] dark:bg-[#000207] text-slate-900 dark:text-white transition-colors"
     >
       {/* Light Theme: Cinematic Daylight Atmospheric Sky & Earth Horizon */}
       <div className="block dark:hidden">
         <CinematicDaylightBackground />
       </div>
 
-      {/* Dark Theme: Cinematic Space Environment with Stars, Nebula, & Earth Horizon */}
+      {/* Dark Theme: Cinematic Space Environment with Stars, Earth Horizon, & Layered Rich Purple Nebula Parallax */}
       <div className="hidden dark:block">
         <CinematicSpaceBackground />
       </div>

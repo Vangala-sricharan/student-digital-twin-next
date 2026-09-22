@@ -16,7 +16,7 @@ interface LandingPageProps {
 
 export const LandingPage: React.FC<LandingPageProps> = ({ onNavigate }) => {
   return (
-    <div className="min-h-screen flex flex-col bg-slate-50 dark:bg-[#02040a] text-slate-900 dark:text-slate-100 selection:bg-blue-500 selection:text-white transition-colors duration-200">
+    <div className="min-h-screen flex flex-col bg-slate-50 dark:bg-[#000207] text-slate-900 dark:text-slate-100 selection:bg-blue-500 selection:text-white transition-colors duration-200">
       <Header onNavigate={onNavigate} activeRoute="/" />
       
       <main className="flex-1">
