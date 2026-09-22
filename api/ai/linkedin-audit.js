@@ -41,46 +41,29 @@ function extractJson(text) {
 }
 
 /**
- * Executes Gemini generation with model cascading and retry on transient high-demand (503) spikes.
+ * Executes Gemini generation with model cascading on transient errors.
+ * Prioritizes low-latency gemini-3.1-flash-lite for faster throughput.
  */
 async function generateAuditWithFallback(ai, contents) {
-  // Resilient cascade prioritizing gemini-3.8-flash and gemini-3.1-flash-lite
-  const candidateModels = ['gemini-3.8-flash', 'gemini-3.1-flash-lite', 'gemini-flash-latest', 'gemini-3.6-flash'];
+  const candidateModels = ['gemini-3.1-flash-lite', 'gemini-3.8-flash', 'gemini-3.6-flash'];
   let lastError = null;
 
   for (const model of candidateModels) {
-    for (let attempt = 0; attempt < 2; attempt++) {
-      try {
-        const response = await ai.models.generateContent({
-          model,
-          contents,
-          config: {
-            responseMimeType: 'application/json',
-            temperature: 0.1,
-          },
-        });
-        if (response && response.text) {
-          return response.text.trim();
-        }
-      } catch (err) {
-        lastError = err;
-        const errMsg = String(err?.message || err);
-        const isQuotaOrRateLimit =
-          err?.status === 429 ||
-          err?.code === 429 ||
-          errMsg.includes('429') ||
-          errMsg.includes('RESOURCE_EXHAUSTED') ||
-          errMsg.includes('quota') ||
-          errMsg.includes('Quota');
-
-        if (isQuotaOrRateLimit) {
-          console.warn(`[LinkedInAudit API] Model ${model} hit quota/rate limit: cascading immediately.`);
-          break; // Immediately cascade to next model
-        }
-
-        // Brief pause before retry on transient 503
-        await new Promise((resolve) => setTimeout(resolve, 800));
+    try {
+      const response = await ai.models.generateContent({
+        model,
+        contents,
+        config: {
+          responseMimeType: 'application/json',
+          temperature: 0.1,
+        },
+      });
+      if (response && response.text) {
+        return response.text.trim();
       }
+    } catch (err) {
+      lastError = err;
+      console.warn(`[LinkedInAudit API] Model ${model} cascade:`, err?.message || err);
     }
   }
 

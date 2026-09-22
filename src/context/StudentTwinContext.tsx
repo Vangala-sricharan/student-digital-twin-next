@@ -238,10 +238,14 @@ export const StudentTwinProvider: React.FC<{
       // Load Subscription scoped to user.id immediately
       const subStorageKey = `${USER_SUBSCRIPTION_KEY}_${userId}`;
       const savedSub = localStorage.getItem(subStorageKey);
+      let initialTier: SubscriptionTier = 'free';
+      let initialSubPlan: SubscriptionPlan = SUBSCRIPTION_PLANS.free;
       if (savedSub) {
         try {
           const parsedSub = JSON.parse(savedSub);
           if (parsedSub && parsedSub.tier && SUBSCRIPTION_PLANS[parsedSub.tier as SubscriptionTier]) {
+            initialTier = parsedSub.tier as SubscriptionTier;
+            initialSubPlan = parsedSub;
             setSubscription(parsedSub);
           }
         } catch (e) {
@@ -381,11 +385,50 @@ export const StudentTwinProvider: React.FC<{
             setActiveProfileId(effectiveCloudActiveId);
             localStorage.setItem(profileStorageKey, JSON.stringify(mappedProfiles));
 
-            if (mappedProfiles[0]?.subscriptionTier && SUBSCRIPTION_PLANS[mappedProfiles[0].subscriptionTier as SubscriptionTier]) {
-              const cloudPlan = SUBSCRIPTION_PLANS[mappedProfiles[0].subscriptionTier as SubscriptionTier];
-              setSubscription(cloudPlan);
-              localStorage.setItem(`${USER_SUBSCRIPTION_KEY}_${userId}`, JSON.stringify(cloudPlan));
+            // CRITICAL USER PLAN PERSISTENCE: Source of truth resolution
+            // 1. Check if any persistent Supabase record has a paid subscription tier
+            const paidProfile = mappedProfiles.find(
+              (p) => p.subscriptionTier && p.subscriptionTier !== 'free' && SUBSCRIPTION_PLANS[p.subscriptionTier as SubscriptionTier]
+            );
+            const activeProfile = mappedProfiles.find((p) => p.id === effectiveCloudActiveId);
+
+            let authoritativeTier: SubscriptionTier = 'free';
+            let authoritativeExpiresAt: string | undefined = undefined;
+
+            if (paidProfile?.subscriptionTier) {
+              authoritativeTier = paidProfile.subscriptionTier;
+              authoritativeExpiresAt = paidProfile.subscriptionExpiresAt;
+            } else if (activeProfile?.subscriptionTier && activeProfile.subscriptionTier !== 'free') {
+              authoritativeTier = activeProfile.subscriptionTier;
+              authoritativeExpiresAt = activeProfile.subscriptionExpiresAt;
+            } else if (initialTier !== 'free') {
+              // REQUIREMENT 5: If user already has Pro/Premium, a new profile hydration must NEVER execute something equivalent to: plan: "Free" over the existing persistent record.
+              authoritativeTier = initialTier;
+              authoritativeExpiresAt = initialSubPlan.expiresAt;
+              // Synchronize the cloud record so it matches the user's active paid plan
+              withTimeout(
+                supabase
+                  .from('student_profiles')
+                  .update({
+                    subscription_tier: initialTier,
+                    subscription_expires_at: initialSubPlan.expiresAt,
+                    updated_at: new Date().toISOString(),
+                  })
+                  .eq('user_id', userId),
+                3500
+              ).catch(() => {});
             }
+
+            const basePlan = SUBSCRIPTION_PLANS[authoritativeTier] || SUBSCRIPTION_PLANS.free;
+            const fullPlan: SubscriptionPlan = {
+              ...basePlan,
+              activatedAt: data[0]?.created_at || new Date().toISOString(),
+              expiresAt: authoritativeExpiresAt || new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString(),
+              isSimulated: true,
+            };
+
+            setSubscription(fullPlan);
+            localStorage.setItem(subStorageKey, JSON.stringify(fullPlan));
             return;
           }
         }
@@ -397,6 +440,7 @@ export const StudentTwinProvider: React.FC<{
 
         // STEP 3: BRAND NEW USER INITIALIZATION (ZERO DUMMY DATA)
         // Only reached when user genuinely has neither cloud profiles nor local cached profiles
+        const subTierForNew: SubscriptionTier = (initialTier && initialTier !== 'free') ? initialTier : 'free';
         const userName = userProfile?.fullName || user!.user_metadata?.full_name || '';
         const initialProfile: StudentProfile = {
           id: generateUUID(),
@@ -434,7 +478,8 @@ export const StudentTwinProvider: React.FC<{
           cgpa: 0,
           semester: '',
           status: 'Draft',
-          subscriptionTier: 'free',
+          subscriptionTier: subTierForNew,
+          subscriptionExpiresAt: initialSubPlan.expiresAt,
           isOnboarded: false,
           createdAt: new Date().toISOString(),
         };
@@ -442,6 +487,35 @@ export const StudentTwinProvider: React.FC<{
         setUserProfiles([initialProfile]);
         setActiveProfileId(initialProfile.id);
         localStorage.setItem(profileStorageKey, JSON.stringify([initialProfile]));
+
+        if (isSupabaseConfigured) {
+          withTimeout(
+            supabase
+              .from('student_profiles')
+              .insert({
+                id: initialProfile.id,
+                user_id: userId,
+                name: initialProfile.name,
+                display_name: initialProfile.displayName,
+                role: '',
+                university: '',
+                academic_program: '',
+                year_of_study: '',
+                career_focus: '',
+                avatar_url: initialProfile.avatarUrl,
+                readiness_score: 0,
+                skills_verified_count: 0,
+                project_index_count: 0,
+                milestones_count: 0,
+                status: 'Draft',
+                subscription_tier: subTierForNew,
+                subscription_expires_at: initialSubPlan.expiresAt || null,
+                created_at: initialProfile.createdAt,
+                updated_at: initialProfile.createdAt,
+              }),
+            3500
+          ).catch(() => {});
+        }
       } catch (err) {
         console.warn('Student profile background sync caught:', err);
       } finally {
@@ -738,6 +812,8 @@ export const StudentTwinProvider: React.FC<{
           project_index_count: isTargetActive ? userProjects.length : (mergedData.projectIndexCount || 0),
           milestones_count: isTargetActive ? userAchievements.length : (mergedData.milestonesCount || 0),
           status: mergedData.status || 'Active Twin',
+          subscription_tier: mergedData.subscriptionTier || subscription.tier || 'free',
+          subscription_expires_at: mergedData.subscriptionExpiresAt || subscription.expiresAt || null,
           updated_at: new Date().toISOString(),
         };
 
@@ -812,10 +888,62 @@ export const StudentTwinProvider: React.FC<{
 
     setSubscription(activatedPlan);
 
+    if (isDemoMode) {
+      return { success: true, plan: activatedPlan };
+    }
+
     if (user) {
       const subStorageKey = `${USER_SUBSCRIPTION_KEY}_${user.id}`;
       localStorage.setItem(subStorageKey, JSON.stringify(activatedPlan));
-      await updateStudentProfile({ subscriptionTier: tier });
+
+      // 1. Update in-memory user profiles
+      setUserProfiles((prev) =>
+        prev.map((p) => ({
+          ...p,
+          subscriptionTier: tier,
+          subscriptionExpiresAt: activatedPlan.expiresAt,
+        }))
+      );
+
+      // 2. Update cached profiles
+      const profileStorageKey = `${USER_STUDENT_PROFILES_KEY}_${user.id}`;
+      const cached = localStorage.getItem(profileStorageKey);
+      if (cached) {
+        try {
+          const parsed = JSON.parse(cached);
+          if (Array.isArray(parsed)) {
+            const updated = parsed.map((p: StudentProfile) => ({
+              ...p,
+              subscriptionTier: tier,
+              subscriptionExpiresAt: activatedPlan.expiresAt,
+            }));
+            localStorage.setItem(profileStorageKey, JSON.stringify(updated));
+          }
+        } catch {}
+      }
+
+      // 3. Persist to Supabase student_profiles table as source of truth
+      if (isSupabaseConfigured) {
+        withTimeout(
+          supabase
+            .from('student_profiles')
+            .update({
+              subscription_tier: tier,
+              subscription_expires_at: activatedPlan.expiresAt,
+              updated_at: new Date().toISOString(),
+            })
+            .eq('user_id', user.id),
+          3500
+        ).catch((err) => {
+          console.warn('Subscription cloud update notice:', err);
+        });
+      }
+
+      // 4. Update the active profile
+      await updateStudentProfile({
+        subscriptionTier: tier,
+        subscriptionExpiresAt: activatedPlan.expiresAt,
+      });
     }
 
     return { success: true, plan: activatedPlan };
@@ -938,6 +1066,8 @@ export const StudentTwinProvider: React.FC<{
             semester: newProfile.semester,
             current_gpa: newProfile.cgpa ? String(newProfile.cgpa) : '',
             status: 'Active Twin',
+            subscription_tier: newProfile.subscriptionTier || subscription.tier || 'free',
+            subscription_expires_at: subscription.expiresAt || null,
           }),
           3500
         ).catch((err) => {

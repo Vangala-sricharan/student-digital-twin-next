@@ -328,19 +328,22 @@ function extractCertificationsFromText(text, pdfUrls = []) {
 
 /**
  * Invokes Gemini via @google/genai with cascading fallback on transient rate limits.
- * Extracts certification and program records from document text and inline PDF data.
+ * Extracts certification and program records from document text.
+ * Prioritizes low-latency gemini-3.1-flash-lite for near-instant structured extraction.
  */
 async function generateCertificationsWithAi(ai, pdfText, pdfUrls, pdfBase64) {
-  const candidateModels = ['gemini-3.8-flash', 'gemini-3.1-flash-lite', 'gemini-flash-latest', 'gemini-3.6-flash'];
+  const candidateModels = ['gemini-3.1-flash-lite', 'gemini-3.8-flash', 'gemini-3.6-flash'];
   let lastError = null;
 
-  const urlList = (pdfUrls || []).filter((u) => !u.toLowerCase().includes('linkedin.com/in/')).slice(0, 20);
+  const urlList = (pdfUrls || []).filter((u) => !u.toLowerCase().includes('linkedin.com/in/')).slice(0, 15);
+  // Bound input text to 16,000 characters to prevent token bloat while capturing all sections
+  const boundedText = (pdfText || '').slice(0, 16000);
 
   const promptText = `You are an expert document analysis specialist. Analyze the provided document text to extract all completed certification, license, credential, course, training, job simulation, or completion program records.
 
 INPUT DOCUMENT TEXT:
 """
-${pdfText}
+${boundedText}
 """
 
 EXTRACTED URLS FROM DOCUMENT ANNOTATIONS:
@@ -402,7 +405,10 @@ OUTPUT FORMAT (JSON ONLY):
 }`;
 
   const contents = [];
+  // Avoid sending binary/base64 bloat when readable text is already extracted
+  const hasSubstantialText = boundedText.trim().length >= 60;
   if (
+    !hasSubstantialText &&
     pdfBase64 &&
     typeof pdfBase64 === 'string' &&
     pdfBase64.length > 100 &&
@@ -418,45 +424,30 @@ OUTPUT FORMAT (JSON ONLY):
   contents.push(promptText);
 
   for (const model of candidateModels) {
-    for (let attempt = 0; attempt < 2; attempt++) {
-      try {
-        const response = await ai.models.generateContent({
-          model,
-          contents,
-          config: {
-            responseMimeType: 'application/json',
-            temperature: 0.0,
-          },
-        });
-        if (response && response.text) {
-          const parsed = extractJson(response.text);
-          if (parsed && typeof parsed === 'object') {
-            const rawCerts = Array.isArray(parsed.certifications) ? parsed.certifications : [];
-            const deduped = deduplicateCertifications(rawCerts);
-            return {
-              hasCertifications: deduped.length > 0,
-              certifications: deduped,
-            };
-          }
+    try {
+      const response = await ai.models.generateContent({
+        model,
+        contents,
+        config: {
+          responseMimeType: 'application/json',
+          temperature: 0.0,
+        },
+      });
+      if (response && response.text) {
+        const parsed = extractJson(response.text);
+        if (parsed && typeof parsed === 'object') {
+          const rawCerts = Array.isArray(parsed.certifications) ? parsed.certifications : [];
+          const deduped = deduplicateCertifications(rawCerts);
+          return {
+            hasCertifications: deduped.length > 0,
+            certifications: deduped,
+          };
         }
-      } catch (err) {
-        lastError = err;
-        const errMsg = String(err?.message || err);
-        const isQuotaOrRateLimit =
-          err?.status === 429 ||
-          err?.code === 429 ||
-          errMsg.includes('429') ||
-          errMsg.includes('RESOURCE_EXHAUSTED') ||
-          errMsg.includes('quota') ||
-          errMsg.includes('Quota');
-
-        if (isQuotaOrRateLimit) {
-          console.warn(`[ExtractCertifications API] Model ${model} hit quota/rate limit: cascading immediately.`);
-          break; // Immediately cascade to next candidate model
-        }
-
-        await new Promise((resolve) => setTimeout(resolve, 800));
       }
+    } catch (err) {
+      lastError = err;
+      // Cascade immediately to next model candidate without artificial sleep
+      console.warn(`[ExtractCertifications API] Model ${model} cascade:`, err?.message || err);
     }
   }
 

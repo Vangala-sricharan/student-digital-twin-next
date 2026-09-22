@@ -861,7 +861,7 @@ Extract as JSON:
   "learningObjectives": ["objective 1"]
 }`;
 
-  const chunkCandidateModels = ['gemini-3.6-flash', 'gemini-3.1-flash-lite', 'gemini-flash-latest'];
+  const chunkCandidateModels = ['gemini-3.1-flash-lite', 'gemini-3.8-flash', 'gemini-3.6-flash'];
 
   for (const modelName of chunkCandidateModels) {
     try {
@@ -1351,12 +1351,11 @@ Synthesize the verified evidence above into the complete Exam Preparation Guide 
   ]
 }`;
 
-    // Primary model is gemini-3.6-flash, with resilient backup cascade
+    // Proven models with resilient backup cascade, prioritizing low-latency flash-lite
     const candidateModels = [
-      'gemini-3.6-flash',
       'gemini-3.1-flash-lite',
-      'gemini-flash-latest',
       'gemini-3.8-flash',
+      'gemini-3.6-flash',
     ];
 
     let responseText = null;

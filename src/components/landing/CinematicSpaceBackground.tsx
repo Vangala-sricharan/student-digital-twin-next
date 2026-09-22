@@ -10,7 +10,7 @@ export const CinematicSpaceBackground: React.FC = () => {
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
-    const ctx = canvas.getContext('2d', { alpha: false });
+    const ctx = canvas.getContext('2d', { alpha: true });
     if (!ctx) return;
 
     let animId: number;
@@ -26,6 +26,18 @@ export const CinematicSpaceBackground: React.FC = () => {
     };
     if (earthTexture.complete && earthTexture.naturalWidth > 0) {
       textureLoaded = true;
+    }
+
+    // Load authentic high-resolution deep-space galaxy & nebula texture
+    const galaxyTexture = new Image();
+    galaxyTexture.src = '/assets/deep-space-galaxy-nebula.svg';
+    let galaxyLoaded = false;
+    galaxyTexture.onload = () => {
+      galaxyLoaded = true;
+      render();
+    };
+    if (galaxyTexture.complete && galaxyTexture.naturalWidth > 0) {
+      galaxyLoaded = true;
     }
 
     const render = () => {
@@ -49,53 +61,68 @@ export const CinematicSpaceBackground: React.FC = () => {
       };
 
       // =========================================================================
-      // 1. BASE DEEP SPACE CANVAS (DEEP DARK-NAVY & OBSIDIAN TONES)
+      // 1. BASE DEEP SPACE CANVAS & GALAXY TEXTURE
       // =========================================================================
       ctx.clearRect(0, 0, width, height);
 
       const baseGrad = ctx.createLinearGradient(0, 0, 0, height);
       baseGrad.addColorStop(0, '#000104');
-      baseGrad.addColorStop(0.35, '#000208');
-      baseGrad.addColorStop(0.70, '#010518');
+      baseGrad.addColorStop(0.30, '#00020a');
+      baseGrad.addColorStop(0.65, '#010518');
       baseGrad.addColorStop(1, '#000105');
       ctx.fillStyle = baseGrad;
       ctx.fillRect(0, 0, width, height);
 
+      // Render high-resolution deep-space galaxy & nebula texture
+      if (galaxyLoaded && galaxyTexture.naturalWidth > 0) {
+        ctx.save();
+        ctx.globalCompositeOperation = 'screen';
+        ctx.globalAlpha = 0.94;
+        ctx.drawImage(galaxyTexture, 0, 0, width, height);
+        ctx.restore();
+      }
+
       // =========================================================================
-      // 2. PROCEDURAL COSMIC NEBULAE & DEEP SPACE GALAXY ARMS
-      // Palette: rich purple, royal violet, magenta-indigo, and deep night navy
+      // 2. PROCEDURAL COSMIC NEBULAE, BLUE/PURPLE GALACTIC ARMS & VOLUMETRIC FILAMENTS
+      // Palette: vibrant electric blue, sapphire, cyan, royal purple, violet, & magenta
       // Layered with fine cosmic dust, galaxy clusters, and dark absorption rifts
-      // Leaves central zone dark for high Digital Twin contrast (No giant wash)
+      // Leaves central zone dark for high Digital Twin contrast
       // =========================================================================
       ctx.globalCompositeOperation = 'screen';
 
-      // A. Major Cosmic Gas Clusters (Centered Lower, Leaving Center Zone Dark for Twin Contrast)
+      // A. Major Cosmic Gas Clusters (Sweeping Blue & Purple Galactic Arms)
       const nebulaePuffs = [
+        // Upper-Right Galactic Bulge & Star Nursery (Vibrant Electric Blue & Cyan)
+        { x: width * 0.78, y: height * 0.22, r: width * 0.35, col: 'rgba(56, 189, 248, 0.34)' },
+        { x: width * 0.84, y: height * 0.18, r: width * 0.30, col: 'rgba(37, 99, 235, 0.28)' },
+        { x: width * 0.72, y: height * 0.26, r: width * 0.26, col: 'rgba(6, 182, 212, 0.30)' },
+        { x: width * 0.88, y: height * 0.24, r: width * 0.24, col: 'rgba(14, 165, 233, 0.32)' },
+
+        // Diagonal Sweeping Galaxy Arm (Royal Purple, Deep Violet & Lavender)
+        { x: width * 0.68, y: height * 0.38, r: width * 0.34, col: 'rgba(168, 85, 247, 0.30)' },
+        { x: width * 0.62, y: height * 0.46, r: width * 0.28, col: 'rgba(147, 51, 234, 0.32)' },
+        { x: width * 0.74, y: height * 0.32, r: width * 0.26, col: 'rgba(126, 34, 206, 0.34)' },
+        { x: width * 0.80, y: height * 0.40, r: width * 0.22, col: 'rgba(192, 132, 252, 0.28)' },
+
+        // Hot Pink & Deep Magenta Ionization Front
+        { x: width * 0.82, y: height * 0.15, r: width * 0.25, col: 'rgba(217, 70, 239, 0.26)' },
+        { x: width * 0.86, y: height * 0.28, r: width * 0.20, col: 'rgba(236, 72, 153, 0.22)' },
+
         // Lower Cosmic Horizon Glow (Centered lower at ~68%-75% height)
-        { x: width * 0.50, y: height * 0.70, r: width * 0.32, col: 'rgba(126, 34, 206, 0.32)' },
-        { x: width * 0.53, y: height * 0.74, r: width * 0.28, col: 'rgba(88, 28, 135, 0.28)' },
-        { x: width * 0.46, y: height * 0.68, r: width * 0.24, col: 'rgba(79, 70, 229, 0.22)' },
-        { x: width * 0.55, y: height * 0.65, r: width * 0.20, col: 'rgba(147, 51, 234, 0.25)' },
+        { x: width * 0.50, y: height * 0.70, r: width * 0.34, col: 'rgba(126, 34, 206, 0.34)' },
+        { x: width * 0.54, y: height * 0.74, r: width * 0.30, col: 'rgba(88, 28, 135, 0.30)' },
+        { x: width * 0.46, y: height * 0.68, r: width * 0.26, col: 'rgba(79, 70, 229, 0.26)' },
+        { x: width * 0.56, y: height * 0.65, r: width * 0.22, col: 'rgba(147, 51, 234, 0.28)' },
+        { x: width * 0.42, y: height * 0.72, r: width * 0.22, col: 'rgba(37, 99, 235, 0.22)' },
 
         // Subtle Twin Backdrop Halo (Deep Dark Violet, Controlled without Bright Wash)
-        { x: width * 0.50, y: height * 0.40, r: width * 0.16, col: 'rgba(88, 28, 135, 0.15)' },
-        { x: width * 0.51, y: height * 0.36, r: width * 0.13, col: 'rgba(59, 7, 100, 0.18)' },
-
-        // Upper-Right Deep Indigo, Royal Violet & Magenta Galaxy Arm
-        { x: width * 0.82, y: height * 0.20, r: width * 0.32, col: 'rgba(79, 70, 229, 0.26)' },
-        { x: width * 0.76, y: height * 0.15, r: width * 0.24, col: 'rgba(126, 34, 206, 0.24)' },
-        { x: width * 0.85, y: height * 0.26, r: width * 0.22, col: 'rgba(147, 51, 234, 0.22)' },
-        { x: width * 0.89, y: height * 0.34, r: width * 0.19, col: 'rgba(107, 33, 168, 0.20)' },
-        { x: width * 0.92, y: height * 0.18, r: width * 0.17, col: 'rgba(168, 85, 247, 0.18)' },
-
-        // Mid-Space Cosmic Bridge connecting Lower Center to Upper Right
-        { x: width * 0.65, y: height * 0.45, r: width * 0.24, col: 'rgba(126, 34, 206, 0.20)' },
-        { x: width * 0.60, y: height * 0.56, r: width * 0.20, col: 'rgba(88, 28, 135, 0.18)' },
+        { x: width * 0.50, y: height * 0.40, r: width * 0.18, col: 'rgba(88, 28, 135, 0.16)' },
+        { x: width * 0.51, y: height * 0.36, r: width * 0.14, col: 'rgba(59, 7, 100, 0.18)' },
 
         // Distant Upper-Left Framing (Deep midnight indigo to keep text perfectly crisp)
-        { x: width * 0.14, y: height * 0.12, r: width * 0.20, col: 'rgba(49, 46, 129, 0.12)' },
-        { x: width * 0.20, y: height * 0.16, r: width * 0.16, col: 'rgba(30, 27, 75, 0.10)' },
-        { x: width * 0.08, y: height * 0.22, r: width * 0.14, col: 'rgba(67, 56, 202, 0.08)' },
+        { x: width * 0.14, y: height * 0.12, r: width * 0.22, col: 'rgba(49, 46, 129, 0.14)' },
+        { x: width * 0.20, y: height * 0.16, r: width * 0.18, col: 'rgba(30, 27, 75, 0.12)' },
+        { x: width * 0.08, y: height * 0.22, r: width * 0.16, col: 'rgba(67, 56, 202, 0.10)' },
       ];
 
       for (const neb of nebulaePuffs) {
@@ -109,32 +136,36 @@ export const CinematicSpaceBackground: React.FC = () => {
         ctx.fill();
       }
 
-      // B. Fine Cosmic Dust & Interstellar Violet/Indigo Filaments (340+ particles)
-      const filamentCount = 340;
+      // B. Fine Cosmic Dust & Interstellar Blue/Purple Filaments (480+ particles)
+      const filamentCount = 480;
       for (let i = 0; i < filamentCount; i++) {
         const t = random();
-        // Slanted galactic arc primarily spanning middle to right
-        const gx = width * (0.26 + t * 0.70 + (random() - 0.5) * 0.22);
-        const gy = height * (0.05 + t * 0.60 + (random() - 0.5) * 0.18);
-        const gr = 20 + random() * 95;
+        // Slanted galactic arc primarily spanning middle to upper-right and lower horizon
+        const gx = width * (0.24 + t * 0.72 + (random() - 0.5) * 0.24);
+        const gy = height * (0.04 + t * 0.64 + (random() - 0.5) * 0.20);
+        const gr = 24 + random() * 110;
 
-        // Rich cosmic palette: vibrant purple, deep violet, royal magenta, dark indigo
+        // Rich multi-spectral cosmic palette: electric cyan, cobalt blue, vibrant purple, deep violet, magenta
         const colors = [
-          'rgba(147, 51, 234, ',
-          'rgba(126, 34, 206, ',
-          'rgba(168, 85, 247, ',
-          'rgba(107, 33, 168, ',
-          'rgba(88, 28, 135, ',
-          'rgba(79, 70, 229, ',
-          'rgba(99, 102, 241, ',
-          'rgba(192, 132, 252, '
+          'rgba(56, 189, 248, ',   // Electric cyan-blue
+          'rgba(14, 165, 233, ',  // Sky sapphire
+          'rgba(37, 99, 235, ',   // Royal cobalt
+          'rgba(79, 70, 229, ',   // Deep indigo
+          'rgba(99, 102, 241, ',  // Bright periwinkle
+          'rgba(147, 51, 234, ',  // Saturated purple
+          'rgba(126, 34, 206, ',  // Royal violet
+          'rgba(168, 85, 247, ',  // Electric lilac
+          'rgba(192, 132, 252, ', // Pale violet
+          'rgba(217, 70, 239, ',  // Magenta ionization
+          'rgba(107, 33, 168, ',  // Deep dark violet
+          'rgba(88, 28, 135, ',   // Midnight purple
         ];
         const colPick = colors[Math.floor(random() * colors.length)];
-        const alpha = 0.035 + random() * 0.075;
+        const alpha = 0.04 + random() * 0.09;
 
         const gGrad = ctx.createRadialGradient(gx, gy, 0, gx, gy, gr);
-        gGrad.addColorStop(0, `${colPick}${alpha * 1.8})`);
-        gGrad.addColorStop(0.5, `${colPick}${alpha * 0.60})`);
+        gGrad.addColorStop(0, `${colPick}${alpha * 1.9})`);
+        gGrad.addColorStop(0.5, `${colPick}${alpha * 0.65})`);
         gGrad.addColorStop(1, 'rgba(0, 0, 0, 0)');
 
         ctx.fillStyle = gGrad;
@@ -143,12 +174,14 @@ export const CinematicSpaceBackground: React.FC = () => {
         ctx.fill();
       }
 
-      // C. Distant Deep-Space Galaxies & Star Clusters
+      // C. Distant Deep-Space Galaxies & Open Star Clusters (Pleiades & Andromeda Style)
       const distantGalaxies = [
-        { x: width * 0.26, y: height * 0.12, rx: 24, ry: 10, rot: -0.45, core: '#e0e7ff', haze: 'rgba(129, 140, 248, 0.28)' },
-        { x: width * 0.86, y: height * 0.10, rx: 28, ry: 12, rot: 0.35, core: '#f5f3ff', haze: 'rgba(192, 132, 252, 0.32)' },
-        { x: width * 0.70, y: height * 0.44, rx: 20, ry: 9, rot: 0.6, core: '#e0f2fe', haze: 'rgba(56, 189, 248, 0.24)' },
-        { x: width * 0.93, y: height * 0.28, rx: 16, ry: 7, rot: -0.2, core: '#fed7aa', haze: 'rgba(251, 146, 60, 0.20)' },
+        { x: width * 0.26, y: height * 0.12, rx: 26, ry: 11, rot: -0.45, core: '#e0e7ff', haze: 'rgba(129, 140, 248, 0.32)' },
+        { x: width * 0.86, y: height * 0.10, rx: 32, ry: 13, rot: 0.35, core: '#f5f3ff', haze: 'rgba(192, 132, 252, 0.36)' },
+        { x: width * 0.74, y: height * 0.24, rx: 36, ry: 16, rot: -0.25, core: '#e0f2fe', haze: 'rgba(56, 189, 248, 0.38)' }, // Blue reflection nebula
+        { x: width * 0.70, y: height * 0.44, rx: 22, ry: 10, rot: 0.6, core: '#e0f2fe', haze: 'rgba(56, 189, 248, 0.28)' },
+        { x: width * 0.93, y: height * 0.28, rx: 18, ry: 8, rot: -0.2, core: '#fed7aa', haze: 'rgba(251, 146, 60, 0.24)' },
+        { x: width * 0.64, y: height * 0.52, rx: 24, ry: 10, rot: 0.4, core: '#f3e8ff', haze: 'rgba(168, 85, 247, 0.30)' },
       ];
 
       for (const gal of distantGalaxies) {
@@ -163,22 +196,23 @@ export const CinematicSpaceBackground: React.FC = () => {
         ctx.fill();
 
         // Luminous galactic core
-        const galCore = ctx.createRadialGradient(gal.x, gal.y, 0, gal.x, gal.y, 4);
+        const galCore = ctx.createRadialGradient(gal.x, gal.y, 0, gal.x, gal.y, 5);
         galCore.addColorStop(0, '#ffffff');
         galCore.addColorStop(0.5, gal.core);
         galCore.addColorStop(1, 'rgba(0, 0, 0, 0)');
         ctx.fillStyle = galCore;
         ctx.beginPath();
-        ctx.arc(gal.x, gal.y, 3, 0, Math.PI * 2);
+        ctx.arc(gal.x, gal.y, 3.5, 0, Math.PI * 2);
         ctx.fill();
       }
 
       // D. Subtle Dark Silhouette Absorption Rifts (Cosmic Dust Lanes for Deep Optical Depth)
       ctx.globalCompositeOperation = 'source-over';
       const dustLanes = [
-        { x: width * 0.74, y: height * 0.22, rx: 42, ry: 14, rot: 0.32, alpha: 0.42 },
-        { x: width * 0.82, y: height * 0.29, rx: 36, ry: 12, rot: 0.28, alpha: 0.38 },
-        { x: width * 0.62, y: height * 0.48, rx: 48, ry: 16, rot: 0.55, alpha: 0.35 },
+        { x: width * 0.74, y: height * 0.22, rx: 46, ry: 15, rot: 0.32, alpha: 0.44 },
+        { x: width * 0.82, y: height * 0.29, rx: 38, ry: 13, rot: 0.28, alpha: 0.40 },
+        { x: width * 0.62, y: height * 0.48, rx: 52, ry: 17, rot: 0.55, alpha: 0.38 },
+        { x: width * 0.88, y: height * 0.18, rx: 32, ry: 10, rot: -0.22, alpha: 0.36 },
       ];
       for (const lane of dustLanes) {
         const laneGrad = ctx.createRadialGradient(lane.x, lane.y, 0, lane.x, lane.y, lane.rx);
@@ -192,22 +226,38 @@ export const CinematicSpaceBackground: React.FC = () => {
       }
 
       // =========================================================================
-      // 3. DENSE REALISTIC STARFIELD (3,400+ STARS ACROSS MULTIPLE DEPTH TIERS)
+      // 3. DENSE REALISTIC BLUE & PURPLE STARFIELD (4,200+ STARS ACROSS MULTIPLE TIERS)
+      // Multi-spectral stellar palette: electric cyan, azure, lavender, royal violet, magenta & pure white
       // =========================================================================
-      const starPalette = ['#ffffff', '#f0f9ff', '#e0f2fe', '#bae6fd', '#7dd3fc', '#38bdf8', '#c7d2fe', '#fed7aa', '#fde68a'];
+      ctx.globalCompositeOperation = 'screen';
+      const starPalette = [
+        '#ffffff', // Pure incandescent core
+        '#38bdf8', // Electric cyan-blue
+        '#60a5fa', // Brilliant cobalt azure
+        '#818cf8', // Periwinkle blue
+        '#a855f7', // Saturated cosmic violet
+        '#c084fc', // Vibrant lavender
+        '#e879f9', // Magenta star
+        '#bae6fd', // Ice blue supergiant
+        '#e0e7ff', // Pale blue-white
+        '#c4b5fd', // Soft violet
+        '#93c5fd', // Deep sky blue
+        '#fed7aa', // Warm contrast amber
+        '#fde68a', // Golden contrast star
+      ];
 
-      // Tier 1: 2,600 Microscopic Background Galaxy Pinpricks
-      for (let i = 0; i < 2600; i++) {
+      // Tier 1: 3,000 Microscopic Background Galaxy Pinpricks & Cosmic Dust
+      for (let i = 0; i < 3000; i++) {
         const sx = random() * width;
         const sy = random() * height * 0.86;
 
         // Less density directly over main heading text
-        if (sx < width * 0.44 && sy > height * 0.14 && sy < height * 0.72 && random() > 0.45) {
+        if (sx < width * 0.44 && sy > height * 0.14 && sy < height * 0.72 && random() > 0.42) {
           continue;
         }
 
-        const sr = 0.25 + random() * 0.6;
-        const sa = 0.15 + random() * 0.75;
+        const sr = 0.25 + random() * 0.65;
+        const sa = 0.18 + random() * 0.78;
         const scol = starPalette[Math.floor(random() * starPalette.length)];
 
         ctx.fillStyle = scol;
@@ -217,17 +267,17 @@ export const CinematicSpaceBackground: React.FC = () => {
         ctx.fill();
       }
 
-      // Tier 2: 750 Midground Stellar Navigators
-      for (let i = 0; i < 750; i++) {
+      // Tier 2: 950 Midground Stellar Navigators in Blue, Purple, and Ice-White
+      for (let i = 0; i < 950; i++) {
         const sx = random() * width;
         const sy = random() * height * 0.84;
 
-        if (sx < width * 0.44 && sy > height * 0.14 && sy < height * 0.72 && random() > 0.35) {
+        if (sx < width * 0.44 && sy > height * 0.14 && sy < height * 0.72 && random() > 0.32) {
           continue;
         }
 
-        const sr = 0.7 + random() * 0.75;
-        const sa = 0.4 + random() * 0.55;
+        const sr = 0.7 + random() * 0.80;
+        const sa = 0.45 + random() * 0.55;
         const scol = starPalette[Math.floor(random() * starPalette.length)];
 
         ctx.fillStyle = scol;
@@ -237,49 +287,96 @@ export const CinematicSpaceBackground: React.FC = () => {
         ctx.fill();
       }
 
-      // Tier 3: 120 Luminous Foreground Stars with Natural Optical Halos
-      for (let i = 0; i < 120; i++) {
+      // Tier 3: 200 Luminous Foreground Stars with Distinct Optical Chromatic Halos
+      for (let i = 0; i < 200; i++) {
         const sx = random() * width;
         const sy = random() * height * 0.80;
 
-        if (sx < width * 0.44 && sy > height * 0.14 && sy < height * 0.72 && random() > 0.2) {
+        if (sx < width * 0.44 && sy > height * 0.14 && sy < height * 0.72 && random() > 0.18) {
           continue;
         }
 
-        const sr = 1.1 + random() * 0.9;
+        const sr = 1.1 + random() * 1.0;
         const scol = starPalette[Math.floor(random() * starPalette.length)];
 
-        // Soft optical halo
-        const halo = ctx.createRadialGradient(sx, sy, 0, sx, sy, sr * 4);
-        halo.addColorStop(0, scol);
-        halo.addColorStop(0.3, 'rgba(56, 189, 248, 0.4)');
-        halo.addColorStop(1, 'rgba(56, 189, 248, 0)');
+        // Dynamic colored optical halo: 60% cyan/blue, 30% purple/violet, 10% golden
+        const roll = random();
+        let haloColor = 'rgba(56, 189, 248, 0.45)';
+        if (roll < 0.35) {
+          haloColor = 'rgba(168, 85, 247, 0.45)';
+        } else if (roll < 0.65) {
+          haloColor = 'rgba(56, 189, 248, 0.48)';
+        } else if (roll < 0.85) {
+          haloColor = 'rgba(99, 102, 241, 0.42)';
+        } else {
+          haloColor = 'rgba(217, 70, 239, 0.38)';
+        }
 
-        ctx.globalAlpha = 0.85;
+        // Soft optical halo
+        const halo = ctx.createRadialGradient(sx, sy, 0, sx, sy, sr * 4.5);
+        halo.addColorStop(0, scol);
+        halo.addColorStop(0.35, haloColor);
+        halo.addColorStop(1, 'rgba(0, 0, 0, 0)');
+
+        ctx.globalAlpha = 0.88;
         ctx.fillStyle = halo;
         ctx.beginPath();
-        ctx.arc(sx, sy, sr * 4, 0, Math.PI * 2);
+        ctx.arc(sx, sy, sr * 4.5, 0, Math.PI * 2);
         ctx.fill();
 
         // Brilliant star core
-        ctx.globalAlpha = 0.98;
+        ctx.globalAlpha = 1.0;
         ctx.fillStyle = '#ffffff';
         ctx.beginPath();
         ctx.arc(sx, sy, sr, 0, Math.PI * 2);
         ctx.fill();
 
-        // Delicate 4-point diffraction spike on select bright foreground stars
-        if (i < 8) {
-          ctx.strokeStyle = 'rgba(255, 255, 255, 0.45)';
-          ctx.lineWidth = 0.6;
+        // Delicate 4-point diffraction spike on select bright blue-white supergiants
+        if (i < 12) {
+          const spikeColor = roll < 0.35 ? 'rgba(192, 132, 252, 0.55)' : 'rgba(186, 230, 253, 0.60)';
+          ctx.strokeStyle = spikeColor;
+          ctx.lineWidth = 0.65;
           ctx.beginPath();
-          ctx.moveTo(sx - sr * 5, sy);
-          ctx.lineTo(sx + sr * 5, sy);
-          ctx.moveTo(sx, sy - sr * 5);
-          ctx.lineTo(sx, sy + sr * 5);
+          ctx.moveTo(sx - sr * 6, sy);
+          ctx.lineTo(sx + sr * 6, sy);
+          ctx.moveTo(sx, sy - sr * 6);
+          ctx.lineTo(sx, sy + sr * 6);
           ctx.stroke();
         }
       }
+
+      // Embedded Open Star Cluster in Upper-Right (Pleiades-style reflection cluster)
+      const clusterCenter = { x: width * 0.75, y: height * 0.24 };
+      ctx.save();
+      // Diffuse blue cluster reflection glow
+      const clusterGlow = ctx.createRadialGradient(clusterCenter.x, clusterCenter.y, 0, clusterCenter.x, clusterCenter.y, 90);
+      clusterGlow.addColorStop(0, 'rgba(56, 189, 248, 0.28)');
+      clusterGlow.addColorStop(0.4, 'rgba(99, 102, 241, 0.16)');
+      clusterGlow.addColorStop(0.8, 'rgba(168, 85, 247, 0.08)');
+      clusterGlow.addColorStop(1, 'rgba(0, 0, 0, 0)');
+      ctx.fillStyle = clusterGlow;
+      ctx.beginPath();
+      ctx.arc(clusterCenter.x, clusterCenter.y, 90, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Cluster individual member stars
+      for (let c = 0; c < 28; c++) {
+        const cx = clusterCenter.x + (random() - 0.5) * 85;
+        const cy = clusterCenter.y + (random() - 0.5) * 75;
+        const cr = 0.8 + random() * 1.4;
+        const cCol = random() > 0.4 ? '#38bdf8' : (random() > 0.5 ? '#c084fc' : '#ffffff');
+
+        ctx.fillStyle = cCol;
+        ctx.beginPath();
+        ctx.arc(cx, cy, cr, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
+        ctx.beginPath();
+        ctx.arc(cx, cy, cr * 0.5, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.restore();
 
       // =========================================================================
       // 4. SUBTLE SECONDARY PLANET (LOWER RIGHT BACKGROUND, BEHIND INTERFACE)
@@ -343,11 +440,11 @@ export const CinematicSpaceBackground: React.FC = () => {
       // =========================================================================
 
       // Planetary Geometry:
-      // Scaled up to command ~42% of the hero viewport height at its apex (~58% down),
-      // with a majestic planetary radius sweeping smoothly across the screen width.
+      // Enhanced scale commanding ~46% of the hero viewport height at its apex (~54% down),
+      // with an expansive, cinematic Low Earth Orbit curvature sweeping across the entire base.
       const earthCenterX = width * 0.50;
-      const earthRadius = Math.max(width * 1.55, height * 2.15, 1450);
-      const earthTopApexY = height * 0.58;
+      const earthRadius = Math.max(width * 1.85, height * 2.65, 1850);
+      const earthTopApexY = height * 0.54;
       const earthCenterY = earthTopApexY + earthRadius;
 
       // Function to calculate exact Earth horizon Y for any screen X
@@ -364,19 +461,19 @@ export const CinematicSpaceBackground: React.FC = () => {
       // -------------------------------------------------------------------------
       ctx.globalCompositeOperation = 'screen';
       const atmoLayers = [
-        { offset: 84, alpha: 0.10, color: 'rgba(2, 132, 199, ' },   // Outer mesosphere/exosphere sapphire
-        { offset: 58, alpha: 0.22, color: 'rgba(14, 165, 233, ' },  // Upper stratosphere royal azure
-        { offset: 36, alpha: 0.44, color: 'rgba(56, 189, 248, ' },  // Stratosphere electric cyan-blue
-        { offset: 18, alpha: 0.68, color: 'rgba(103, 232, 249, ' }, // Ionosphere intense cyan
-        { offset: 6,  alpha: 0.88, color: 'rgba(186, 230, 253, ' }, // Lower troposphere pale cyan
-        { offset: 1,  alpha: 0.98, color: 'rgba(224, 242, 254, ' }, // Peak incandescent limb glow
+        { offset: 110, alpha: 0.12, color: 'rgba(2, 132, 199, ' },   // Deep outer exosphere sapphire
+        { offset: 78,  alpha: 0.26, color: 'rgba(14, 165, 233, ' },  // Upper mesosphere royal azure
+        { offset: 48,  alpha: 0.52, color: 'rgba(56, 189, 248, ' },  // Stratosphere electric cyan-blue
+        { offset: 24,  alpha: 0.78, color: 'rgba(103, 232, 249, ' }, // Ionosphere intense cyan
+        { offset: 10,  alpha: 0.92, color: 'rgba(186, 230, 253, ' }, // Lower troposphere pale cyan
+        { offset: 2,   alpha: 1.00, color: 'rgba(240, 249, 255, ' }, // Peak incandescent limb glow
       ];
 
       for (const layer of atmoLayers) {
-        const grad = ctx.createLinearGradient(0, earthTopApexY - layer.offset, 0, earthTopApexY + 95);
+        const grad = ctx.createLinearGradient(0, earthTopApexY - layer.offset, 0, earthTopApexY + 110);
         grad.addColorStop(0, 'rgba(0, 0, 0, 0)');
-        grad.addColorStop(0.25, `${layer.color}${layer.alpha * 0.55})`);
-        grad.addColorStop(0.65, `${layer.color}${layer.alpha})`);
+        grad.addColorStop(0.20, `${layer.color}${layer.alpha * 0.55})`);
+        grad.addColorStop(0.60, `${layer.color}${layer.alpha})`);
         grad.addColorStop(1, 'rgba(0, 0, 0, 0)');
 
         ctx.fillStyle = grad;
@@ -388,16 +485,16 @@ export const CinematicSpaceBackground: React.FC = () => {
       // Ethereal Nocturnal Airglow Fringe (Authentic ISS green-cyan upper atmospheric luminescence)
       ctx.save();
       const airglowGrad = ctx.createLinearGradient(0, 0, width, 0);
-      airglowGrad.addColorStop(0, 'rgba(34, 211, 238, 0.15)');
-      airglowGrad.addColorStop(0.35, 'rgba(52, 211, 153, 0.32)');
-      airglowGrad.addColorStop(0.65, 'rgba(34, 211, 238, 0.42)');
-      airglowGrad.addColorStop(0.85, 'rgba(56, 189, 248, 0.35)');
-      airglowGrad.addColorStop(1, 'rgba(34, 211, 238, 0.15)');
+      airglowGrad.addColorStop(0, 'rgba(34, 211, 238, 0.20)');
+      airglowGrad.addColorStop(0.35, 'rgba(52, 211, 153, 0.40)');
+      airglowGrad.addColorStop(0.65, 'rgba(34, 211, 238, 0.50)');
+      airglowGrad.addColorStop(0.85, 'rgba(56, 189, 248, 0.42)');
+      airglowGrad.addColorStop(1, 'rgba(34, 211, 238, 0.20)');
 
       ctx.strokeStyle = airglowGrad;
-      ctx.lineWidth = 2.4;
+      ctx.lineWidth = 3.2;
       ctx.beginPath();
-      ctx.arc(earthCenterX, earthCenterY, earthRadius + 8.5, 0, Math.PI * 2);
+      ctx.arc(earthCenterX, earthCenterY, earthRadius + 10.5, 0, Math.PI * 2);
       ctx.stroke();
       ctx.restore();
 
@@ -710,9 +807,9 @@ export const CinematicSpaceBackground: React.FC = () => {
       // 4. Extensive Micro-City Swarms, Towns, and Rural Cluster Pinpoints (280+ procedural nodes)
       // Clustered realistically within continental boundaries
       const continentZones = [
-        { minX: 0.03, maxX: 0.32, minYOffset: 36, maxYOffset: 120, count: 85 },
-        { minX: 0.36, maxX: 0.60, minYOffset: 26, maxYOffset: 110, count: 95 },
-        { minX: 0.62, maxX: 0.98, minYOffset: 22, maxYOffset: 115, count: 120 },
+        { minX: 0.03, maxX: 0.32, minYOffset: 30, maxYOffset: 135, count: 125 },
+        { minX: 0.36, maxX: 0.60, minYOffset: 22, maxYOffset: 125, count: 150 },
+        { minX: 0.62, maxX: 0.98, minYOffset: 18, maxYOffset: 130, count: 195 },
       ];
 
       for (const zone of continentZones) {
@@ -877,37 +974,44 @@ export const CinematicSpaceBackground: React.FC = () => {
       ctx.globalCompositeOperation = 'screen';
       ctx.save();
 
-      // Broad outer atmospheric corona wash
+      // 1. Broad outer atmospheric corona wash
       const outerRimGrad = ctx.createLinearGradient(0, 0, width, 0);
-      outerRimGrad.addColorStop(0, 'rgba(2, 132, 199, 0.60)');
-      outerRimGrad.addColorStop(0.32, 'rgba(56, 189, 248, 0.98)');
+      outerRimGrad.addColorStop(0, 'rgba(2, 132, 199, 0.70)');
+      outerRimGrad.addColorStop(0.30, 'rgba(56, 189, 248, 1.0)');
       outerRimGrad.addColorStop(0.635, 'rgba(255, 255, 255, 1.0)');
-      outerRimGrad.addColorStop(0.78, 'rgba(103, 232, 249, 0.98)');
-      outerRimGrad.addColorStop(1, 'rgba(37, 99, 235, 0.65)');
+      outerRimGrad.addColorStop(0.78, 'rgba(103, 232, 249, 1.0)');
+      outerRimGrad.addColorStop(1, 'rgba(37, 99, 235, 0.75)');
 
       ctx.strokeStyle = outerRimGrad;
-      ctx.lineWidth = 10.5;
+      ctx.lineWidth = 18.0;
       ctx.beginPath();
-      ctx.arc(earthCenterX, earthCenterY, earthRadius + 0.8, 0, Math.PI * 2);
+      ctx.arc(earthCenterX, earthCenterY, earthRadius + 2.0, 0, Math.PI * 2);
       ctx.stroke();
 
-      // Sharp electric cyan mid-band
+      // 2. High-energy electric sapphire & azure band
+      ctx.strokeStyle = 'rgba(14, 165, 233, 0.85)';
+      ctx.lineWidth = 8.5;
+      ctx.beginPath();
+      ctx.arc(earthCenterX, earthCenterY, earthRadius + 1.0, 0, Math.PI * 2);
+      ctx.stroke();
+
+      // 3. Sharp electric cyan mid-band
       ctx.strokeStyle = 'rgba(56, 189, 248, 1.0)';
-      ctx.lineWidth = 4.5;
+      ctx.lineWidth = 4.8;
       ctx.beginPath();
-      ctx.arc(earthCenterX, earthCenterY, earthRadius + 0.2, 0, Math.PI * 2);
+      ctx.arc(earthCenterX, earthCenterY, earthRadius + 0.3, 0, Math.PI * 2);
       ctx.stroke();
 
-      // Bright cyan-white inner glow
+      // 4. Bright cyan-white inner glow
       ctx.strokeStyle = 'rgba(186, 230, 253, 1.0)';
-      ctx.lineWidth = 2.4;
+      ctx.lineWidth = 2.6;
       ctx.beginPath();
       ctx.arc(earthCenterX, earthCenterY, earthRadius, 0, Math.PI * 2);
       ctx.stroke();
 
-      // Dazzling pure white razor-edge
+      // 5. Dazzling pure white razor-edge
       ctx.strokeStyle = 'rgba(255, 255, 255, 1.0)';
-      ctx.lineWidth = 1.4;
+      ctx.lineWidth = 1.6;
       ctx.beginPath();
       ctx.arc(earthCenterX, earthCenterY, earthRadius - 0.5, 0, Math.PI * 2);
       ctx.stroke();
@@ -1111,16 +1215,17 @@ export const CinematicSpaceBackground: React.FC = () => {
 
   return (
     <div className="absolute inset-0 overflow-hidden pointer-events-none select-none z-0 bg-[#000207]">
-      {/* 1. Deep Dark-Navy Base Gradient with Layered Rich Purple Nebula CSS Radial Gradients */}
+      {/* 1. Deep Dark-Navy Base Gradient with Layered Rich Blue & Purple Nebula CSS Radial Gradients */}
       <div 
         ref={ambientGradientsRef}
         className="absolute -inset-8 pointer-events-none z-[1] transition-transform duration-500 ease-out will-change-transform"
         style={{
           background: `
             radial-gradient(ellipse 110% 65% at 50% 74%, rgba(6, 12, 34, 0.85) 0%, rgba(2, 5, 20, 0.92) 40%, rgba(0, 2, 8, 0.98) 75%, #000207 100%),
-            radial-gradient(ellipse 80% 55% at 65% 62%, rgba(147, 51, 234, 0.25) 0%, rgba(107, 33, 168, 0.14) 38%, transparent 75%),
-            radial-gradient(circle 650px at 52% 70%, rgba(126, 34, 206, 0.22) 0%, rgba(88, 28, 135, 0.14) 42%, transparent 75%),
-            radial-gradient(circle 540px at 78% 24%, rgba(168, 85, 247, 0.20) 0%, rgba(107, 33, 168, 0.12) 42%, transparent 72%),
+            radial-gradient(circle 760px at 78% 24%, rgba(56, 189, 248, 0.28) 0%, rgba(37, 99, 235, 0.18) 35%, rgba(126, 34, 206, 0.12) 65%, transparent 80%),
+            radial-gradient(ellipse 85% 60% at 68% 44%, rgba(168, 85, 247, 0.32) 0%, rgba(126, 34, 206, 0.20) 38%, transparent 75%),
+            radial-gradient(circle 650px at 52% 70%, rgba(126, 34, 206, 0.26) 0%, rgba(88, 28, 135, 0.16) 42%, transparent 75%),
+            radial-gradient(circle 520px at 84% 34%, rgba(217, 70, 239, 0.22) 0%, rgba(168, 85, 247, 0.12) 45%, transparent 72%),
             radial-gradient(circle 440px at 45% 72%, rgba(112, 26, 117, 0.18) 0%, rgba(59, 7, 100, 0.10) 45%, transparent 75%),
             radial-gradient(circle 420px at 18% 18%, rgba(2, 6, 23, 0.90) 0%, transparent 70%),
             linear-gradient(180deg, #000104 0%, #00020a 28%, #010416 68%, #000105 100%)
@@ -1131,11 +1236,11 @@ export const CinematicSpaceBackground: React.FC = () => {
       {/* 2. Primary Layered Cosmic Gas Cloud Texture Overlay */}
       <div 
         ref={nebulaPrimaryRef}
-        className="absolute -inset-8 pointer-events-none z-[2] opacity-45 mix-blend-screen transition-transform duration-500 ease-out will-change-transform"
+        className="absolute -inset-8 pointer-events-none z-[2] opacity-55 mix-blend-screen transition-transform duration-500 ease-out will-change-transform"
         style={{
-          backgroundImage: 'url(/assets/purple-nebula-texture.svg)',
+          backgroundImage: 'url(/assets/deep-space-galaxy-nebula.svg)',
           backgroundSize: 'cover',
-          backgroundPosition: 'center 70%',
+          backgroundPosition: 'center 40%',
           backgroundRepeat: 'no-repeat'
         }}
       />
@@ -1143,11 +1248,11 @@ export const CinematicSpaceBackground: React.FC = () => {
       {/* 3. Secondary Deep Volumetric Gas & Filament Texture Overlay (Adds rich depth & filaments) */}
       <div 
         ref={nebulaDeepRef}
-        className="absolute -inset-10 pointer-events-none z-[3] opacity-42 mix-blend-screen transition-transform duration-700 ease-out will-change-transform"
+        className="absolute -inset-10 pointer-events-none z-[3] opacity-48 mix-blend-screen transition-transform duration-700 ease-out will-change-transform"
         style={{
           backgroundImage: 'url(/assets/purple-nebula-deep.svg)',
           backgroundSize: 'cover',
-          backgroundPosition: 'center 65%',
+          backgroundPosition: 'center 60%',
           backgroundRepeat: 'no-repeat'
         }}
       />

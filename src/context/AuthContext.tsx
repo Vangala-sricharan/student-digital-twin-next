@@ -85,7 +85,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       try {
         const queryPromise = supabase
           .from('student_profiles')
-          .select('id, user_id, display_name, name, avatar_url')
+          .select('id, user_id, display_name, name, avatar_url, subscription_tier')
           .eq('user_id', authUser.id)
           .limit(1)
           .maybeSingle();
@@ -99,10 +99,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         if (data && !error) {
           const resolvedProfile: UserProfile = {
             id: authUser.id,
-            email: data.email || authUser.email || fallbackProfile.email,
+            email: (data as any).email || authUser.email || fallbackProfile.email,
             fullName: data.display_name || data.name || fallbackProfile.fullName,
             avatarUrl: data.avatar_url || fallbackProfile.avatarUrl,
             role: 'student',
+            subscriptionTier: (data as any).subscription_tier || 'free',
             createdAt: new Date().toISOString(),
           };
           setUserProfile(resolvedProfile);

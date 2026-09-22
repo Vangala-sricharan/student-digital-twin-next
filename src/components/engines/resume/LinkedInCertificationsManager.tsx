@@ -147,10 +147,12 @@ export const LinkedInCertificationsManager: React.FC<LinkedInCertificationsManag
     }
   };
 
-  // Trigger AI Extraction
+  // Trigger AI Extraction with duplicate request guard
+  const isAnalyzingRef = useRef(false);
   const handleExtractCertifications = async () => {
-    if (isDemoMode || !uploadedFile) return;
+    if (isDemoMode || !uploadedFile || isAnalyzing || isAnalyzingRef.current) return;
 
+    isAnalyzingRef.current = true;
     setIsAnalyzing(true);
     setErrorMessage(null);
     setSupportingMessage(null);
@@ -188,6 +190,7 @@ export const LinkedInCertificationsManager: React.FC<LinkedInCertificationsManag
       setErrorMessage('Failed to extract certifications from the uploaded PDF.');
       setSupportingMessage(err?.message || 'An unexpected error occurred during document parsing.');
     } finally {
+      isAnalyzingRef.current = false;
       setIsAnalyzing(false);
       setAnalysisStage('');
     }

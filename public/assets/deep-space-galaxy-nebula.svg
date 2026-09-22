@@ -1,0 +1,243 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1920 1080" width="100%" height="100%">
+  <defs>
+    <!-- Background Space Linear Gradient -->
+    <linearGradient id="deepSpaceBase" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#000104" />
+      <stop offset="25%" stop-color="#010413" />
+      <stop offset="60%" stop-color="#020822" />
+      <stop offset="85%" stop-color="#010312" />
+      <stop offset="100%" stop-color="#000105" />
+    </linearGradient>
+
+    <!-- Primary Galactic Core: Vibrant Electric Blue & Indigo Glow -->
+    <radialGradient id="galacticCoreBlue" cx="72%" cy="28%" r="42%">
+      <stop offset="0%" stop-color="#38bdf8" stop-opacity="0.85" />
+      <stop offset="15%" stop-color="#0284c7" stop-opacity="0.65" />
+      <stop offset="32%" stop-color="#2563eb" stop-opacity="0.45" />
+      <stop offset="55%" stop-color="#1d4ed8" stop-opacity="0.25" />
+      <stop offset="78%" stop-color="#0f172a" stop-opacity="0.08" />
+      <stop offset="100%" stop-color="#000207" stop-opacity="0" />
+    </radialGradient>
+
+    <!-- Majestic Royal Purple & Violet Swirling Galaxy Arm -->
+    <radialGradient id="galaxyArmPurple" cx="64%" cy="40%" r="52%">
+      <stop offset="0%" stop-color="#c084fc" stop-opacity="0.75" />
+      <stop offset="20%" stop-color="#a855f7" stop-opacity="0.58" />
+      <stop offset="42%" stop-color="#7e22ce" stop-opacity="0.38" />
+      <stop offset="68%" stop-color="#581c87" stop-opacity="0.18" />
+      <stop offset="90%" stop-color="#1e1b4b" stop-opacity="0.05" />
+      <stop offset="100%" stop-color="#000207" stop-opacity="0" />
+    </radialGradient>
+
+    <!-- Deep Magenta & Hot Pink Ionization Ridge -->
+    <radialGradient id="nebulaRidgeMagenta" cx="78%" cy="22%" r="35%">
+      <stop offset="0%" stop-color="#f472b6" stop-opacity="0.70" />
+      <stop offset="22%" stop-color="#e879f9" stop-opacity="0.52" />
+      <stop offset="48%" stop-color="#c026d3" stop-opacity="0.32" />
+      <stop offset="75%" stop-color="#86198f" stop-opacity="0.12" />
+      <stop offset="100%" stop-color="#000207" stop-opacity="0" />
+    </radialGradient>
+
+    <!-- Electric Cyan Reflection Nebula -->
+    <radialGradient id="nebulaReflectionCyan" cx="54%" cy="52%" r="38%">
+      <stop offset="0%" stop-color="#67e8f9" stop-opacity="0.65" />
+      <stop offset="25%" stop-color="#06b6d4" stop-opacity="0.45" />
+      <stop offset="55%" stop-color="#0369a1" stop-opacity="0.25" />
+      <stop offset="82%" stop-color="#082f49" stop-opacity="0.08" />
+      <stop offset="100%" stop-color="#000207" stop-opacity="0" />
+    </radialGradient>
+
+    <!-- Lower Mid-Celestial Purple Cloud Deck -->
+    <radialGradient id="lowerPurpleCloud" cx="50%" cy="66%" r="48%">
+      <stop offset="0%" stop-color="#9333ea" stop-opacity="0.48" />
+      <stop offset="30%" stop-color="#6b21a8" stop-opacity="0.32" />
+      <stop offset="60%" stop-color="#3b0764" stop-opacity="0.16" />
+      <stop offset="85%" stop-color="#0f172a" stop-opacity="0.04" />
+      <stop offset="100%" stop-color="#000207" stop-opacity="0" />
+    </radialGradient>
+
+    <!-- Distant Upper-Left Indigo Whispers -->
+    <radialGradient id="upperLeftIndigo" cx="20%" cy="18%" r="32%">
+      <stop offset="0%" stop-color="#4f46e5" stop-opacity="0.28" />
+      <stop offset="40%" stop-color="#312e81" stop-opacity="0.16" />
+      <stop offset="75%" stop-color="#1e1b4b" stop-opacity="0.06" />
+      <stop offset="100%" stop-color="#000207" stop-opacity="0" />
+    </radialGradient>
+
+    <!-- Multi-Octave Fractal Volumetric Gas Filter (High Detail Nebula Gas) -->
+    <filter id="volumetricGasFilter" x="-15%" y="-15%" width="130%" height="130%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.0075 0.009" numOctaves="5" result="noise" seed="991" />
+      <feColorMatrix type="matrix" values="
+        0.65 0.00 0.00 0.00 0.35
+        0.00 0.35 0.00 0.00 0.15
+        0.00 0.00 0.95 0.00 0.70
+        0.00 0.00 0.00 0.52 0.00" in="noise" result="coloredNoise" />
+      <feComposite operator="in" in="coloredNoise" in2="SourceGraphic" />
+    </filter>
+
+    <!-- Fine Interstellar Dust & Filament Filter -->
+    <filter id="filamentFilter" x="-10%" y="-10%" width="120%" height="120%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.022 0.026" numOctaves="4" result="fineNoise" seed="431" />
+      <feColorMatrix type="matrix" values="
+        0.80 0.00 0.00 0.00 0.40
+        0.00 0.40 0.00 0.00 0.20
+        0.00 0.00 1.00 0.00 0.85
+        0.00 0.00 0.00 0.42 0.00" in="fineNoise" result="fineColored" />
+      <feComposite operator="in" in="fineColored" in2="SourceGraphic" />
+    </filter>
+
+    <!-- Star Glow Filter -->
+    <filter id="stellarGlow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="3.5" result="blur" />
+      <feMerge>
+        <feMergeNode in="blur" />
+        <feMergeNode in="SourceGraphic" />
+      </feMerge>
+    </filter>
+  </defs>
+
+  <!-- Base Deep Space Void -->
+  <rect width="100%" height="100%" fill="url(#deepSpaceBase)" />
+
+  <!-- 1. Ambient Background Nebulae Gas Formations (Deep Layer) -->
+  <g opacity="0.88">
+    <!-- Upper-Right Galactic Bulge & Core -->
+    <ellipse cx="1420" cy="310" rx="680" ry="460" transform="rotate(-18 1420 310)" fill="url(#galacticCoreBlue)" />
+    <!-- Sweeping Royal Purple Spiral Arm -->
+    <ellipse cx="1260" cy="450" rx="740" ry="520" transform="rotate(-25 1260 450)" fill="url(#galaxyArmPurple)" />
+    <!-- Magenta Ionization Front -->
+    <ellipse cx="1520" cy="240" rx="460" ry="320" transform="rotate(-12 1520 240)" fill="url(#nebulaRidgeMagenta)" />
+    <!-- Electric Cyan Reflection Cloud -->
+    <ellipse cx="1060" cy="560" rx="520" ry="380" transform="rotate(-30 1060 560)" fill="url(#nebulaReflectionCyan)" />
+    <!-- Lower Central Violet Gas Deck -->
+    <ellipse cx="980" cy="720" rx="660" ry="420" transform="rotate(-8 980 720)" fill="url(#lowerPurpleCloud)" />
+    <!-- Distant Upper-Left Framing -->
+    <ellipse cx="380" cy="190" rx="420" ry="280" fill="url(#upperLeftIndigo)" />
+  </g>
+
+  <!-- 2. Textured Volumetric Gas Clouds with Fractal Filter (Midground Depth) -->
+  <g opacity="0.65" style="mix-blend-mode: screen;">
+    <!-- Sweeping Cosmic Highway -->
+    <path d="M 650,780 C 850,680 1100,520 1350,340 C 1550,200 1780,180 1920,220 L 1920,620 C 1720,720 1420,860 1120,920 C 880,960 720,890 650,780 Z"
+          fill="#38bdf8" filter="url(#volumetricGasFilter)" />
+
+    <!-- Royal Purple & Violet Filament Fold -->
+    <path d="M 750,860 C 980,760 1240,620 1480,420 C 1680,260 1850,290 1920,380 L 1920,780 C 1680,880 1380,980 1050,990 C 860,990 760,920 750,860 Z"
+          fill="#c084fc" filter="url(#volumetricGasFilter)" />
+
+    <!-- Fine Interstellar Cyan-Blue Filaments -->
+    <path d="M 880,680 C 1050,580 1280,460 1520,310 C 1680,210 1840,240 1920,290 L 1920,440 C 1760,400 1560,490 1340,610 C 1120,740 960,780 880,680 Z"
+          fill="#67e8f9" filter="url(#filamentFilter)" />
+
+    <!-- Deep Magenta Ionization Veil -->
+    <ellipse cx="1480" cy="270" rx="380" ry="240" transform="rotate(-15 1480 270)" fill="#f472b6" filter="url(#filamentFilter)" />
+  </g>
+
+  <!-- 3. Dark Cosmic Silhouette Absorption Rifts (Authentic Dust Lanes Creating 3D Depth) -->
+  <g opacity="0.72" style="mix-blend-mode: multiply;">
+    <path d="M 1120,580 Q 1280,480 1490,380 Q 1650,310 1820,260 Q 1720,320 1540,430 Q 1340,540 1180,640 Z" fill="#010410" />
+    <path d="M 1240,480 Q 1420,380 1620,290 Q 1740,240 1860,210 Q 1750,270 1580,360 Q 1390,470 1280,530 Z" fill="#000207" />
+    <path d="M 940,730 Q 1120,640 1320,530 Q 1460,460 1590,410 Q 1480,490 1310,610 Q 1140,710 980,780 Z" fill="#010515" />
+    <path d="M 1410,240 Q 1530,220 1680,210 Q 1580,250 1460,280 Z" fill="#000208" />
+  </g>
+
+  <!-- 4. Dense Embedded Blue & Purple Star Clusters (Stellar Nursery / Globular Cluster) -->
+  <g style="mix-blend-mode: screen;">
+    <!-- Open Cluster (Pleiades-like Blue Reflection Cluster in Upper-Right) -->
+    <!-- Major Cluster Stars with Optical Halos -->
+    <g filter="url(#stellarGlow)">
+      <circle cx="1520" cy="250" r="3.2" fill="#ffffff" stroke="#38bdf8" stroke-width="2.5" />
+      <circle cx="1460" cy="220" r="2.8" fill="#ffffff" stroke="#60a5fa" stroke-width="2.2" />
+      <circle cx="1580" cy="290" r="2.9" fill="#ffffff" stroke="#c084fc" stroke-width="2.4" />
+      <circle cx="1390" cy="280" r="2.5" fill="#ffffff" stroke="#38bdf8" stroke-width="2.0" />
+      <circle cx="1440" cy="330" r="2.6" fill="#ffffff" stroke="#818cf8" stroke-width="2.2" />
+      <circle cx="1510" cy="340" r="2.4" fill="#ffffff" stroke="#e879f9" stroke-width="2.0" />
+      <circle cx="1620" cy="230" r="2.7" fill="#ffffff" stroke="#67e8f9" stroke-width="2.2" />
+      <circle cx="1340" cy="360" r="2.3" fill="#ffffff" stroke="#a78bfa" stroke-width="1.8" />
+      <circle cx="1660" cy="310" r="2.5" fill="#ffffff" stroke="#38bdf8" stroke-width="2.0" />
+    </g>
+
+    <!-- Secondary Star Cluster in Mid-Right -->
+    <g opacity="0.92">
+      <!-- Blue-White & Violet Cluster Members -->
+      <circle cx="1280" cy="420" r="2.0" fill="#bae6fd" />
+      <circle cx="1310" cy="390" r="1.8" fill="#e0e7ff" />
+      <circle cx="1250" cy="460" r="1.6" fill="#c084fc" />
+      <circle cx="1340" cy="450" r="1.9" fill="#7dd3fc" />
+      <circle cx="1220" cy="490" r="1.5" fill="#a855f7" />
+      <circle cx="1180" cy="530" r="1.7" fill="#67e8f9" />
+      <circle cx="1140" cy="570" r="1.8" fill="#c4b5fd" />
+      <circle cx="1090" cy="610" r="1.6" fill="#38bdf8" />
+    </g>
+
+    <!-- 120+ Microscopic Blue/Purple Cluster Pinpricks -->
+    <g fill="#93c5fd" opacity="0.85">
+      <circle cx="1380" cy="210" r="0.9" />
+      <circle cx="1410" cy="190" r="1.1" />
+      <circle cx="1430" cy="245" r="0.8" />
+      <circle cx="1455" cy="205" r="1.0" />
+      <circle cx="1475" cy="265" r="0.9" />
+      <circle cx="1490" cy="215" r="1.2" />
+      <circle cx="1505" cy="275" r="0.8" />
+      <circle cx="1530" cy="225" r="1.1" />
+      <circle cx="1545" cy="285" r="0.7" />
+      <circle cx="1560" cy="240" r="1.0" />
+      <circle cx="1575" cy="315" r="0.9" />
+      <circle cx="1595" cy="260" r="1.1" />
+      <circle cx="1610" cy="300" r="0.8" />
+      <circle cx="1635" cy="255" r="1.2" />
+      <circle cx="1650" cy="285" r="0.9" />
+      <circle cx="1670" cy="335" r="1.0" />
+      <circle cx="1425" cy="305" r="0.8" />
+      <circle cx="1445" cy="355" r="1.1" />
+      <circle cx="1470" cy="320" r="0.9" />
+      <circle cx="1495" cy="370" r="1.0" />
+      <circle cx="1525" cy="330" r="0.8" />
+      <circle cx="1540" cy="380" r="1.1" />
+      <circle cx="1565" cy="345" r="0.9" />
+      <circle cx="1585" cy="395" r="0.8" />
+      <circle cx="1605" cy="360" r="1.0" />
+      <circle cx="1630" cy="385" r="0.7" />
+      <circle cx="1645" cy="340" r="1.1" />
+    </g>
+
+    <g fill="#d8b4fe" opacity="0.82">
+      <circle cx="1360" cy="270" r="0.9" />
+      <circle cx="1375" cy="320" r="1.1" />
+      <circle cx="1395" cy="290" r="0.8" />
+      <circle cx="1415" cy="340" r="1.0" />
+      <circle cx="1435" cy="310" r="0.9" />
+      <circle cx="1465" cy="360" r="1.2" />
+      <circle cx="1485" cy="330" r="0.8" />
+      <circle cx="1515" cy="380" r="1.1" />
+      <circle cx="1535" cy="350" r="0.9" />
+      <circle cx="1555" cy="410" r="1.0" />
+      <circle cx="1570" cy="370" r="0.8" />
+      <circle cx="1600" cy="420" r="1.1" />
+      <circle cx="1625" cy="380" r="0.9" />
+      <circle cx="1330" cy="410" r="1.0" />
+      <circle cx="1305" cy="450" r="0.8" />
+      <circle cx="1275" cy="480" r="1.1" />
+      <circle cx="1245" cy="510" r="0.9" />
+      <circle cx="1215" cy="540" r="1.0" />
+      <circle cx="1175" cy="580" r="0.8" />
+      <circle cx="1135" cy="620" r="1.1" />
+      <circle cx="1075" cy="660" r="0.9" />
+      <circle cx="1025" cy="700" r="1.0" />
+      <circle cx="965" cy="740" r="0.8" />
+    </g>
+
+    <g fill="#f0abfc" opacity="0.78">
+      <circle cx="1480" cy="180" r="0.9" />
+      <circle cx="1510" cy="195" r="1.1" />
+      <circle cx="1540" cy="175" r="0.8" />
+      <circle cx="1570" cy="210" r="1.0" />
+      <circle cx="1600" cy="185" r="0.9" />
+      <circle cx="1630" cy="220" r="1.1" />
+      <circle cx="1660" cy="195" r="0.8" />
+      <circle cx="1690" cy="240" r="1.0" />
+      <circle cx="1710" cy="215" r="0.9" />
+      <circle cx="1730" cy="260" r="1.1" />
+    </g>
+  </g>
+</svg>

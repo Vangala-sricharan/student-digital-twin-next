@@ -19,6 +19,7 @@ export interface UserProfile {
   fullName: string;
   avatarUrl?: string;
   role?: string;
+  subscriptionTier?: SubscriptionTier;
   createdAt: string;
 }
 

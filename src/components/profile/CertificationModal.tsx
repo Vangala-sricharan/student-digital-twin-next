@@ -60,6 +60,7 @@ export const CertificationModal: React.FC<CertificationModalProps> = ({
   if (!isOpen) return null;
 
   const handleGenerateDescription = async () => {
+    if (isGenerating) return;
     if (!title.trim()) {
       setAiError('Please enter a Certification / Program Name first.');
       return;

@@ -338,11 +338,13 @@ export async function extractCertificationsFromLinkedInPdf(file: File): Promise<
   const pdfText = pdfResult.extractedText;
   const pdfUrls = pdfResult.extractedUrls || [];
 
-  // Attempt base64 encoding if file is within reasonable size
+  // Avoid binary/base64 bloat when clean text has already been parsed locally
   let pdfBase64: string | null = null;
-  try {
-    pdfBase64 = await fileToBase64(file);
-  } catch {}
+  if (!pdfText || pdfText.trim().length < 60) {
+    try {
+      pdfBase64 = await fileToBase64(file);
+    } catch {}
+  }
 
   // 2. Call server-side API
   try {

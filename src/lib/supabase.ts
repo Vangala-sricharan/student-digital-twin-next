@@ -79,25 +79,41 @@ function handleStudentProfilesRest(urlStr: string, init?: RequestInit): Response
   if (targetUserId && !profilesMap[targetUserId] && typeof window !== 'undefined' && window.localStorage) {
     try {
       const localUserProfile = localStorage.getItem(`sdt_user_profile_${targetUserId}`);
+      // Check if user has an existing persistent subscription
+      let userSubTier = 'free';
+      let userSubExpiresAt: string | undefined = undefined;
+      const storedSub = localStorage.getItem(`sdt_user_subscription_v4_${targetUserId}`);
+      if (storedSub) {
+        try {
+          const parsed = JSON.parse(storedSub);
+          if (parsed?.tier && parsed.tier !== 'free') {
+            userSubTier = parsed.tier;
+            userSubExpiresAt = parsed.expiresAt;
+          }
+        } catch {}
+      }
+
       if (localUserProfile) {
         const u = JSON.parse(localUserProfile);
         profilesMap[targetUserId] = {
           id: `sp-${targetUserId.slice(0, 8)}`,
           user_id: targetUserId,
-          name: u.fullName || u.name || 'Student',
-          display_name: u.fullName || u.name || 'Student',
+          name: u.fullName || u.name || '',
+          display_name: u.fullName || u.name || '',
           role: u.role || 'Student',
-          headline: 'Student Digital Twin Active Profile',
-          university: 'Academic Institution',
-          academic_program: 'Engineering & Technology',
-          year_of_study: '1st Year',
-          career_focus: 'Software Engineering',
+          headline: '',
+          university: '',
+          academic_program: '',
+          year_of_study: '',
+          career_focus: '',
           avatar_url: u.avatarUrl || '',
-          readiness_score: 65,
+          readiness_score: typeof u.readinessScore === 'number' ? u.readinessScore : 0,
           skills_verified_count: 0,
           project_index_count: 0,
           milestones_count: 0,
-          status: 'Active Twin',
+          status: 'Draft',
+          subscription_tier: userSubTier,
+          subscription_expires_at: userSubExpiresAt,
           created_at: u.createdAt || new Date().toISOString(),
           updated_at: new Date().toISOString(),
         };
@@ -116,6 +132,31 @@ function handleStudentProfilesRest(urlStr: string, init?: RequestInit): Response
     if (targetId) {
       list = list.filter((p: any) => p.id === targetId);
     }
+
+    // Ensure all returned profiles have an accurate, resolved subscription_tier
+    list = list.map((p: any) => {
+      let tier = p.subscription_tier;
+      let expiresAt = p.subscription_expires_at;
+      if (!tier || tier === 'free') {
+        try {
+          const stored = localStorage.getItem(`sdt_user_subscription_v4_${p.user_id}`);
+          if (stored) {
+            const parsed = JSON.parse(stored);
+            if (parsed?.tier && parsed.tier !== 'free') {
+              tier = parsed.tier;
+              expiresAt = parsed.expiresAt;
+              p.subscription_tier = tier;
+              p.subscription_expires_at = expiresAt;
+            }
+          }
+        } catch {}
+      }
+      return {
+        ...p,
+        subscription_tier: tier || 'free',
+        subscription_expires_at: expiresAt,
+      };
+    });
 
     if (isSingle) {
       const item = list[0] || null;
@@ -150,17 +191,35 @@ function handleStudentProfilesRest(urlStr: string, init?: RequestInit): Response
     for (const item of items) {
       const uid = item.user_id || targetUserId || 'anon-user';
       const existing = profilesMap[uid] || {};
+
+      // Determine authoritative subscription tier to avoid ever resetting a Pro plan to Free
+      let tierToSave = item.subscription_tier !== undefined ? item.subscription_tier : existing.subscription_tier;
+      let expiresAtToSave = item.subscription_expires_at !== undefined ? item.subscription_expires_at : existing.subscription_expires_at;
+
+      if (!tierToSave || tierToSave === 'free') {
+        try {
+          const stored = localStorage.getItem(`sdt_user_subscription_v4_${uid}`);
+          if (stored) {
+            const parsed = JSON.parse(stored);
+            if (parsed?.tier && parsed.tier !== 'free') {
+              tierToSave = parsed.tier;
+              expiresAtToSave = parsed.expiresAt;
+            }
+          }
+        } catch {}
+      }
+
       const merged = {
         id: item.id || existing.id || `sp-${uid.slice(0, 8)}`,
         user_id: uid,
-        name: item.name ?? existing.name ?? 'Student',
-        display_name: item.display_name ?? existing.display_name ?? item.name ?? 'Student',
+        name: item.name ?? existing.name ?? '',
+        display_name: item.display_name ?? existing.display_name ?? item.name ?? '',
         role: item.role ?? existing.role ?? 'Student',
         headline: item.headline ?? existing.headline ?? '',
-        university: item.university ?? existing.university ?? 'Academic Institution',
-        academic_program: item.academic_program ?? existing.academic_program ?? 'Engineering & Technology',
-        year_of_study: item.year_of_study ?? existing.year_of_study ?? '1st Year',
-        career_focus: item.career_focus ?? existing.career_focus ?? 'Software Engineering',
+        university: item.university ?? existing.university ?? '',
+        academic_program: item.academic_program ?? existing.academic_program ?? '',
+        year_of_study: item.year_of_study ?? existing.year_of_study ?? '',
+        career_focus: item.career_focus ?? existing.career_focus ?? '',
         specialty: item.specialty ?? existing.specialty ?? '',
         bio: item.bio ?? existing.bio ?? '',
         avatar_url: item.avatar_url ?? existing.avatar_url ?? '',
@@ -168,7 +227,7 @@ function handleStudentProfilesRest(urlStr: string, init?: RequestInit): Response
         linkedin_url: item.linkedin_url ?? existing.linkedin_url ?? '',
         portfolio_url: item.portfolio_url ?? existing.portfolio_url ?? '',
         location: item.location ?? existing.location ?? '',
-        readiness_score: item.readiness_score ?? existing.readiness_score ?? 65,
+        readiness_score: item.readiness_score ?? existing.readiness_score ?? 0,
         skills_verified_count: item.skills_verified_count ?? existing.skills_verified_count ?? 0,
         project_index_count: item.project_index_count ?? existing.project_index_count ?? 0,
         milestones_count: item.milestones_count ?? existing.milestones_count ?? 0,
@@ -180,7 +239,10 @@ function handleStudentProfilesRest(urlStr: string, init?: RequestInit): Response
         created_at: existing.created_at || new Date().toISOString(),
         updated_at: new Date().toISOString(),
         ...item,
+        subscription_tier: tierToSave || 'free',
+        subscription_expires_at: expiresAtToSave,
       };
+
       profilesMap[uid] = merged;
       updatedItems.push(merged);
     }
@@ -262,6 +324,16 @@ export const supabase: SupabaseClient = createClient(clientUrl, clientKey, {
 
       // Intercept student_profiles to prevent 404 network errors while preserving V4 schema
       if (urlStr.includes('/rest/v1/student_profiles')) {
+        if (isSupabaseConfigured) {
+          try {
+            const remoteRes = await fetch(input, init);
+            if (remoteRes && remoteRes.ok) {
+              return remoteRes;
+            }
+          } catch {
+            // fallback to local handler
+          }
+        }
         return handleStudentProfilesRest(urlStr, init);
       }
 
