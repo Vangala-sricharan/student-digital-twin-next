@@ -1,5 +1,5 @@
 import React from 'react';
-import { Play, Sparkles, ArrowRight, BarChart3, TrendingUp, FolderGit2, Target, Bot } from 'lucide-react';
+import { Play, Sparkles, ArrowRight } from 'lucide-react';
 import { CreatorShowcaseCard } from './CreatorShowcaseCard';
 import { CentralDigitalTwin } from './CentralDigitalTwin';
 import { CinematicSpaceBackground } from './CinematicSpaceBackground';
@@ -13,7 +13,7 @@ export const Hero: React.FC<HeroProps> = ({ onNavigate }) => {
   return (
     <section 
       id="hero-landing-section"
-      className="relative isolate overflow-hidden pt-4 sm:pt-6 lg:pt-8 pb-12 sm:pb-14 lg:pb-16 border-b border-slate-200/80 dark:border-white/10 bg-[#f8fafc] dark:bg-[#02050e] text-slate-900 dark:text-white transition-colors"
+      className="relative isolate overflow-hidden pt-4 sm:pt-6 lg:pt-8 pb-12 sm:pb-14 lg:pb-16 border-b border-slate-200/80 dark:border-white/10 bg-[#f8fafc] dark:bg-[#020617] text-slate-900 dark:text-white transition-colors"
     >
       {/* Light Theme: Cinematic Daylight Atmospheric Sky & Earth Horizon */}
       <div className="block dark:hidden">
@@ -28,88 +28,31 @@ export const Hero: React.FC<HeroProps> = ({ onNavigate }) => {
       {/* Foreground Hero Canvas matching reference image composition */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
         
-        {/* Top Centered Block: Horizontal Row of All 5 Labels + Eyebrow Badge */}
-        <div className="flex flex-col items-center justify-center text-center mb-3.5 sm:mb-4 lg:mb-5">
+        {/* 3-Column Visual Layout: Left (Text & CTAs), Center (Orbital Digital Twin), Right (Showcase Card) */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-4 xl:gap-6 items-center">
           
-          {/* Horizontal Row of 5 Labels: Skills Analysis | Real-time Insights | Projects | Career Growth | AI Guidance */}
-          <div className="w-full overflow-x-auto no-scrollbar py-1 flex items-center justify-center">
-            <div className="flex items-center justify-center gap-1.5 sm:gap-2 md:gap-2.5 lg:gap-3 shrink-0">
-              {/* 1. Skills Analysis */}
-              <div 
-                id="badge-skills-analysis"
-                className="px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-lg bg-white/95 dark:bg-[#060c24]/95 backdrop-blur-md border border-slate-200/90 dark:border-blue-500/50 text-slate-900 dark:text-white shadow-md dark:shadow-[0_0_20px_rgba(37,99,235,0.4)] flex items-center gap-1.5 text-[11px] sm:text-xs font-bold whitespace-nowrap transition-transform hover:-translate-y-0.5"
-              >
-                <BarChart3 className="w-3.5 h-3.5 text-blue-600 dark:text-cyan-400 shrink-0" />
-                <span className="tracking-wide">Skills Analysis</span>
-              </div>
+          {/* 1. Left Column: Eyebrow Badge, Hero Copy, CTAs & Statistics */}
+          <div className="lg:col-span-4 xl:col-span-4 space-y-4 sm:space-y-4.5 lg:space-y-5 text-center lg:text-left z-20">
 
-              {/* 2. Real-time Insights */}
-              <div 
-                id="badge-realtime-insights"
-                className="px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-lg bg-white/95 dark:bg-[#060c24]/95 backdrop-blur-md border border-slate-200/90 dark:border-cyan-500/50 text-slate-900 dark:text-white shadow-md dark:shadow-[0_0_20px_rgba(6,182,212,0.4)] flex items-center gap-1.5 text-[11px] sm:text-xs font-bold whitespace-nowrap transition-transform hover:-translate-y-0.5"
-              >
-                <TrendingUp className="w-3.5 h-3.5 text-blue-600 dark:text-cyan-300 shrink-0" />
-                <span className="tracking-wide">Real-time Insights</span>
-              </div>
-
-              {/* 3. Projects */}
-              <div 
-                id="badge-projects"
-                className="px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-lg bg-white/95 dark:bg-[#060c24]/95 backdrop-blur-md border border-slate-200/90 dark:border-sky-500/50 text-slate-900 dark:text-white shadow-md dark:shadow-[0_0_20px_rgba(14,165,233,0.4)] flex items-center gap-1.5 text-[11px] sm:text-xs font-bold whitespace-nowrap transition-transform hover:-translate-y-0.5"
-              >
-                <FolderGit2 className="w-3.5 h-3.5 text-sky-600 dark:text-sky-400 shrink-0" />
-                <span className="tracking-wide">Projects</span>
-              </div>
-
-              {/* 4. Career Growth */}
-              <div 
-                id="badge-career-growth"
-                className="px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-lg bg-white/95 dark:bg-[#060c24]/95 backdrop-blur-md border border-slate-200/90 dark:border-indigo-500/50 text-slate-900 dark:text-white shadow-md dark:shadow-[0_0_20px_rgba(99,102,241,0.4)] flex items-center gap-1.5 text-[11px] sm:text-xs font-bold whitespace-nowrap transition-transform hover:-translate-y-0.5"
-              >
-                <Target className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400 shrink-0" />
-                <span className="tracking-wide">Career Growth</span>
-              </div>
-
-              {/* 5. AI Guidance */}
-              <div 
-                id="badge-ai-guidance"
-                className="px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-lg bg-white/95 dark:bg-[#060c24]/95 backdrop-blur-md border border-slate-200/90 dark:border-blue-500/50 text-slate-900 dark:text-white shadow-md dark:shadow-[0_0_20px_rgba(37,99,235,0.4)] flex items-center gap-1.5 text-[11px] sm:text-xs font-bold whitespace-nowrap transition-transform hover:-translate-y-0.5"
-              >
-                <Bot className="w-3.5 h-3.5 text-blue-600 dark:text-cyan-400 shrink-0" />
-                <span className="tracking-wide">AI Guidance</span>
-              </div>
-            </div>
-          </div>
-
-          {/* Small gap */}
-          <div className="mt-2 sm:mt-2.5">
-            {/* Eyebrow Badge (Matching Reference) */}
-            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-blue-500/10 dark:bg-blue-950/80 border border-blue-500/30 dark:border-cyan-400/40 text-blue-600 dark:text-cyan-400 text-[10.5px] sm:text-[11px] font-mono font-semibold backdrop-blur-sm">
+            {/* Eyebrow Badge (Upper-Left Hero Composition) */}
+            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-blue-500/10 dark:bg-[#0b122f]/90 border border-blue-500/30 dark:border-cyan-400/40 text-blue-600 dark:text-cyan-300 text-[10.5px] sm:text-[11px] font-mono font-semibold backdrop-blur-md shadow-[0_0_15px_rgba(6,182,212,0.15)]">
               <Sparkles className="w-3 h-3 text-blue-600 dark:text-cyan-400 shrink-0" />
               <span>AI-Powered • Built for Students • Driven by Your Growth</span>
             </div>
-          </div>
 
-        </div>
-
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 sm:gap-8 lg:gap-5 xl:gap-6 items-center">
-          
-          {/* 1. Left Column: Hero Copy, CTAs & Statistics */}
-          <div className="lg:col-span-5 space-y-4 sm:space-y-4.5 lg:space-y-5 text-center lg:text-left z-20">
-
-            {/* Headline with Dual Cyan/White Gradient (Matching Reference) */}
-            <h1 className="text-2xl sm:text-3xl lg:text-[34px] xl:text-[40px] font-extrabold tracking-tight text-slate-900 dark:text-white leading-[1.12] break-words">
+            {/* Headline with Dual Cyan/White Gradient */}
+            <h1 className="text-2xl sm:text-3xl lg:text-[32px] xl:text-[38px] font-extrabold tracking-tight text-slate-900 dark:text-white leading-[1.14] break-words drop-shadow-[0_2px_12px_rgba(0,0,0,0.7)]">
               Your AI-Powered <br />
-              <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-600 via-indigo-600 to-cyan-500 dark:from-cyan-400 dark:via-sky-400 dark:to-blue-400">
+              <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-600 via-indigo-600 to-cyan-500 dark:from-cyan-400 dark:via-sky-300 dark:to-blue-400">
                 Student Career
               </span> <br />
-              <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-600 via-indigo-600 to-cyan-500 dark:from-cyan-400 dark:via-sky-400 dark:to-blue-400">
+              <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-600 via-indigo-600 to-cyan-500 dark:from-cyan-400 dark:via-sky-300 dark:to-indigo-300">
                 Readiness OS
               </span>
             </h1>
 
             {/* Description */}
-            <p className="text-xs sm:text-sm lg:text-[13.5px] xl:text-sm text-slate-600 dark:text-slate-300 leading-relaxed max-w-md xl:max-w-lg mx-auto lg:mx-0">
+            <p className="text-xs sm:text-sm lg:text-[13px] xl:text-[13.5px] text-slate-600 dark:text-slate-300 leading-relaxed max-w-md xl:max-w-lg mx-auto lg:mx-0 drop-shadow-[0_1px_4px_rgba(0,0,0,0.8)]">
               Construct your professional digital replica. Analyze evolving abilities, project proof-of-work, and identify readiness gaps with AI intelligence.
             </p>
 
@@ -118,7 +61,7 @@ export const Hero: React.FC<HeroProps> = ({ onNavigate }) => {
               <button
                 id="btn-hero-build-twin"
                 onClick={() => onNavigate('/signup')}
-                className="w-full sm:w-auto bg-blue-600 hover:bg-blue-500 text-white px-5 sm:px-6 py-2.5 rounded-lg font-bold text-xs sm:text-[13px] flex items-center justify-center gap-1.5 transition-all shadow-[0_0_20px_rgba(37,99,235,0.4)] group cursor-pointer whitespace-nowrap"
+                className="w-full sm:w-auto bg-blue-600 hover:bg-blue-500 text-white px-5 sm:px-6 py-2.5 rounded-lg font-bold text-xs sm:text-[13px] flex items-center justify-center gap-1.5 transition-all shadow-[0_0_22px_rgba(37,99,235,0.45)] hover:shadow-[0_0_30px_rgba(37,99,235,0.65)] group cursor-pointer whitespace-nowrap"
               >
                 <span>Build Your Student Twin</span>
                 <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
@@ -127,7 +70,7 @@ export const Hero: React.FC<HeroProps> = ({ onNavigate }) => {
               <button
                 id="btn-hero-try-demo"
                 onClick={() => onNavigate('/demo')}
-                className="w-full sm:w-auto bg-white/90 hover:bg-white dark:bg-white/5 dark:hover:bg-white/10 border border-slate-200 dark:border-white/15 px-5 sm:px-6 py-2.5 rounded-lg font-bold text-xs sm:text-[13px] text-slate-900 dark:text-white flex items-center justify-center gap-1.5 transition-all cursor-pointer shadow-xs backdrop-blur-sm whitespace-nowrap"
+                className="w-full sm:w-auto bg-white/90 hover:bg-white dark:bg-[#070e24]/80 dark:hover:bg-[#0c1638] border border-slate-200 dark:border-white/15 px-5 sm:px-6 py-2.5 rounded-lg font-bold text-xs sm:text-[13px] text-slate-900 dark:text-white flex items-center justify-center gap-1.5 transition-all cursor-pointer shadow-sm dark:shadow-[0_0_15px_rgba(6,182,212,0.15)] backdrop-blur-md whitespace-nowrap"
               >
                 <Play className="w-3.5 h-3.5 fill-current text-blue-600 dark:text-cyan-400" />
                 <span>Try Demo</span>
@@ -154,19 +97,18 @@ export const Hero: React.FC<HeroProps> = ({ onNavigate }) => {
 
           </div>
 
-          {/* 2 & 3. Center-Right Staging Area: Centered Digital Twin & Right Profile Card */}
-          <div className="lg:col-span-7 xl:col-span-7 relative flex flex-col lg:flex-row items-center justify-center lg:justify-end min-h-[340px] sm:min-h-[380px] lg:min-h-[400px] xl:min-h-[440px]">
-            
-            {/* The Dominant Central Digital Twin Visual (Centered naturally between Left Hero text and Right Profile Card) */}
-            <div className="w-full max-w-[380px] sm:max-w-[430px] lg:max-w-[420px] xl:max-w-[465px] 2xl:max-w-[500px] lg:absolute lg:left-[-15%] xl:left-[-11%] 2xl:left-[-7%] lg:top-1/2 lg:-translate-y-1/2 z-20 my-4 lg:my-0">
+          {/* 2. Center Column: Dominant Central Digital Twin with Orbital Labels & Connection Lines */}
+          <div className="lg:col-span-4 xl:col-span-4 relative flex items-center justify-center z-20 my-3 lg:my-0">
+            <div className="w-full max-w-[440px] sm:max-w-[480px] lg:max-w-[460px] xl:max-w-[500px]">
               <CentralDigitalTwin />
             </div>
+          </div>
 
-            {/* Right Profile Showcase Card (Enlarged, prominent dashboard card) */}
-            <div className="relative z-10 shrink-0 w-full max-w-[320px] sm:max-w-[350px] lg:max-w-[340px] xl:max-w-[370px] 2xl:max-w-[390px] mt-4 lg:mt-0 flex justify-center lg:justify-end lg:ml-auto">
+          {/* 3. Right Column: Creator Showcase / Readiness Card */}
+          <div className="lg:col-span-4 xl:col-span-4 relative z-20 flex justify-center lg:justify-end">
+            <div className="w-full max-w-[320px] sm:max-w-[350px] lg:max-w-[340px] xl:max-w-[370px]">
               <CreatorShowcaseCard onExploreDemo={() => onNavigate('/demo')} />
             </div>
-
           </div>
 
         </div>

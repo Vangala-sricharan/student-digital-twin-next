@@ -44,51 +44,53 @@ export const CinematicSpaceBackground: React.FC = () => {
       };
 
       // =========================================================================
-      // 1. BASE DEEP SPACE CANVAS (OBSIDIAN & ULTRA-DEEP MIDNIGHT BLUE)
+      // 1. BASE DEEP SPACE CANVAS (OBSIDIAN & DEEP COSMIC INDIGO NAVY)
       // =========================================================================
       const baseGrad = ctx.createLinearGradient(0, 0, 0, height);
-      baseGrad.addColorStop(0, '#01030a');
-      baseGrad.addColorStop(0.35, '#010617');
-      baseGrad.addColorStop(0.7, '#020921');
-      baseGrad.addColorStop(1, '#01040f');
+      baseGrad.addColorStop(0, '#01040e');
+      baseGrad.addColorStop(0.30, '#020718');
+      baseGrad.addColorStop(0.65, '#050a22');
+      baseGrad.addColorStop(1, '#01030c');
       ctx.fillStyle = baseGrad;
       ctx.fillRect(0, 0, width, height);
 
       // =========================================================================
-      // 2. PROCEDURAL GALAXY EMISSION NEBULAE & COSMIC DUST CLOUDS
-      // Dense multi-scale soft gas stamps with rich blue, cyan, and violet tones
+      // 2. PROCEDURAL COSMIC NEBULAE & DEEP SPACE GALAXY ARMS
+      // Palette: deep indigo, rich violet, purple, electric blue & cyan accents
+      // Tightly focused behind Digital Twin, leaving dark negative space for left text
+      // Reduced pale-blue/white wash, richer purple & deep indigo focal light
       // =========================================================================
       ctx.globalCompositeOperation = 'screen';
 
-      // A. Major Galactic Arm sweeping from Upper-Left diagonally to Center & Right
+      // A. Major Cosmic Gas Clusters (Centered on Twin & Right Field, Dark Negative Space on Left)
       const nebulaePuffs = [
-        // Upper-Right Great Blue Nebula Core
-        { x: width * 0.82, y: height * 0.22, r: width * 0.38, col: 'rgba(30, 64, 175, 0.45)' },
-        { x: width * 0.78, y: height * 0.18, r: width * 0.28, col: 'rgba(37, 99, 235, 0.55)' },
-        { x: width * 0.85, y: height * 0.28, r: width * 0.24, col: 'rgba(14, 165, 233, 0.42)' },
-        { x: width * 0.72, y: height * 0.15, r: width * 0.22, col: 'rgba(126, 34, 206, 0.28)' },
-        { x: width * 0.90, y: height * 0.35, r: width * 0.30, col: 'rgba(2, 132, 199, 0.38)' },
+        // Center Cosmic Cradle (Directly Framing the Central Digital Twin - Concentrated Deep Purple & Indigo)
+        { x: width * 0.50, y: height * 0.36, r: width * 0.24, col: 'rgba(126, 34, 206, 0.38)' },
+        { x: width * 0.52, y: height * 0.38, r: width * 0.22, col: 'rgba(147, 51, 234, 0.35)' },
+        { x: width * 0.48, y: height * 0.34, r: width * 0.20, col: 'rgba(79, 70, 229, 0.32)' },
+        { x: width * 0.53, y: height * 0.32, r: width * 0.17, col: 'rgba(37, 99, 235, 0.30)' },
+        { x: width * 0.50, y: height * 0.28, r: width * 0.14, col: 'rgba(56, 189, 248, 0.18)' },
 
-        // Center Cosmic Cradle (Behind Digital Twin)
-        { x: width * 0.52, y: height * 0.38, r: width * 0.32, col: 'rgba(14, 165, 233, 0.40)' },
-        { x: width * 0.48, y: height * 0.34, r: width * 0.26, col: 'rgba(37, 99, 235, 0.48)' },
-        { x: width * 0.56, y: height * 0.42, r: width * 0.22, col: 'rgba(99, 102, 241, 0.32)' },
-        { x: width * 0.50, y: height * 0.28, r: width * 0.20, col: 'rgba(6, 182, 212, 0.35)' },
+        // Upper-Right Deep Indigo & Violet Galaxy Field
+        { x: width * 0.80, y: height * 0.20, r: width * 0.34, col: 'rgba(79, 70, 229, 0.34)' },
+        { x: width * 0.76, y: height * 0.16, r: width * 0.24, col: 'rgba(126, 34, 206, 0.30)' },
+        { x: width * 0.84, y: height * 0.25, r: width * 0.23, col: 'rgba(37, 99, 235, 0.36)' },
+        { x: width * 0.88, y: height * 0.32, r: width * 0.20, col: 'rgba(147, 51, 234, 0.26)' },
+        { x: width * 0.72, y: height * 0.14, r: width * 0.18, col: 'rgba(56, 189, 248, 0.20)' },
 
-        // Upper-Left Framing Star Cloud (Subtle to keep text readable)
-        { x: width * 0.18, y: height * 0.18, r: width * 0.28, col: 'rgba(30, 58, 138, 0.28)' },
-        { x: width * 0.22, y: height * 0.24, r: width * 0.20, col: 'rgba(56, 189, 248, 0.22)' },
-        { x: width * 0.12, y: height * 0.12, r: width * 0.22, col: 'rgba(79, 70, 229, 0.18)' },
+        // Mid-Space Cosmic Bridge connecting Center to Right
+        { x: width * 0.64, y: height * 0.28, r: width * 0.24, col: 'rgba(99, 102, 241, 0.28)' },
+        { x: width * 0.60, y: height * 0.34, r: width * 0.20, col: 'rgba(126, 34, 206, 0.22)' },
 
-        // Diagonal Interstellar Bridge
-        { x: width * 0.35, y: height * 0.28, r: width * 0.25, col: 'rgba(14, 165, 233, 0.25)' },
-        { x: width * 0.65, y: height * 0.25, r: width * 0.28, col: 'rgba(37, 99, 235, 0.35)' },
+        // Distant Upper-Left Framing (Very faint & deep indigo to keep text perfectly legible)
+        { x: width * 0.14, y: height * 0.12, r: width * 0.18, col: 'rgba(49, 46, 129, 0.14)' },
+        { x: width * 0.20, y: height * 0.16, r: width * 0.14, col: 'rgba(30, 27, 75, 0.12)' },
       ];
 
       for (const neb of nebulaePuffs) {
         const rad = ctx.createRadialGradient(neb.x, neb.y, 0, neb.x, neb.y, neb.r);
         rad.addColorStop(0, neb.col);
-        rad.addColorStop(0.45, neb.col.replace(/[\d\.]+\)$/, (m) => `${parseFloat(m) * 0.55})`));
+        rad.addColorStop(0.5, neb.col.replace(/[\d\.]+\)$/, (m) => `${parseFloat(m) * 0.45})`));
         rad.addColorStop(1, 'rgba(0, 0, 0, 0)');
         ctx.fillStyle = rad;
         ctx.beginPath();
@@ -96,34 +98,64 @@ export const CinematicSpaceBackground: React.FC = () => {
         ctx.fill();
       }
 
-      // B. Fine Milky Way Cloud Texture (Hundreds of micro-puffs forming realistic gaseous filaments)
-      const filamentCount = 280;
+      // B. Fine Cosmic Dust & Interstellar Violet/Indigo Filaments
+      const filamentCount = 260;
       for (let i = 0; i < filamentCount; i++) {
         const t = random();
-        // Slanted galactic plane
-        const gx = width * (0.15 + t * 0.8 + (random() - 0.5) * 0.22);
-        const gy = height * (0.05 + t * 0.6 + (random() - 0.5) * 0.18);
-        const gr = 30 + random() * 95;
+        // Slanted galactic arc primarily spanning middle to right
+        const gx = width * (0.28 + t * 0.68 + (random() - 0.5) * 0.20);
+        const gy = height * (0.06 + t * 0.58 + (random() - 0.5) * 0.16);
+        const gr = 25 + random() * 85;
 
-        // Color variance: electric cyan, cobalt, violet, azure
+        // Rich palette: electric cyan, cobalt, deep indigo, violet, royal purple
         const colors = [
-          'rgba(56, 189, 248, ',
-          'rgba(14, 165, 233, ',
-          'rgba(37, 99, 235, ',
+          'rgba(147, 51, 234, ',
+          'rgba(126, 34, 206, ',
           'rgba(99, 102, 241, ',
-          'rgba(147, 51, 234, '
+          'rgba(79, 70, 229, ',
+          'rgba(37, 99, 235, ',
+          'rgba(56, 189, 248, '
         ];
         const colPick = colors[Math.floor(random() * colors.length)];
-        const alpha = 0.035 + random() * 0.07;
+        const alpha = 0.03 + random() * 0.065;
 
         const gGrad = ctx.createRadialGradient(gx, gy, 0, gx, gy, gr);
-        gGrad.addColorStop(0, `${colPick}${alpha * 1.5})`);
-        gGrad.addColorStop(0.5, `${colPick}${alpha * 0.6})`);
+        gGrad.addColorStop(0, `${colPick}${alpha * 1.6})`);
+        gGrad.addColorStop(0.5, `${colPick}${alpha * 0.55})`);
         gGrad.addColorStop(1, 'rgba(0, 0, 0, 0)');
 
         ctx.fillStyle = gGrad;
         ctx.beginPath();
         ctx.arc(gx, gy, gr, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      // C. Distant Deep-Space Galaxies (Subtle Spiral & Elliptical Clusters)
+      const distantGalaxies = [
+        { x: width * 0.26, y: height * 0.12, rx: 22, ry: 9, rot: -0.45, core: '#e0e7ff', haze: 'rgba(129, 140, 248, 0.25)' },
+        { x: width * 0.86, y: height * 0.10, rx: 26, ry: 11, rot: 0.35, core: '#f5f3ff', haze: 'rgba(192, 132, 252, 0.28)' },
+        { x: width * 0.70, y: height * 0.44, rx: 18, ry: 8, rot: 0.6, core: '#e0f2fe', haze: 'rgba(56, 189, 248, 0.22)' },
+      ];
+
+      for (const gal of distantGalaxies) {
+        // Outer galactic halo
+        const galHalo = ctx.createRadialGradient(gal.x, gal.y, 0, gal.x, gal.y, gal.rx);
+        galHalo.addColorStop(0, gal.haze);
+        galHalo.addColorStop(0.6, gal.haze.replace(/[\d\.]+\)$/, (m) => `${parseFloat(m) * 0.4})`));
+        galHalo.addColorStop(1, 'rgba(0, 0, 0, 0)');
+        ctx.fillStyle = galHalo;
+        ctx.beginPath();
+        ctx.ellipse(gal.x, gal.y, gal.rx, gal.ry, gal.rot, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Luminous galactic core
+        const galCore = ctx.createRadialGradient(gal.x, gal.y, 0, gal.x, gal.y, 4);
+        galCore.addColorStop(0, '#ffffff');
+        galCore.addColorStop(0.5, gal.core);
+        galCore.addColorStop(1, 'rgba(0, 0, 0, 0)');
+        ctx.fillStyle = galCore;
+        ctx.beginPath();
+        ctx.arc(gal.x, gal.y, 3, 0, Math.PI * 2);
         ctx.fill();
       }
 
@@ -209,17 +241,18 @@ export const CinematicSpaceBackground: React.FC = () => {
 
       // =========================================================================
       // 4. SUBTLE SECONDARY PLANET (LOWER RIGHT SKY, PROPORTIONED AS IN REFERENCE)
+      // Slightly more visible, crisp crescent rim facing horizon sunrise, subtle corona
       // =========================================================================
       const px = width * 0.88;
       const py = height * 0.48;
-      const pr = Math.min(width, height) * 0.038; // ~35px
+      const pr = Math.min(width, height) * 0.042; // ~40px - clear & subtle
 
       // Planet Shadow Body
-      const pGrad = ctx.createRadialGradient(px - pr * 0.3, py - pr * 0.3, 0, px, py, pr);
-      pGrad.addColorStop(0, '#334155');
-      pGrad.addColorStop(0.4, '#1e293b');
-      pGrad.addColorStop(0.8, '#0f172a');
-      pGrad.addColorStop(1, '#020617');
+      const pGrad = ctx.createRadialGradient(px - pr * 0.25, py - pr * 0.25, 0, px, py, pr);
+      pGrad.addColorStop(0, '#38465d');
+      pGrad.addColorStop(0.35, '#1e293b');
+      pGrad.addColorStop(0.75, '#0b1120');
+      pGrad.addColorStop(1, '#01040f');
 
       ctx.globalAlpha = 1.0;
       ctx.fillStyle = pGrad;
@@ -235,9 +268,9 @@ export const CinematicSpaceBackground: React.FC = () => {
 
       const pRim = ctx.createLinearGradient(px + pr, py - pr, px - pr, py + pr);
       pRim.addColorStop(0, 'rgba(0, 0, 0, 0)');
-      pRim.addColorStop(0.65, 'rgba(56, 189, 248, 0.2)');
-      pRim.addColorStop(0.9, 'rgba(56, 189, 248, 0.85)');
-      pRim.addColorStop(1, 'rgba(255, 255, 255, 0.95)');
+      pRim.addColorStop(0.55, 'rgba(56, 189, 248, 0.25)');
+      pRim.addColorStop(0.85, 'rgba(56, 189, 248, 0.95)');
+      pRim.addColorStop(1, 'rgba(255, 255, 255, 1.0)');
 
       ctx.fillStyle = pRim;
       ctx.beginPath();
@@ -246,16 +279,16 @@ export const CinematicSpaceBackground: React.FC = () => {
       ctx.restore();
 
       // Subtle Outer Corona on Planet
-      ctx.strokeStyle = 'rgba(56, 189, 248, 0.4)';
-      ctx.lineWidth = 1.5;
+      ctx.strokeStyle = 'rgba(56, 189, 248, 0.55)';
+      ctx.lineWidth = 1.8;
       ctx.beginPath();
       ctx.arc(px, py, pr + 0.8, 0, Math.PI * 2);
       ctx.stroke();
 
       // =========================================================================
-      // 5. PHOTOREALISTIC CINEMATIC EARTH FROM ORBIT (LOWER 22-30% OF HERO)
+      // 5. PHOTOREALISTIC CINEMATIC EARTH FROM ORBIT (LOWER 28-34% OF HERO)
       // Genuine orbital perspective matching NASA space photography:
-      // - Realistic planetary curvature with expansive radius
+      // - Expansive planetary curvature commanding the lower section
       // - Deep midnight ocean & dark continental landmasses
       // - NASA satellite night city lights mapped along the curved surface
       // - Glistening connected metropolitan transport arteries & micro-pinpoints
@@ -266,10 +299,10 @@ export const CinematicSpaceBackground: React.FC = () => {
 
       // Planetary Geometry:
       // Large spherical curvature centered below the screen, creating an authentic
-      // orbital view occupying ~27% at apex down to ~16% at screen edges.
+      // orbital view occupying ~34% at apex down to ~20% at screen edges.
       const earthCenterX = width * 0.50;
-      const earthRadius = Math.max(width * 1.55, height * 1.95, 1450);
-      const earthTopApexY = height * 0.70; // Apex sits at ~70% down the Hero
+      const earthRadius = Math.max(width * 1.50, height * 1.90, 1400);
+      const earthTopApexY = height * 0.66; // Apex sits at ~66% down the Hero
       const earthCenterY = earthTopApexY + earthRadius;
 
       // Function to calculate exact Earth horizon Y for any screen X
@@ -286,11 +319,11 @@ export const CinematicSpaceBackground: React.FC = () => {
       // -------------------------------------------------------------------------
       ctx.globalCompositeOperation = 'screen';
       const atmoLayers = [
-        { offset: 48, alpha: 0.04, color: 'rgba(2, 132, 199, ' },
-        { offset: 32, alpha: 0.10, color: 'rgba(14, 165, 233, ' },
-        { offset: 18, alpha: 0.20, color: 'rgba(56, 189, 248, ' },
-        { offset: 8,  alpha: 0.38, color: 'rgba(103, 232, 249, ' },
-        { offset: 2,  alpha: 0.60, color: 'rgba(224, 242, 254, ' },
+        { offset: 56, alpha: 0.06, color: 'rgba(2, 132, 199, ' },
+        { offset: 38, alpha: 0.14, color: 'rgba(14, 165, 233, ' },
+        { offset: 22, alpha: 0.28, color: 'rgba(56, 189, 248, ' },
+        { offset: 10, alpha: 0.48, color: 'rgba(103, 232, 249, ' },
+        { offset: 2,  alpha: 0.72, color: 'rgba(224, 242, 254, ' },
       ];
 
       for (const layer of atmoLayers) {
@@ -326,10 +359,10 @@ export const CinematicSpaceBackground: React.FC = () => {
         earthCenterY,
         earthRadius
       );
-      oceanGrad.addColorStop(0, '#031024');    // Upper ocean midnight
-      oceanGrad.addColorStop(0.35, '#020a1c'); // Deep ocean abyss
-      oceanGrad.addColorStop(0.75, '#010512'); // Abyssal plain
-      oceanGrad.addColorStop(1, '#000208');    // Deep night shadow
+      oceanGrad.addColorStop(0, '#020b1a');    // Upper ocean midnight
+      oceanGrad.addColorStop(0.35, '#010614'); // Deep ocean abyss
+      oceanGrad.addColorStop(0.75, '#00030c'); // Abyssal plain
+      oceanGrad.addColorStop(1, '#000106');    // Deep night shadow
 
       ctx.fillStyle = oceanGrad;
       ctx.fill();
@@ -616,28 +649,28 @@ export const CinematicSpaceBackground: React.FC = () => {
 
       // Broad outer atmospheric glow line
       const outerRimGrad = ctx.createLinearGradient(0, 0, width, 0);
-      outerRimGrad.addColorStop(0, 'rgba(2, 132, 199, 0.4)');
-      outerRimGrad.addColorStop(0.35, 'rgba(56, 189, 248, 0.95)');
+      outerRimGrad.addColorStop(0, 'rgba(2, 132, 199, 0.50)');
+      outerRimGrad.addColorStop(0.35, 'rgba(56, 189, 248, 0.98)');
       outerRimGrad.addColorStop(0.63, 'rgba(255, 255, 255, 1.0)');
-      outerRimGrad.addColorStop(0.75, 'rgba(103, 232, 249, 0.95)');
-      outerRimGrad.addColorStop(1, 'rgba(37, 99, 235, 0.45)');
+      outerRimGrad.addColorStop(0.75, 'rgba(103, 232, 249, 0.98)');
+      outerRimGrad.addColorStop(1, 'rgba(37, 99, 235, 0.55)');
 
       ctx.strokeStyle = outerRimGrad;
-      ctx.lineWidth = 5.0;
+      ctx.lineWidth = 6.2;
       ctx.beginPath();
-      ctx.arc(earthCenterX, earthCenterY, earthRadius + 0.5, 0, Math.PI * 2);
+      ctx.arc(earthCenterX, earthCenterY, earthRadius + 0.6, 0, Math.PI * 2);
       ctx.stroke();
 
       // Sharp electric cyan mid line
-      ctx.strokeStyle = 'rgba(56, 189, 248, 0.95)';
-      ctx.lineWidth = 2.4;
+      ctx.strokeStyle = 'rgba(56, 189, 248, 1.0)';
+      ctx.lineWidth = 2.8;
       ctx.beginPath();
       ctx.arc(earthCenterX, earthCenterY, earthRadius, 0, Math.PI * 2);
       ctx.stroke();
 
       // Dazzling pure white razor-edge
       ctx.strokeStyle = 'rgba(255, 255, 255, 1.0)';
-      ctx.lineWidth = 1.2;
+      ctx.lineWidth = 1.4;
       ctx.beginPath();
       ctx.arc(earthCenterX, earthCenterY, earthRadius - 0.5, 0, Math.PI * 2);
       ctx.stroke();
