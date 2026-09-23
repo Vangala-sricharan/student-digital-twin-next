@@ -1081,21 +1081,16 @@ export async function handleSyllabusPrepRequest(req, res) {
       ? studentContext.skills.map((s) => (typeof s === 'string' ? s : s.name)).filter(Boolean)
       : [];
 
-    const isLargeDocument = normalizedDoc.sections.length > 25 || normalizedDoc.extractedText.length > 25000;
-
-    let intermediateFindings = null;
-
-    // STEP B & C: For large documents (e.g. 107-slide PPTX), chunk and analyze with bounded concurrency
-    if (isLargeDocument) {
-      console.log(`[SyllabusPrep API] Large document detected (${normalizedDoc.sections.length} sections, ${normalizedDoc.extractedText.length} chars). Executing bounded chunk extraction.`);
-      const chunks = createDocumentChunks(normalizedDoc.sections, 20);
-      
-      const chunkResults = await runWithBoundedConcurrency(chunks, 2, async (chunk) => {
-        return analyzeChunkWithGemini(ai, chunk);
-      });
-
-      intermediateFindings = mergeChunkFindings(chunkResults, fileName);
-      console.log(`[SyllabusPrep API] Intermediate findings merged: ${intermediateFindings.topics.length} topics, ${intermediateFindings.units.length} units.`);
+    // Build comprehensive, single-pass document representation with slide/section preservation
+    // Gemini 3.1 Flash Lite / 3.8 Flash easily handles up to 1M tokens; single-pass eliminates 3-6 redundant chunk roundtrips
+    let formattedDocEvidence = '';
+    if (normalizedDoc.sections && normalizedDoc.sections.length > 0) {
+      formattedDocEvidence = normalizedDoc.sections
+        .map((s) => `[${s.title || `Section/Slide ${s.index}`}]:\n${s.content}`)
+        .join('\n\n')
+        .slice(0, 50000);
+    } else {
+      formattedDocEvidence = docText.slice(0, 40000);
     }
 
     const systemInstruction = `You are the Academic Syllabus & Exam Preparation AI for the Student Digital Twin OS.
@@ -1122,43 +1117,18 @@ CRITICAL DIRECTIVE:
 11. Format all prices/fees in Indian Rupees (₹) if any appear. No dollar signs ($).
 12. Output STRICTLY valid JSON matching the requested schema.`;
 
-    let prompt = '';
-    if (intermediateFindings) {
-      prompt = `UPLOADED DOCUMENT PRE-EXTRACTED EVIDENCE (${normalizedDoc.pagesOrSlides} slides/sections):
-File Name: ${fileName}
-Source Type: ${normalizedDoc.sourceType?.toUpperCase()}
-Detected Subject: ${intermediateFindings.subject}
-
-PRE-EXTRACTED UNITS & MODULES:
-${JSON.stringify(intermediateFindings.units, null, 2)}
-
-PRE-EXTRACTED TOPICS FROM ALL SLIDES:
-${JSON.stringify(intermediateFindings.topics.slice(0, 100), null, 2)}
-
-PRE-EXTRACTED FORMULAS & DEFINITIONS:
-${JSON.stringify(intermediateFindings.formulasAndDefinitions.slice(0, 40), null, 2)}
-
-PRE-EXTRACTED PROBLEM TYPES:
-${JSON.stringify(intermediateFindings.problemTypes.slice(0, 25), null, 2)}
-
-STUDENT TWIN CONTEXT:
-Degree: ${degree}
-Year: ${year}
-Verified Skills: ${verifiedSkills.join(', ') || 'None listed'}`;
-    } else {
-      prompt = `UPLOADED DOCUMENT EVIDENCE:
+    let prompt = `UPLOADED ACADEMIC DOCUMENT EVIDENCE (${normalizedDoc.pagesOrSlides} slides/sections):
 File Name: ${fileName}
 File Type: ${normalizedDoc.sourceType?.toUpperCase() || 'DOCUMENT'}
 Content:
 """
-${docText.slice(0, 30000)}
+${formattedDocEvidence}
 """
 
 STUDENT TWIN CONTEXT:
 Degree: ${degree}
 Year: ${year}
 Verified Skills: ${verifiedSkills.join(', ') || 'None listed'}`;
-    }
 
     prompt += `
 

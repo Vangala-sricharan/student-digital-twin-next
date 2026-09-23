@@ -331,7 +331,7 @@ export const StudentTwinProvider: React.FC<{
           const { data, error } = await withTimeout(
             supabase
               .from('student_profiles')
-              .select('*')
+              .select('id, user_id, name, display_name, role, headline, university, academic_program, degree, branch, year, year_of_study, grad_year, career_focus, specialty, bio, avatar_url, email, phone, github_url, linkedin_url, portfolio_url, location, readiness_score, skills_verified_count, project_index_count, milestones_count, target_role, target_company_tier, current_gpa, cgpa, semester, status, subscription_tier, subscription_expires_at, created_at, updated_at')
               .eq('user_id', userId),
             3500,
             { data: null, error: null } as any

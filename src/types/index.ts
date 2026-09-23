@@ -120,6 +120,7 @@ export interface ExtractedCertificationRecord {
   issuingOrganization: string | null;
   issueYear: string | null;
   issueDate: string | null;
+  date?: string | null;
   credentialId: string | null;
   verificationUrl: string | null;
   sourceEvidence: string;

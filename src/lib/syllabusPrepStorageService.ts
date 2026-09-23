@@ -52,7 +52,7 @@ export async function loadSyllabusPrepState(
     try {
       let query = supabase
         .from('user_roadmaps')
-        .select('*')
+        .select('id, user_id, student_profile_id, domain, phases, updated_at')
         .eq('user_id', userId)
         .eq('domain', 'syllabus-prep')
         .order('updated_at', { ascending: false })

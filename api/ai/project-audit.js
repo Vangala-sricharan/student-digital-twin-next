@@ -266,18 +266,10 @@ AUDIT RULES & SCORING METHODOLOGY:
 4. PROJECT-SPECIFIC OUTPUT: Provide detailed strengths, critical gaps, and recommendations tailored specifically to ${projectTitle} and the actual code technologies found (${stackStr}).
 5. INR ONLY: Any costs, hosting budgets, or salary/stipend references must strictly use Indian Rupees (₹) with Indian numbering (e.g. ₹1,499, ₹25,000). Never use dollar signs ($).
 
-You MUST output your evaluation as a valid JSON object wrapped inside a \`\`\`json\`\`\` code block with the following exact keys:
+You MUST output your evaluation as a valid JSON object matching the following exact keys:
 {
   "overallScore": <integer 0-100, exact sum of breakdown scores>,
   "verdict": "<concise evaluation label, e.g. 'Production Ready & Verified', 'Architectural Depth with Test Gaps', 'Early Prototype - Proof Needed'>",
-  "projectQuality": "<2-3 sentences summarizing overall project quality based on real evidence>",
-  "technicalDepth": "<2-3 sentences evaluating technical complexity, algorithmic rigor, and tech stack utilization>",
-  "architecture": "<2-3 sentences evaluating modularity, folder structure, separation of concerns>",
-  "engineeringPractices": "<2-3 sentences evaluating commit hygiene, dependencies, and configuration>",
-  "documentation": "<2-3 sentences evaluating README presence, clarity, and setup instructions>",
-  "evidenceVerification": "<2-3 sentences summarizing verified proof vs missing proof>",
-  "recruiterReadiness": "<2-3 sentences assessing readiness for technical hiring bar raisers>",
-  "nextImprovements": "<2-3 sentences outlining highest priority next steps>",
   "breakdown": [
     { "label": "Technical Depth & Algorithmic Complexity", "score": <0-25>, "max": 25 },
     { "label": "Architectural Modularity & State Isolation", "score": <0-25>, "max": 25 },
@@ -302,9 +294,50 @@ You MUST output your evaluation as a valid JSON object wrapped inside a \`\`\`js
     { "priority": 2, "title": "<actionable title>", "desc": "<clear, actionable recommendation tailored specifically to this project>" },
     { "priority": 3, "title": "<actionable title>", "desc": "<clear, actionable recommendation tailored specifically to this project>" }
   ]
+}`;
 }
 
-After the JSON code block, include a comprehensive markdown report summarizing the audit.`;
+/**
+ * Builds clean markdown summary report from structured audit data (0ms CPU cost vs 4s LLM token generation)
+ */
+function buildProjectAuditMarkdown(data, projectTitle) {
+  const breakdownLines = Array.isArray(data.breakdown)
+    ? data.breakdown.map((b) => `- **${b.label}**: ${b.score} / ${b.max} Pts (${Math.round((b.score / (b.max || 1)) * 100)}%)`).join('\n')
+    : '';
+
+  const strengthsLines = Array.isArray(data.strengths)
+    ? data.strengths.map((s) => `- ${s}`).join('\n')
+    : '';
+
+  const gapsLines = Array.isArray(data.gaps)
+    ? data.gaps.map((g) => `- ${g}`).join('\n')
+    : '';
+
+  const missingLines = Array.isArray(data.missingEvidence) && data.missingEvidence.length > 0
+    ? data.missingEvidence.map((m) => `- ${m}`).join('\n')
+    : '- All expected structural artifacts verified.';
+
+  const recLines = Array.isArray(data.recommendations)
+    ? data.recommendations.map((r) => `- **Priority ${r.priority} — ${r.title}**: ${r.desc}`).join('\n')
+    : '';
+
+  return `# Technical Project Audit: ${projectTitle}
+**Overall Recruiter Readiness Score**: ${data.overallScore || 0} / 100 (${data.verdict || 'Evaluation Complete'})
+
+### 1. Scoring Breakdown
+${breakdownLines}
+
+### 2. Verified Technical Strengths
+${strengthsLines}
+
+### 3. Critical Code & Architecture Gaps
+${gapsLines}
+
+### 4. Missing Evidence
+${missingLines}
+
+### 5. Prioritized Recommendations
+${recLines}`;
 }
 
 /**
@@ -420,6 +453,7 @@ export async function handleProjectAuditRequest(req, res) {
         contents: prompt,
         config: {
           temperature: 0.2,
+          responseMimeType: 'application/json',
           systemInstruction: 'You are an objective Principal Software Engineer & Bar Raiser auditing code projects for university hiring. Never invent metrics or technologies. Output strict JSON with genuine evaluation. Format currency in Indian Rupees (₹).',
         },
       });
@@ -429,21 +463,25 @@ export async function handleProjectAuditRequest(req, res) {
         // Sanitize dollar signs to Indian Rupees (₹)
         rawAiText = rawAiText.replace(/\$(\d+(?:,\d+)*(?:\.\d+)?)/g, '₹$1');
 
-        // Extract JSON code block
-        const jsonMatch = rawAiText.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
         let parsed = null;
-        if (jsonMatch) {
-          try {
-            parsed = JSON.parse(jsonMatch[1]);
-          } catch {}
-        }
-        if (!parsed) {
-          const firstBrace = rawAiText.indexOf('{');
-          const lastBrace = rawAiText.lastIndexOf('}');
-          if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
+        try {
+          parsed = JSON.parse(rawAiText);
+        } catch {
+          // Extract JSON code block if wrapped
+          const jsonMatch = rawAiText.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
+          if (jsonMatch) {
             try {
-              parsed = JSON.parse(rawAiText.slice(firstBrace, lastBrace + 1));
+              parsed = JSON.parse(jsonMatch[1]);
             } catch {}
+          }
+          if (!parsed) {
+            const firstBrace = rawAiText.indexOf('{');
+            const lastBrace = rawAiText.lastIndexOf('}');
+            if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
+              try {
+                parsed = JSON.parse(rawAiText.slice(firstBrace, lastBrace + 1));
+              } catch {}
+            }
           }
         }
 
@@ -472,7 +510,9 @@ export async function handleProjectAuditRequest(req, res) {
     }
   }
 
-  auditResult.rawText = rawAiText;
+  // Fast CPU generation of markdown report for rawText view / copying / PDF export
+  const markdownReport = buildProjectAuditMarkdown(auditResult, projectTitle);
+  auditResult.rawText = markdownReport;
   auditResult.timestamp = new Date().toISOString();
 
   res.statusCode = 200;

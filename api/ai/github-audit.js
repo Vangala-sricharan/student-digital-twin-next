@@ -298,20 +298,20 @@ export async function handleGitHubAuditRequest(req, res) {
 
   const userData = await userRes.json();
 
-  // Fetch genuine repositories & events
+  // Fetch genuine repositories & events concurrently (eliminates sequential waterfall)
   let repos = [];
-  try {
-    const reposRes = await fetch(`https://api.github.com/users/${encodeURIComponent(username)}/repos?per_page=30&sort=updated`, { headers });
-    if (reposRes.ok) {
-      repos = await reposRes.json();
-    }
-  } catch (e) {}
-
   let events = [];
   try {
-    const eventsRes = await fetch(`https://api.github.com/users/${encodeURIComponent(username)}/events/public?per_page=15`, { headers });
-    if (eventsRes.ok) {
-      events = await eventsRes.json();
+    const [reposRes, eventsRes] = await Promise.all([
+      fetch(`https://api.github.com/users/${encodeURIComponent(username)}/repos?per_page=30&sort=updated`, { headers }).catch(() => null),
+      fetch(`https://api.github.com/users/${encodeURIComponent(username)}/events/public?per_page=15`, { headers }).catch(() => null),
+    ]);
+
+    if (reposRes && reposRes.ok) {
+      repos = await reposRes.json().catch(() => []);
+    }
+    if (eventsRes && eventsRes.ok) {
+      events = await eventsRes.json().catch(() => []);
     }
   } catch (e) {}
 

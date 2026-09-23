@@ -167,7 +167,7 @@ export async function getQuizHistory(
     try {
       const query = supabase
         .from('user_quiz_history')
-        .select('*')
+        .select('id, user_id, student_profile_id, topic, difficulty, number_of_questions, correct_answers, incorrect_answers, score, percentage, quiz_mode, time_taken_seconds, completed_at, details')
         .eq('user_id', userId)
         .order('completed_at', { ascending: false });
 

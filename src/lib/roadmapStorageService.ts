@@ -232,7 +232,7 @@ export async function loadUserRoadmaps(
     try {
       const query = supabase
         .from('user_roadmaps')
-        .select('*')
+        .select('id, user_id, student_profile_id, title, domain, goal, duration_days, level, available_hours, target_role, target_companies, specific_topics, phases, summary, recommendations, created_at, updated_at')
         .eq('user_id', userId)
         .order('created_at', { ascending: false });
 

@@ -30,6 +30,8 @@ export interface PdfValidationResult {
   candidateLocation?: string;
   debugInfo?: PdfDebugInfo;
   extractedUrls?: string[];
+  pageCount?: number;
+  certificationsSectionFound?: boolean;
 }
 
 export const SEMANTIC_SECTIONS = [
@@ -191,17 +193,18 @@ export function extractCandidateProfile(text: string): {
  */
 export function extractPdfDebugInfo(text: string, profile: { candidateName?: string; candidateHeadline?: string; candidateLocation?: string }): PdfDebugInfo {
   const lines = text.split('\n').map((l) => l.trim()).filter(Boolean);
-  const SECTION_HEADINGS = /^(?:Contact|Top Skills|Skills|Certifications|Summary|About|Education|Experience|Projects|Languages|Honors-Awards)$/i;
+  const SECTION_HEADINGS = /^(?:Contact|Top\s*Skills|Skills|Certifications?|Licenses\s*(?:&|and)\s*Certifications?|Certificates?|Summary|About|Education|Experience|Projects|Languages|Honors-Awards)$/i;
 
   const sections: Record<string, string[]> = {};
   let currentSection: string | null = null;
 
   for (let i = 0; i < lines.length; i++) {
     const l = lines[i];
-    const match = l.match(/^(Contact|Top Skills|Skills|Certifications|Summary|About|Education|Experience|Projects)$/i);
+    const match = l.match(/^(Contact|Top\s*Skills|Skills|Certifications?|Licenses\s*(?:&|and)\s*Certifications?|Certificates?|Summary|About|Education|Experience|Projects)$/i);
     if (match) {
-      currentSection = match[1].toLowerCase();
-      sections[currentSection] = [];
+      const rawSec = match[1].toLowerCase();
+      currentSection = rawSec.includes('cert') ? 'certifications' : rawSec.includes('skill') ? 'skills' : rawSec;
+      if (!sections[currentSection]) sections[currentSection] = [];
     } else if (currentSection) {
       // If line is candidate's name or headline, terminate prior section
       if (profile.candidateName && l === profile.candidateName) {
@@ -626,6 +629,13 @@ export async function validateAndExtractLinkedInPdf(file: File): Promise<PdfVali
       }
     }
 
+    const pageCountMatch = rawPdfString.match(/\/Count\s+(\d+)\b/);
+    let pageCount = pageCountMatch ? parseInt(pageCountMatch[1], 10) : 0;
+    if (!pageCount || pageCount === 0) {
+      const pageMatches = rawPdfString.match(/\/Type\s*\/Page\b/g);
+      pageCount = pageMatches ? pageMatches.length : 1;
+    }
+
     return {
       isValid: true,
       fileSizeFormatted: formatSize(file.size),
@@ -639,6 +649,8 @@ export async function validateAndExtractLinkedInPdf(file: File): Promise<PdfVali
       candidateLocation,
       debugInfo,
       extractedUrls,
+      pageCount,
+      certificationsSectionFound: detectedSections.includes('Certifications'),
     };
   } catch (err: any) {
     return {

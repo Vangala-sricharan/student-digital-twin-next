@@ -54,9 +54,24 @@ export const AIJobProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     setJobs(loadJobsForScope());
   }, [scopeKey, loadJobsForScope]);
 
-  // Keep track of active timers and abort controllers
+  // Keep track of active timers, execution versions, and session cache
   const jobTimers = useRef<Record<string, NodeJS.Timeout[]>>({});
   const lastPayloads = useRef<Record<string, { payload: EngineAiRequest; stages?: AIJobStage[] }>>({});
+  const jobVersions = useRef<Record<string, number>>({});
+  const sessionCache = useRef<Map<string, { response: EngineAiResponse; job: AIJob; timestamp: number }>>(new Map());
+
+  // Compute deterministic fingerprint of input and scoped context for smart result reuse
+  const computeFingerprint = useCallback((engineId: EngineId, payload: EngineAiRequest): string => {
+    const inputs = payload.userInputs || {};
+    // Extract key inputs
+    const cleanInputs = { ...inputs };
+    delete cleanInputs.forceFresh;
+
+    const ctx = payload.studentContext || ({} as any);
+    const ctxSig = `${ctx.name || ''}_${ctx.targetRole || ''}_${ctx.readinessScore || 0}_${(ctx.skills || []).length}_${(ctx.projects || []).length}`;
+    const docSig = payload.documentText ? `doc_${payload.documentText.length}_${payload.documentText.slice(0, 50)}` : '';
+    return `${scopeKey}::${engineId}::${JSON.stringify(cleanInputs)}::${ctxSig}::${docSig}`;
+  }, [scopeKey]);
 
   const clearJobTimers = (engineId: string) => {
     if (jobTimers.current[engineId]) {
@@ -108,6 +123,25 @@ export const AIJobProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         return null;
       }
 
+      // Check smart client-side session cache for identical unchanged inputs (Requirement 30)
+      const fingerprint = computeFingerprint(engineId, requestPayload);
+      const isForceFresh = Boolean(requestPayload.userInputs?.forceFresh);
+
+      if (!isForceFresh) {
+        const cached = sessionCache.current.get(fingerprint);
+        if (cached && cached.response && cached.response.status === 'success' && Date.now() - cached.timestamp < 15 * 60 * 1000) {
+          console.info(`[AI Engine Smart Reuse: ${engineId}] Instant reuse of cached result for identical input (0ms)`);
+          setJobs((prev) => ({
+            ...prev,
+            [engineId]: cached.job,
+          }));
+          return cached.response;
+        }
+      }
+
+      // Track request execution version to prevent stale responses from overwriting newer state (Requirement 32)
+      const requestVersion = (jobVersions.current[engineId] = (jobVersions.current[engineId] || 0) + 1);
+
       const stages = customStages || DEFAULT_ENGINE_STAGES[engineId] || [
         { id: 'start', label: 'Preparing parameters...', badge: 'Preparing' },
         { id: 'running', label: 'Analyzing profile content & evidence...', badge: 'Running Audit' },
@@ -136,6 +170,9 @@ export const AIJobProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
       // Real-time stage progression handler updated dynamically as execution progresses
       const handleStageProgress = (stageIndex: number, badge?: string) => {
+        // Discard update if superseded by newer run
+        if (jobVersions.current[engineId] !== requestVersion) return;
+
         setJobs((prev) => {
           const currentJob = prev[engineId];
           if (currentJob && currentJob.status === 'running') {
@@ -158,6 +195,7 @@ export const AIJobProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
       // Safety timeout after 45 seconds to guard against network stalls
       const timeoutTimer = setTimeout(() => {
+        if (jobVersions.current[engineId] !== requestVersion) return;
         setJobs((prev) => {
           const currentJob = prev[engineId];
           if (currentJob && currentJob.status === 'running') {
@@ -179,8 +217,17 @@ export const AIJobProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         // Execute the actual AI engine call with real-time stage updates
         const response = await executeAiEngine(requestPayload, handleStageProgress);
 
+        // Discard stale response if a newer request was dispatched while this was running (Requirement 32)
+        if (jobVersions.current[engineId] !== requestVersion) {
+          console.info(`[AI Engine Stale Guard: ${engineId}] Discarding superseded request v${requestVersion}`);
+          return null;
+        }
+
         // Immediate completion: clear timers and finalize
         clearJobTimers(engineId);
+
+        const executionDuration = Date.now() - startTime;
+        console.info(`[AI Engine Timing: ${engineId}] total: ${executionDuration}ms | status: ${response.status}`);
 
         if (response.status === 'error') {
           setJobs((prev) => ({
@@ -215,6 +262,13 @@ export const AIJobProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           inputsSnapshot: requestPayload.userInputs,
         };
 
+        // Cache successful result in session cache for smart reuse
+        sessionCache.current.set(fingerprint, {
+          response,
+          job: completedJob,
+          timestamp: Date.now(),
+        });
+
         try {
           localStorage.setItem(getStorageKey(engineId), JSON.stringify(completedJob));
         } catch (e) {
@@ -228,6 +282,8 @@ export const AIJobProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
         return response;
       } catch (err: any) {
+        if (jobVersions.current[engineId] !== requestVersion) return null;
+
         clearJobTimers(engineId);
         const errorMessage = err?.message || 'An error occurred during AI execution. Please try again.';
 
@@ -249,7 +305,7 @@ export const AIJobProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         return null;
       }
     },
-    [jobs]
+    [jobs, getStorageKey, computeFingerprint]
   );
 
   const retryJob = useCallback(
