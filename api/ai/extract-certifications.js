@@ -1,5 +1,4 @@
 // Vercel Serverless Function & Vite Dev Middleware Handler for PDF Certification Extraction
-import { GoogleGenAI } from '@google/genai';
 
 /**
  * Normalizes text for matching and duplicate detection.
@@ -114,16 +113,22 @@ function extractCandidateCertificationsFromSection(text, pdfUrls = []) {
     .filter(Boolean);
 
   const CERT_SECTION_START =
-    /^(?:Certifications?|Licenses\s*(?:&|and)\s*Certifications?|Certificates?|Professional\s*Certifications?|Courses?|Programs?|Job\s*Simulations?|Virtual\s*Internships?)(?:\s*\(.*?\))?[:\s]*$/i;
+    /^(?:[•·\-–—\s]*)(?:certifications?|licenses\s*(?:&|and)\s*certifications?|certificates?)\s*:?\s*$/i;
 
   const OTHER_SECTION_START =
-    /^(?:Contact|Top\s*Skills|Skills|Summary|About|Education|Experience|Work\s*Experience|Projects|Languages|Honors[\s-]*Awards|Honors\s*&\s*Awards|Publications|Interests|Recommendations|Volunteer\s*Experience)(?:\s*\(.*?\))?[:\s]*$/i;
+    /^(?:[•·\-–—\s]*)(?:summary|about|education|experience|work\s*experience|top\s*skills|skills|projects|languages|honors[\s-]*awards|honors\s*&\s*awards|volunteer\s*experience|publications|organizations|recommendations|interests|contact)\s*:?\s*$/i;
 
   const METADATA_LINE =
-    /^(?:Issued|Expires|Expiration|Valid\s*(?:through|until)|Credential\s*ID|License\s*Number|Certificate\s*ID|See\s*credential|Show\s*credential)[:\s]*/i;
+    /^(?:issued|expires|expiration|valid\s*(?:through|until)|credential\s*id|license\s*number|certificate\s*id|see\s*credential|show\s*credential)\b/i;
+
+  const isCandidateHeaderCue = (s) =>
+    /(?:,\s*[A-Z][a-z]+|\bIndia\b|\bUnited States\b|\bUSA\b)/i.test(s) &&
+    !/(?:graduate|foundations|internship|simulation|basics|programming|course|certification|academy|analytics)/i.test(s);
 
   let inCertSection = false;
   let sectionFound = false;
+  let startIndex = -1;
+  let endIndex = -1;
   const rawCandidates = [];
   let currentRecord = null;
 
@@ -131,21 +136,23 @@ function extractCandidateCertificationsFromSection(text, pdfUrls = []) {
     const line = lines[i];
 
     // Page markers (e.g. "Page 1 of 2", "--- Page 1 ---")
-    if (/^\[?(?:Page|--- Page)\s*\d+/i.test(line)) {
+    if (/^\[?(?:Page|--- Page)\s*\d+/i.test(line) || /^\d+\s+of\s+\d+$/i.test(line)) {
       continue;
     }
 
     // Section start
-    if (CERT_SECTION_START.test(line)) {
+    if (!sectionFound && CERT_SECTION_START.test(line)) {
       inCertSection = true;
       sectionFound = true;
+      startIndex = i;
       currentRecord = null;
       continue;
     }
 
-    // Section exit upon reaching next major section
-    if (inCertSection && OTHER_SECTION_START.test(line)) {
+    // Section exit upon reaching next major section or candidate profile header
+    if (inCertSection && (OTHER_SECTION_START.test(line) || isCandidateHeaderCue(line))) {
       inCertSection = false;
+      endIndex = i;
       currentRecord = null;
       break;
     }
@@ -225,10 +232,16 @@ function extractCandidateCertificationsFromSection(text, pdfUrls = []) {
     }
   }
 
+  if (sectionFound && endIndex === -1) {
+    endIndex = lines.length;
+  }
+
   // Deduplicate candidate records
   const dedupedCandidates = deduplicateCertifications(rawCandidates);
   return {
     sectionFound,
+    startIndex,
+    endIndex,
     candidateRecords: dedupedCandidates,
   };
 }
@@ -398,44 +411,18 @@ export async function handleExtractCertificationsRequest(req, res) {
     return;
   }
 
-  // 1. First extract candidate records directly from the Certifications section of the document
-  const { sectionFound, candidateRecords } = extractCandidateCertificationsFromSection(pdfText || '', pdfUrls || []);
+  // 1. Direct section extraction from the Certifications section of the document
+  const { sectionFound, startIndex, endIndex, candidateRecords } = extractCandidateCertificationsFromSection(
+    pdfText || '',
+    pdfUrls || []
+  );
 
-  // 2. Attempt AI extraction using Gemini with schema constraints
-  let aiExtractedCertificates = null;
-  let usedAi = false;
+  const activeList = candidateRecords;
 
-  const apiKey = process.env.GEMINI_API_KEY;
-  if (apiKey) {
-    try {
-      const ai = new GoogleGenAI({ apiKey });
-      const aiResponse = await generateCertificationsWithAi(ai, pdfText || '', pdfUrls || [], pdfBase64);
-      const returnedList = Array.isArray(aiResponse.certificates)
-        ? aiResponse.certificates
-        : Array.isArray(aiResponse.certifications)
-        ? aiResponse.certifications
-        : [];
-
-      if (returnedList.length > 0) {
-        aiExtractedCertificates = returnedList;
-        usedAi = true;
-      }
-    } catch (aiErr) {
-      console.warn('[ExtractCertifications] Gemini API cascade failed, using section candidate fallback:', aiErr?.message);
-    }
-  }
-
-  const aiRecordCount = aiExtractedCertificates ? aiExtractedCertificates.length : 0;
-
-  // 3. Reconcile AI records and section candidate records:
-  // AI extraction with Gemini 3.1 Flash Lite schema is the primary authority.
-  // Candidate records are used as the deterministic fallback when AI is unavailable or returns 0.
-  let activeList = [];
-  if (aiExtractedCertificates && aiExtractedCertificates.length > 0) {
-    activeList = aiExtractedCertificates;
-  } else if (candidateRecords.length > 0) {
-    activeList = candidateRecords;
-  }
+  // Safe Diagnostic Logging
+  console.log(
+    `[Certificate Extractor]\nPDF loaded: ${Boolean(pdfText)}\nCertification heading found: ${sectionFound}\nCertification section start: ${startIndex}\nCertification section end: ${endIndex}\nExtracted records: ${candidateRecords.length}`
+  );
 
   // Deduplicate and filter empty
   const dedupedCerts = deduplicateCertifications(activeList);
@@ -480,11 +467,6 @@ export async function handleExtractCertificationsRequest(req, res) {
   // Approximate page count from text or page markers
   const pageMatches = (pdfText || '').match(/^\[?(?:Page|--- Page)\s*(\d+)\]?/gim) || [];
   const pageCount = Math.max(1, pageMatches.length);
-
-  // Safe Diagnostic Logging (Requirement 14)
-  console.log(
-    `[Certificate Extractor]\nPDF validated: true\nPDF pages: ${pageCount}\nCertification section found: ${sectionFound}\nCandidate certification records: ${candidateRecords.length}\nAI extraction records: ${aiRecordCount}\nNormalized records: ${structuredCertifications.length}`
-  );
 
   // If document genuinely contains 0 certification records
   if (structuredCertifications.length === 0) {

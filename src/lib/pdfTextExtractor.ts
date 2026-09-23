@@ -1,4 +1,17 @@
 import { inflate, inflateRaw } from 'pako';
+import * as pdfjsLib from 'pdfjs-dist';
+
+// Configure the PDF.js worker using the worker file that matches the INSTALLED pdfjs-dist version
+if (pdfjsLib?.GlobalWorkerOptions) {
+  try {
+    pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
+      'pdfjs-dist/build/pdf.worker.min.mjs',
+      import.meta.url
+    ).toString();
+  } catch (workerInitErr) {
+    console.error('[pdfTextExtractor] Failed to initialize PDF.js workerSrc:', workerInitErr);
+  }
+}
 
 /**
  * PDF Validation and Text Extraction Utility for LinkedIn Profile Exports
@@ -380,6 +393,123 @@ export function extractTextFromOperators(streamContent: string): string[] {
   return parts;
 }
 
+/**
+ * Primary high-fidelity PDF text and structure extractor using PDF.js.
+ * Handles multi-page documents, fonts, CMaps, ToUnicode maps, and 2-column LinkedIn profile layouts.
+ */
+async function extractTextWithPdfJs(arrayBuffer: ArrayBuffer): Promise<{
+  text: string;
+  pageCount: number;
+  urls: string[];
+} | null> {
+  try {
+    // Ensure workerSrc is initialized before getDocument is called
+    if (pdfjsLib?.GlobalWorkerOptions && !pdfjsLib.GlobalWorkerOptions.workerSrc) {
+      pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
+        'pdfjs-dist/build/pdf.worker.min.mjs',
+        import.meta.url
+      ).toString();
+    }
+
+    const loadingTask = pdfjsLib.getDocument({
+      data: new Uint8Array(arrayBuffer),
+      disableFontFace: true,
+      useSystemFonts: true,
+    });
+
+    const pdfDoc = await loadingTask.promise;
+    const pageCount = pdfDoc.numPages;
+    const allPageLines: string[] = [];
+    const extractedUrls: string[] = [];
+
+    for (let pageNum = 1; pageNum <= pageCount; pageNum++) {
+      const page = await pdfDoc.getPage(pageNum);
+
+      try {
+        const annotations = await page.getAnnotations();
+        if (Array.isArray(annotations)) {
+          for (const annot of annotations) {
+            if (annot && annot.url && typeof annot.url === 'string') {
+              if (!extractedUrls.includes(annot.url)) {
+                extractedUrls.push(annot.url);
+              }
+            }
+          }
+        }
+      } catch {}
+
+      const content = await page.getTextContent();
+      const rawItems = (content.items || []) as any[];
+      const items = rawItems.filter(
+        (it) => it && typeof it.str === 'string' && it.str.trim().length > 0
+      );
+
+      if (items.length === 0) continue;
+
+      // In LinkedIn PDFs, the layout consists of:
+      // Left sidebar: x < 195 (Contact, Top Skills, Certifications)
+      // Right main body: x >= 195 (Candidate Name, Headline, Summary, Experience, etc.)
+      const leftCol = items.filter((it) => it.transform && it.transform[4] < 195);
+      const rightCol = items.filter((it) => it.transform && it.transform[4] >= 195);
+
+      const sortByY = (arr: any[]) =>
+        arr.slice().sort((a, b) => {
+          const yA = a.transform ? a.transform[5] : 0;
+          const yB = b.transform ? b.transform[5] : 0;
+          const xA = a.transform ? a.transform[4] : 0;
+          const xB = b.transform ? b.transform[4] : 0;
+          if (Math.abs(yA - yB) > 4) {
+            return yB - yA; // Top to bottom
+          }
+          return xA - xB;
+        });
+
+      let orderedItems: any[];
+      if (leftCol.length >= 3 && rightCol.length >= 3) {
+        // LinkedIn 2-column layout: process left sidebar fully first, then right main column
+        orderedItems = [...sortByY(leftCol), ...sortByY(rightCol)];
+      } else {
+        orderedItems = sortByY(items);
+      }
+
+      // Reconstruct lines preserving Y coordinates
+      let currentLine = '';
+      let lastY: number | null = null;
+      let lastCol: string | null = null;
+
+      for (const it of orderedItems) {
+        const y = it.transform ? it.transform[5] : 0;
+        const col = it.transform && it.transform[4] < 195 ? 'left' : 'right';
+
+        if (lastY !== null && (Math.abs(y - lastY) > 4 || col !== lastCol)) {
+          if (currentLine.trim()) allPageLines.push(currentLine.trim());
+          currentLine = it.str.trim();
+        } else {
+          currentLine = currentLine ? `${currentLine} ${it.str.trim()}` : it.str.trim();
+        }
+        lastY = y;
+        lastCol = col;
+      }
+      if (currentLine.trim()) {
+        allPageLines.push(currentLine.trim());
+      }
+    }
+
+    const fullText = allPageLines.join('\n');
+    if (fullText.trim().length > 20) {
+      return {
+        text: fullText,
+        pageCount,
+        urls: extractedUrls,
+      };
+    }
+    return null;
+  } catch (err) {
+    console.error('[pdfTextExtractor] PDF.js extraction encountered an error:', err);
+    throw err;
+  }
+}
+
 export async function validateAndExtractLinkedInPdf(file: File): Promise<PdfValidationResult> {
   // 1. File type validation
   const isPdf = file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf');
@@ -421,6 +551,53 @@ export async function validateAndExtractLinkedInPdf(file: File): Promise<PdfVali
     }
 
     const fullBuffer = await file.arrayBuffer();
+
+    // Try high-fidelity PDF.js text extraction first
+    let pdfJsResult = null;
+    try {
+      pdfJsResult = await extractTextWithPdfJs(fullBuffer);
+    } catch (pdfJsErr: any) {
+      console.error('[pdfTextExtractor] PDF.js extraction failed:', pdfJsErr);
+      return {
+        isValid: false,
+        error: `PDF extraction error: ${pdfJsErr?.message || 'Failed to read PDF with PDF.js worker.'}`,
+      };
+    }
+    if (pdfJsResult && pdfJsResult.text.length >= 20) {
+      const finalText = normalizePdfText(pdfJsResult.text);
+      const candidateProfile = extractCandidateProfile(finalText);
+      const candidateName = candidateProfile.candidateName;
+      const candidateHeadline = candidateProfile.candidateHeadline;
+      const candidateLocation = candidateProfile.candidateLocation;
+
+      const detectedSections = SEMANTIC_SECTIONS
+        .filter((sec) => {
+          if (sec.id === 'Headline' && candidateHeadline) return true;
+          return sec.patterns.some((p) => p.test(finalText));
+        })
+        .map((s) => s.id);
+
+      const STANDARD_AUDIT_SECTIONS = ['Headline', 'Summary', 'Skills', 'Education', 'Certifications', 'Experience'];
+      const missingSections = STANDARD_AUDIT_SECTIONS.filter((sec) => !detectedSections.includes(sec));
+      const debugInfo = extractPdfDebugInfo(finalText, candidateProfile);
+
+      return {
+        isValid: true,
+        fileSizeFormatted: formatSize(file.size),
+        detectedSections,
+        missingSections,
+        extractedText: finalText,
+        rawExtractedText: pdfJsResult.text,
+        normalizedText: finalText,
+        candidateName,
+        candidateHeadline,
+        candidateLocation,
+        debugInfo,
+        extractedUrls: pdfJsResult.urls,
+        pageCount: pdfJsResult.pageCount,
+        certificationsSectionFound: detectedSections.includes('Certifications'),
+      };
+    }
     const bytes = new Uint8Array(fullBuffer);
     const latin1Decoder = new TextDecoder('latin1');
     const rawPdfString = latin1Decoder.decode(bytes);
