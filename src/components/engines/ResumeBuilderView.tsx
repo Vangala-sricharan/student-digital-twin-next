@@ -577,6 +577,7 @@ export const ResumeBuilderView: React.FC<ResumeBuilderViewProps> = ({ onBackToHu
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [copied, setCopied] = useState(false);
   const [exportingPdf, setExportingPdf] = useState(false);
+  const [exportError, setExportError] = useState<string | null>(null);
 
   // Hydrate profile data when user/profile loads or changes
   useEffect(() => {
@@ -619,6 +620,91 @@ export const ResumeBuilderView: React.FC<ResumeBuilderViewProps> = ({ onBackToHu
       }
     }
   }, [profile, user]);
+
+  // Sync certifications when context loads or updates
+  useEffect(() => {
+    if (certifications && certifications.length > 0) {
+      setResumeCertifications((prev) => {
+        if (prev.length === 0) {
+          return certifications.map((c) => ({
+            id: c.id,
+            title: c.title,
+            issuer: c.issuer,
+            date: c.issueDate,
+            issueYear: c.issueYear || undefined,
+            credentialUrl: c.credentialUrl || undefined,
+            credentialId: c.credentialId || undefined,
+            source: c.source || 'manual',
+            sourceEvidence: c.sourceEvidence,
+            confidence: c.confidence,
+            status: 'completed',
+          }));
+        }
+        const existingKeys = new Set(prev.map((c) => c.title.toLowerCase().replace(/[^a-z0-9]/g, '')));
+        const toAdd: ResumeCertificationItem[] = [];
+        for (const c of certifications) {
+          const key = c.title.toLowerCase().replace(/[^a-z0-9]/g, '');
+          if (key && !existingKeys.has(key)) {
+            existingKeys.add(key);
+            toAdd.push({
+              id: c.id,
+              title: c.title,
+              issuer: c.issuer,
+              date: c.issueDate,
+              issueYear: c.issueYear || undefined,
+              credentialUrl: c.credentialUrl || undefined,
+              credentialId: c.credentialId || undefined,
+              source: c.source || 'manual',
+              sourceEvidence: c.sourceEvidence,
+              confidence: c.confidence,
+              status: 'completed',
+            });
+          }
+        }
+        return toAdd.length > 0 ? [...prev, ...toAdd] : prev;
+      });
+    }
+  }, [certifications]);
+
+  // Sync projects when context loads
+  useEffect(() => {
+    if (projects && projects.length > 0) {
+      setResumeProjects((prev) => {
+        if (prev.length === 0) {
+          return buildInitialProjects(projects, Boolean(isDemoMode));
+        }
+        return prev;
+      });
+    }
+  }, [projects, isDemoMode]);
+
+  // Sync skills when context loads
+  useEffect(() => {
+    if (skills && skills.length > 0) {
+      setSkillCategories((prev) => {
+        if (prev.length === 0) {
+          return buildInitialSkillCategories(skills, projects, Boolean(isDemoMode));
+        }
+        return prev;
+      });
+    }
+  }, [skills, projects, isDemoMode]);
+
+  // Sync participations when context loads
+  useEffect(() => {
+    if (participations && participations.length > 0) {
+      setResumeParticipations((prev) => {
+        if (prev.length === 0) {
+          return participations.map((p) => ({
+            id: p.id,
+            title: p.title,
+            description: p.description || p.category,
+          }));
+        }
+        return prev;
+      });
+    }
+  }, [participations]);
 
   // Sync state if AI generates fresh resume data
   useEffect(() => {
@@ -737,11 +823,29 @@ ${resumeParticipations.length > 0 ? `PARTICIPATIONS & EVENTS\n${resumeParticipat
 
   const handleExportPDF = async () => {
     setExportingPdf(true);
+    setExportError(null);
 
     try {
       const pdfFilename = isSricharan || fullName.toLowerCase().includes('sricharan')
         ? 'Vangala_Sricharan_Resume.pdf'
         : `${fullName.trim().replace(/\s+/g, '_')}_Resume.pdf`;
+
+      const allCerts = [
+        ...resumeCertifications.map((c) => ({
+          title: c.title,
+          issuer: c.issuer,
+          date: c.date,
+          credentialUrl: c.credentialUrl,
+        })),
+        ...(includePlannedOnResume
+          ? plannedCertifications.map((c) => ({
+              title: `${c.title} (Target)`,
+              issuer: c.issuer,
+              date: c.date,
+              credentialUrl: c.credentialUrl,
+            }))
+          : []),
+      ];
 
       await generateResumePDF(
         {
@@ -768,19 +872,7 @@ ${resumeParticipations.length > 0 ? `PARTICIPATIONS & EVENTS\n${resumeParticipat
             githubUrl: isValidUrl(p.githubUrl) ? normalizeUrl(p.githubUrl!) : undefined,
             bullets: p.bullets,
           })),
-          certifications: resumeCertifications.map((c) => ({
-            title: c.title,
-            issuer: c.issuer,
-            date: c.date,
-            credentialUrl: c.credentialUrl,
-          })),
-          plannedCertifications: includePlannedOnResume
-            ? plannedCertifications.map((c) => ({
-                title: c.title,
-                issuer: c.issuer,
-                date: c.date,
-              }))
-            : undefined,
+          certifications: allCerts,
           participations: resumeParticipations.map((p) => ({
             title: p.title,
             description: p.description,
@@ -788,8 +880,9 @@ ${resumeParticipations.length > 0 ? `PARTICIPATIONS & EVENTS\n${resumeParticipat
         },
         pdfFilename
       );
-    } catch (err) {
+    } catch (err: any) {
       console.error('Failed to export PDF:', err);
+      setExportError(err?.message || 'Failed to generate 1-page resume PDF.');
     } finally {
       setExportingPdf(false);
     }
@@ -881,12 +974,12 @@ ${resumeParticipations.length > 0 ? `PARTICIPATIONS & EVENTS\n${resumeParticipat
                 <h2 className="text-lg font-bold text-slate-900 dark:text-white">
                   AI Technical Resume Builder
                 </h2>
-                <span className="px-2.5 py-0.5 rounded-full bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-cyan-400 font-mono text-[10px] font-bold border border-blue-200 dark:border-blue-800">
-                  ATS OPTIMIZED + STAR BULLETS
+                <span className="px-2.5 py-0.5 rounded-full bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 font-mono text-[10px] font-bold border border-emerald-200 dark:border-emerald-800">
+                  1-PAGE FIT ATS
                 </span>
               </div>
               <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 max-w-xl">
-                Multi-section builder prefilled with your verified projects and skills, enhanced with Gemini generation.
+                One-page ATS technical resume formatted from your verified records, optimized for recruiter review.
               </p>
             </div>
           </div>
@@ -932,11 +1025,27 @@ ${resumeParticipations.length > 0 ? `PARTICIPATIONS & EVENTS\n${resumeParticipat
               disabled={exportingPdf}
               className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold font-mono flex items-center gap-1.5 shadow-sm transition-all cursor-pointer"
             >
-              <Printer className="w-3.5 h-3.5" />
-              <span>{exportingPdf ? 'Exporting PDF...' : 'Print / PDF'}</span>
+              <Download className="w-3.5 h-3.5" />
+              <span>{exportingPdf ? 'Exporting 1-Page PDF...' : 'Download 1-Page PDF'}</span>
             </button>
           </div>
         </div>
+
+        {/* Export Error Alert Banner */}
+        {exportError && (
+          <div className="p-4 rounded-2xl bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-300 text-xs font-mono flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <span className="font-bold">Error:</span>
+              <span>{exportError}</span>
+            </div>
+            <button
+              onClick={() => setExportError(null)}
+              className="text-xs text-red-500 hover:text-red-700 underline font-mono cursor-pointer"
+            >
+              Dismiss
+            </button>
+          </div>
+        )}
 
         {/* Processing Indicator */}
         {(isRunning || isError) && (
@@ -1587,11 +1696,11 @@ ${resumeParticipations.length > 0 ? `PARTICIPATIONS & EVENTS\n${resumeParticipat
                     )}
                   </div>
 
-                  {/* 1. PROFILE */}
+                  {/* 1. PROFESSIONAL SUMMARY */}
                   {summary && (
                     <div className="space-y-1">
                       <div className="text-[10.5px] font-bold uppercase tracking-wider text-[#0f766e]">
-                        Profile
+                        Professional Summary
                       </div>
                       <p className="text-[10px] text-slate-700 leading-normal text-justify">
                         {summary}
@@ -1678,7 +1787,7 @@ ${resumeParticipations.length > 0 ? `PARTICIPATIONS & EVENTS\n${resumeParticipat
                   )}
 
                   {/* 5. CERTIFICATIONS (2-Column Grid) */}
-                  {resumeCertifications.length > 0 && (
+                  {(resumeCertifications.length > 0 || (includePlannedOnResume && plannedCertifications.length > 0)) && (
                     <div className="space-y-1">
                       <div className="text-[10.5px] font-bold uppercase tracking-wider text-[#0f766e]">
                         Certifications
@@ -1704,22 +1813,10 @@ ${resumeParticipations.length > 0 ? `PARTICIPATIONS & EVENTS\n${resumeParticipat
                             </div>
                           </div>
                         ))}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* 5b. PLANNED CERTIFICATIONS (TARGET) */}
-                  {includePlannedOnResume && plannedCertifications.length > 0 && (
-                    <div className="space-y-1">
-                      <div className="text-[10.5px] font-bold uppercase tracking-wider text-slate-500 flex items-center justify-between">
-                        <span>Planned Certifications (Target)</span>
-                        <span className="text-[8px] font-mono lowercase">[target]</span>
-                      </div>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-3 gap-y-1 text-[9px] text-slate-600 italic">
-                        {plannedCertifications.map((c) => (
+                        {includePlannedOnResume && plannedCertifications.map((c) => (
                           <div key={c.id} className="flex items-start gap-1">
                             <span className="text-slate-400">•</span>
-                            <div className="flex-1 leading-tight">
+                            <div className="flex-1 leading-tight italic text-slate-600">
                               <span className="font-medium text-slate-800 not-italic">{c.title}</span>
                               {c.issuer && <span> — {c.issuer}</span>}
                               {c.date && <span className="font-mono text-[8.5px]"> (Target: {c.date})</span>}
@@ -1756,7 +1853,7 @@ ${resumeParticipations.length > 0 ? `PARTICIPATIONS & EVENTS\n${resumeParticipat
                     className="py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold font-mono flex items-center justify-center gap-1.5 shadow-sm transition-all cursor-pointer"
                   >
                     <Download className="w-3.5 h-3.5" />
-                    <span>{exportingPdf ? 'Exporting...' : 'Download PDF'}</span>
+                    <span>{exportingPdf ? 'Exporting...' : 'Download 1-Page PDF'}</span>
                   </button>
                   <button
                     onClick={handleCopyText}
@@ -1774,9 +1871,14 @@ ${resumeParticipations.length > 0 ? `PARTICIPATIONS & EVENTS\n${resumeParticipat
           /* FULL LIVE PREVIEW MODE (A4 Paper View) */
           <div className="space-y-5">
             <div className="flex items-center justify-between p-4 rounded-2xl bg-white dark:bg-[#0d1117] border border-slate-200 dark:border-white/10">
-              <span className="text-xs font-mono text-slate-500">
-                Interactive A4 High-Definition Technical Resume Document (ATS-Compliant)
-              </span>
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-mono text-slate-500">
+                  Interactive A4 Technical Resume Document (ATS-Compliant)
+                </span>
+                <span className="px-2 py-0.5 rounded bg-emerald-50 dark:bg-emerald-900/30 border border-emerald-200 dark:border-emerald-800 text-emerald-600 dark:text-emerald-400 font-mono text-[10px] font-bold">
+                  1-PAGE FIT
+                </span>
+              </div>
               <div className="flex items-center gap-2">
                 <button
                   onClick={handleExportPDF}
@@ -1784,7 +1886,7 @@ ${resumeParticipations.length > 0 ? `PARTICIPATIONS & EVENTS\n${resumeParticipat
                   className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold font-mono flex items-center gap-1.5 shadow-sm transition-all cursor-pointer"
                 >
                   <Download className="w-3.5 h-3.5" />
-                  <span>{exportingPdf ? 'Generating PDF...' : 'Download Resume PDF'}</span>
+                  <span>{exportingPdf ? 'Generating 1-Page PDF...' : 'Download 1-Page PDF'}</span>
                 </button>
                 <button
                   onClick={handleCopyText}
@@ -1843,11 +1945,11 @@ ${resumeParticipations.length > 0 ? `PARTICIPATIONS & EVENTS\n${resumeParticipat
                 )}
               </div>
 
-              {/* 1. PROFILE */}
+              {/* 1. PROFESSIONAL SUMMARY */}
               {summary && (
                 <div className="space-y-1">
                   <h2 className="text-xs font-bold uppercase tracking-wider text-[#0f766e]">
-                    Profile
+                    Professional Summary
                   </h2>
                   <p className="text-xs text-slate-700 leading-relaxed text-justify">
                     {summary}
@@ -1934,7 +2036,7 @@ ${resumeParticipations.length > 0 ? `PARTICIPATIONS & EVENTS\n${resumeParticipat
               )}
 
               {/* 5. CERTIFICATIONS (2-Column Grid) */}
-              {resumeCertifications.length > 0 && (
+              {(resumeCertifications.length > 0 || (includePlannedOnResume && plannedCertifications.length > 0)) && (
                 <div className="space-y-1.5">
                   <h2 className="text-xs font-bold uppercase tracking-wider text-[#0f766e]">
                     Certifications
@@ -1960,24 +2062,10 @@ ${resumeParticipations.length > 0 ? `PARTICIPATIONS & EVENTS\n${resumeParticipat
                         </div>
                       </div>
                     ))}
-                  </div>
-                </div>
-              )}
-
-              {/* 5b. PLANNED CERTIFICATIONS (TARGET) */}
-              {includePlannedOnResume && plannedCertifications.length > 0 && (
-                <div className="space-y-1.5">
-                  <div className="flex items-center justify-between">
-                    <h2 className="text-xs font-bold uppercase tracking-wider text-slate-500">
-                      Planned Certifications (Target)
-                    </h2>
-                    <span className="text-[10px] font-mono text-slate-400 lowercase">[target]</span>
-                  </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1.5 text-xs text-slate-600 italic">
-                    {plannedCertifications.map((cert) => (
+                    {includePlannedOnResume && plannedCertifications.map((cert) => (
                       <div key={cert.id} className="flex items-start gap-1.5">
                         <span className="text-slate-400">•</span>
-                        <div className="flex-1 leading-normal">
+                        <div className="flex-1 leading-normal italic text-slate-600">
                           <span className="font-medium text-slate-800 not-italic">{cert.title}</span>
                           {cert.issuer && <span> — {cert.issuer}</span>}
                           {cert.date && <span className="font-mono text-[10px]"> (Target: {cert.date})</span>}
