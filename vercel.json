@@ -2,6 +2,8 @@
   "framework": "vite",
   "outputDirectory": "dist",
   "buildCommand": "npm run build",
+  "cleanUrls": false,
+  "trailingSlash": false,
   "headers": [
     {
       "source": "/sitemap.xml",
