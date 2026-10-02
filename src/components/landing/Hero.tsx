@@ -40,16 +40,15 @@ export const Hero: React.FC<HeroProps> = ({ onNavigate }) => {
               <span>AI-Powered • Built for Students • Driven by Your Growth</span>
             </div>
 
-            {/* Headline with Dual Cyan/White Gradient */}
-            <h1 className="text-2xl sm:text-3xl lg:text-[32px] xl:text-[38px] font-extrabold tracking-tight text-slate-900 dark:text-white leading-[1.14] break-words drop-shadow-[0_2px_12px_rgba(0,0,0,0.7)]">
-              Your AI-Powered <br />
-              <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-600 via-indigo-600 to-cyan-500 dark:from-cyan-400 dark:via-sky-300 dark:to-blue-400">
-                Student Career
-              </span> <br />
-              <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-600 via-indigo-600 to-cyan-500 dark:from-cyan-400 dark:via-sky-300 dark:to-indigo-300">
-                Readiness OS
-              </span>
-            </h1>
+            {/* Primary H1 Brand & Dual Gradient Subtitle */}
+            <div className="space-y-1 sm:space-y-1.5">
+              <h1 className="text-2xl sm:text-3xl lg:text-[32px] xl:text-[38px] font-extrabold tracking-tight text-slate-900 dark:text-white leading-[1.14] break-words drop-shadow-[0_2px_12px_rgba(0,0,0,0.7)]">
+                Student Digital Twin OS
+              </h1>
+              <p className="text-xl sm:text-2xl lg:text-[26px] xl:text-[30px] font-extrabold tracking-tight leading-[1.14] text-transparent bg-clip-text bg-gradient-to-r from-blue-600 via-indigo-600 to-cyan-500 dark:from-cyan-400 dark:via-sky-300 dark:to-indigo-300">
+                AI Career Readiness Platform
+              </p>
+            </div>
 
             {/* Description */}
             <p className="text-xs sm:text-sm lg:text-[13px] xl:text-[13.5px] text-slate-600 dark:text-slate-300 leading-relaxed max-w-md xl:max-w-lg mx-auto lg:mx-0 drop-shadow-[0_1px_4px_rgba(0,0,0,0.8)]">

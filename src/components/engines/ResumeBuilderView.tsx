@@ -790,7 +790,7 @@ ${headline}
 ${contactParts}
 ${linkParts.join(' • ')}
 
-PROFILE
+PROFESSIONAL SUMMARY
 ${summary}
 
 TECHNICAL SKILLS
